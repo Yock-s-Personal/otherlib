@@ -166,15 +166,17 @@ namespace other {
       if (id == 0 || entries.empty() || id < entries.front().id) {
         return nullptr;
       }
-      const uint64_t idx = entries.front().id;
+      const uint64_t idx = id - entries.front().id;
       return idx < entries.size() ?
         &entries[idx] :
         nullptr;
     }
 
-    void console_history_node::render_detail_pane(console_w::log_entry& entry) {
+    bool console_history_node::render_detail_pane(console_w::log_entry& entry) {
+      bool hovered = false;
       ImGui::PushStyleColor(ImGuiCol_ChildBg, colors::rgba_to_imvec4(colors::console::kBG));
       if (ImGui::BeginChild("##log-detail")) {
+        hovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
         console_w::detail_pane_result detail = console_w::draw_detail_pane(entry, actions);
         if (detail.close_requested) {
           selected_entry_id = 0;
@@ -182,6 +184,7 @@ namespace other {
       }
       ImGui::EndChild();
       ImGui::PopStyleColor();
+      return hovered;
     }
 
     void console_history_node::handle_console_message(const value& msg, console_w::log_level level) {
@@ -249,10 +252,13 @@ namespace other {
       ImGui::PushStyleColor(ImGuiCol_ChildBg, rgba_to_imvec4(console::kBG));
       ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, cw::kPaddingY));
 
-      if (ImGui::BeginChild("##log-scroll")) {
+      bool pane_clicked = false;
+      bool keep_selection = false;
+      if (ImGui::BeginChild("##log-scroll", ImVec2(0, -detail_h))) {
         PROFILE_SECTION("console_history_node::on_render_node_body--log_lines");
         /// draw visible entries
         bool open_context_menu = false;
+
         uint32_t visible_idx = 0;
         for (auto& entry : entries) {
           if (!passes_filter(entry)) {
@@ -262,6 +268,7 @@ namespace other {
           bool alt = (visible_idx % 2) == 1;
           cw::log_pane_result pane = cw::draw_log_pane(entry, alt, entry.id == selected_entry_id);
           if (pane.clicked) {
+            pane_clicked = true;
             /// clicking the selected entry again closes its detail pane
             selected_entry_id = entry.id == selected_entry_id ?
               0 :
@@ -282,10 +289,13 @@ namespace other {
           if (context_entry == nullptr) {
             ImGui::CloseCurrentPopup();
           } else {
-            // cw::draw_log_action_menu_items(*context_entry, actions);
+            cw::draw_log_action_menu(*context_entry, actions);
           }
           ImGui::EndPopup();
         }
+
+        const bool on_scrollbar = ImGui::GetHoveredID() == ImGui::GetWindowScrollbarID(ImGui::GetCurrentWindow(), ImGuiAxis_Y);
+        keep_selection = on_scrollbar || ImGui::IsPopupOpen("##log-pane-context");
 
         /// empty state
         if (visible_idx == 0 && entries.empty()) {
@@ -317,11 +327,18 @@ namespace other {
       ImGui::PopStyleColor();
 
       /// re-resolve: the click that selected an entry happened inside the loop above
+      bool detail_hovered = false;
       if (detail_h > 0.f) {
         selected_entry = find_entry(selected_entry_id);
         if (selected_entry != nullptr) {
-          render_detail_pane(*selected_entry);
+          detail_hovered = render_detail_pane(*selected_entry);
         }
+      }
+
+      /// a left click anywhere that is not a log pane, the detail pane, the scrollbar or the
+      ///  context menu drops the selection
+      if (selected_entry_id != 0 && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !pane_clicked && !keep_selection && !detail_hovered) {
+        selected_entry_id = 0;
       }
 
       ImGui::EndChild();

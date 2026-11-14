@@ -67,7 +67,6 @@ namespace other {
 
       struct log_entry {
         // stable until a 'clear' command runs
-        // on a clear command entries are dropped and the ids are reset
         uint64_t id = 0;
 
         std::string timestamp;

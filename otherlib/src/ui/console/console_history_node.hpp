@@ -52,7 +52,7 @@ namespace other {
       static std::string make_timestamp();
 
       console_w::log_entry* find_entry(uint64_t id);
-      void render_detail_pane(console_w::log_entry& entry);
+      bool render_detail_pane(console_w::log_entry& entry);
 
       void handle_console_message(const value& msg, console_w::log_level level);
       console_message_type console_msg_type(console_w::log_level level) const;

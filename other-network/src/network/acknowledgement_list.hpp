@@ -45,8 +45,8 @@ namespace other {
     };
 
     natural_t next_pending_ack_id = 1;
-    std::deque<pending_ack> pending_acks;
-    std::deque<pending_response> pending_responses;
+    ostd::deque<pending_ack> pending_acks;
+    ostd::deque<pending_response> pending_responses;
 
     inline natural_t generate_ack_id() { return next_pending_ack_id++; }
   };

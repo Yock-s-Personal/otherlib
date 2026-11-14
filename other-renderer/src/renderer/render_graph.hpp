@@ -25,7 +25,7 @@ namespace other {
     /// \todo can we use core/graph.hpp instead? rendering passes/resources may complicate it
     struct graph {
       ostd::map<natural_t, frame_node> nodes;
-      ostd::map<natural_t, std::set<natural_t>> edges;
+      ostd::map<natural_t, ostd::set<natural_t>> edges;
     };
 
     using pass_executor = std::function<void(pass_context&)>;

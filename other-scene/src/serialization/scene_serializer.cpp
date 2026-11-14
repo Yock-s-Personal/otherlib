@@ -218,7 +218,7 @@ namespace other {
       }
 
       ostd::vector<std::string> warnings = {};
-      std::set<natural_t> seen_ids = {};
+      ostd::set<natural_t> seen_ids = {};
       {
         PROFILE_SECTION("parse_scene_binary--objects");
         for (uint32_t i = 0; i < object_count; ++i) {
@@ -356,7 +356,7 @@ namespace other {
         }
       }
 
-      std::set<natural_t> seen_ids = {};
+      ostd::set<natural_t> seen_ids = {};
       natural_t next_synthetic_id = 1;
       if (const toml::array* objects = root.get_as<toml::array>("objects"); objects != nullptr) {
         PROFILE_SECTION("parse_scene_toml--objects");

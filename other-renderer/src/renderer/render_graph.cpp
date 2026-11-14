@@ -236,7 +236,7 @@ namespace other {
       }
 
       /// list of outgoing edges
-      ostd::map<natural_t, std::set<natural_t>> edges;
+      ostd::map<natural_t, ostd::set<natural_t>> edges;
       for (const auto& n1 : nodes) {
         auto& e1 = edges[n1.id];
 
@@ -337,7 +337,7 @@ namespace other {
       }
     }
 
-    std::set<natural_t> ready_nodes;  //< S
+    ostd::set<natural_t> ready_nodes;  //< S
     for (const auto& [id, deg] : in_degree) {
       if (deg == 0) {
         ready_nodes.insert(id);

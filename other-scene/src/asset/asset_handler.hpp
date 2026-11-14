@@ -228,7 +228,7 @@ namespace other {
     ostd::unordered_map<natural_t, asset> unloaded_assets;
     ostd::unordered_map<natural_t, asset_state_machine> asset_states;
 
-    std::unordered_set<natural_t> needs_refresh;
+    ostd::unordered_set<natural_t> needs_refresh;
     // stable_id -> id
     ostd::unordered_map<natural_t, natural_t> runtime_by_stable;
 

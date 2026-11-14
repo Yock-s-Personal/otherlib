@@ -21,7 +21,7 @@ namespace other {
       natural_t event_id;
       asio::steady_timer timer;
     };
-    std::deque<event_timer> entries;
+    ostd::deque<event_timer> entries;
   };
 
   event_system::event_system(asio::io_context& io_ctx)

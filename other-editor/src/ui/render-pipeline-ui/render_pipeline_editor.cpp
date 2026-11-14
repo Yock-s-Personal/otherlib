@@ -11,7 +11,6 @@
 
 #include "editor_driver.hpp"
 
-
 namespace other {
   namespace ui {
 
@@ -159,7 +158,7 @@ namespace other {
       };
       struct graph {
         ostd::map<natural_t, editor_node> nodes;
-        ostd::map<natural_t, std::set<natural_t>> edges;
+        ostd::map<natural_t, ostd::set<natural_t>> edges;
       };
       graph g;
 
@@ -292,7 +291,7 @@ namespace other {
     }
 
     /// list of outgoing edges
-    ostd::map<natural_t, std::set<natural_t>> edges;
+    ostd::map<natural_t, ostd::set<natural_t>> edges;
     for (const auto& n1 : nodes) {
       auto& e1 = edges[n1.id];
 

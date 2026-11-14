@@ -34,7 +34,7 @@ namespace other {
 
       /// expansion is panel state, not selection state; ids go stale across snapshot
       ///  restores which just collapses those rows
-      std::unordered_set<natural_t> expanded_ids;
+      ostd::unordered_set<natural_t> expanded_ids;
 
       /// {dragged, new parent}; applied after the tree walk so the walk never mutates
       ///  the child lists it is iterating

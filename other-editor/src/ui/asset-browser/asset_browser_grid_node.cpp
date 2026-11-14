@@ -153,7 +153,7 @@ namespace other {
       auto* fs = subsystem<file_system>::get();
 
       /// collect path hashes of assets found in the filesystem to avoid duplicates
-      std::unordered_set<natural_t> fs_path_hashes;
+      ostd::unordered_set<natural_t> fs_path_hashes;
 
       if (fs != nullptr) {
         std::string mount_name;

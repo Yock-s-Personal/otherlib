@@ -426,7 +426,7 @@ namespace other {
         delta.modified.push_back(known->stable_id);
       }
 
-      std::unordered_set<natural_t> seeds;
+      ostd::unordered_set<natural_t> seeds;
       seeds.insert(delta.added.begin(), delta.added.end());
       seeds.insert(delta.modified.begin(), delta.modified.end());
       for (const natural_t removed : delta.removed) {
@@ -435,7 +435,7 @@ namespace other {
         }
       }
 
-      std::unordered_set<uint32_t> affected;
+      ostd::unordered_set<uint32_t> affected;
       const auto mark_parents = [&](auto&& self, uint32_t slot) -> void {
         for (const uint32_t parent : next.reverse[slot]) {
           if (affected.insert(parent).second) {

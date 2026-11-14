@@ -133,7 +133,7 @@ namespace other {
 
     auto& reg = renderer_ptr->get_binding_registry();
 
-    std::unordered_set<uint64_t> visited;
+    ostd::unordered_set<uint64_t> visited;
     for (auto& [pass_id, runtime] : pass_runtimes) {
       OTHER_ASSERT(runtime.def != nullptr, "pass_runtime[{}] has null def", pass_id);
 

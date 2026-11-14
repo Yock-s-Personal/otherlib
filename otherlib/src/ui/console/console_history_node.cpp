@@ -78,6 +78,13 @@ namespace other {
       /// start with no TRACE and DEBUG levels enabled
       filter_mask &= ~static_cast<uint8_t>(console_w::log_level::TRACE);
       filter_mask &= ~static_cast<uint8_t>(console_w::log_level::DEBUG);
+
+      register_action({
+        .label = "Copy",
+        .invoke = [](const console_w::log_entry& e) {
+          ImGui::SetClipboardText(e.message.c_str());
+        },
+      });
     }
 
     void console_history_node::push_log(console_w::log_entry entry) {
@@ -85,6 +92,8 @@ namespace other {
       if (entry.timestamp.empty()) {
         entry.timestamp = make_timestamp();
       }
+      entry.id = next_entry_id++;
+      entry.view = {};
 
       rtrim_trailing_newlines(entry.message);
 
@@ -112,6 +121,12 @@ namespace other {
 
     void console_history_node::clear() {
       entries.clear();
+      selected_entry_id = 0;
+      context_entry_id = 0;
+    }
+
+    void console_history_node::register_action(console_w::log_action action) {
+      actions.push_back(std::move(action));
     }
 
     bool console_history_node::passes_filter(const console_w::log_entry& entry) const {
@@ -145,6 +160,28 @@ namespace other {
 #endif
 
       return std::format("[{:02}:{:02}:{:02}]", tm_buf.tm_hour, tm_buf.tm_min, tm_buf.tm_sec);
+    }
+
+    console_w::log_entry* console_history_node::find_entry(uint64_t id) {
+      if (id == 0 || entries.empty() || id < entries.front().id) {
+        return nullptr;
+      }
+      const uint64_t idx = entries.front().id;
+      return idx < entries.size() ?
+        &entries[idx] :
+        nullptr;
+    }
+
+    void console_history_node::render_detail_pane(console_w::log_entry& entry) {
+      ImGui::PushStyleColor(ImGuiCol_ChildBg, colors::rgba_to_imvec4(colors::console::kBG));
+      if (ImGui::BeginChild("##log-detail")) {
+        console_w::detail_pane_result detail = console_w::draw_detail_pane(entry, actions);
+        if (detail.close_requested) {
+          selected_entry_id = 0;
+        }
+      }
+      ImGui::EndChild();
+      ImGui::PopStyleColor();
     }
 
     void console_history_node::handle_console_message(const value& msg, console_w::log_level level) {
@@ -200,6 +237,14 @@ namespace other {
         std::transform(search_lower.begin(), search_lower.end(), search_lower.begin(), [](unsigned char c) { return std::tolower(c); });
       }
 
+      cw::log_entry* selected_entry = find_entry(selected_entry_id);
+      if (selected_entry == nullptr) {
+        selected_entry_id = 0;
+      }
+      const float detail_h = selected_entry == nullptr ?
+        0.f :
+        std::min(cw::kDetailPaneHeight, ImGui::GetContentRegionAvail().y * cw::kDetailPaneMaxFraction);
+
       /// scrollable log area
       ImGui::PushStyleColor(ImGuiCol_ChildBg, rgba_to_imvec4(console::kBG));
       ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.f, cw::kPaddingY));
@@ -207,15 +252,39 @@ namespace other {
       if (ImGui::BeginChild("##log-scroll")) {
         PROFILE_SECTION("console_history_node::on_render_node_body--log_lines");
         /// draw visible entries
+        bool open_context_menu = false;
         uint32_t visible_idx = 0;
-        for (const auto& entry : entries) {
+        for (auto& entry : entries) {
           if (!passes_filter(entry)) {
             continue;
           }
 
           bool alt = (visible_idx % 2) == 1;
-          cw::draw_log_line(entry, alt);
+          cw::log_pane_result pane = cw::draw_log_pane(entry, alt, entry.id == selected_entry_id);
+          if (pane.clicked) {
+            /// clicking the selected entry again closes its detail pane
+            selected_entry_id = entry.id == selected_entry_id ?
+              0 :
+              entry.id;
+          }
+          if (pane.context_requested) {
+            context_entry_id = entry.id;
+            open_context_menu = true;
+          }
           visible_idx++;
+        }
+
+        if (open_context_menu) {
+          ImGui::OpenPopup("##log-pane-context");
+        }
+        if (ImGui::BeginPopup("##log-pane-context")) {
+          cw::log_entry* context_entry = find_entry(context_entry_id);
+          if (context_entry == nullptr) {
+            ImGui::CloseCurrentPopup();
+          } else {
+            // cw::draw_log_action_menu_items(*context_entry, actions);
+          }
+          ImGui::EndPopup();
         }
 
         /// empty state
@@ -246,6 +315,14 @@ namespace other {
 
       ImGui::PopStyleVar();
       ImGui::PopStyleColor();
+
+      /// re-resolve: the click that selected an entry happened inside the loop above
+      if (detail_h > 0.f) {
+        selected_entry = find_entry(selected_entry_id);
+        if (selected_entry != nullptr) {
+          render_detail_pane(*selected_entry);
+        }
+      }
 
       ImGui::EndChild();
       ImGui::PopStyleColor();

@@ -143,12 +143,12 @@ namespace other {
     };
 
     struct skeleton_build_ctx {
-      std::set<std::string> rigged_names;       /// node names any aiBone references
+      ostd::set<std::string> rigged_names;      /// node names any aiBone references
       ostd::vector<bone_influence> influences;  /// index-aligned with model_data::vertices
       bool cap_warned = false;
     };
 
-    bool node_contains_bone(const std::set<std::string>& rigged_names, const aiNode* node) {
+    bool node_contains_bone(const ostd::set<std::string>& rigged_names, const aiNode* node) {
       OTHER_ASSERT(node != nullptr, "aiNode is null");
 
       if (rigged_names.contains(node->mName.C_Str())) {

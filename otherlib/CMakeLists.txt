@@ -126,6 +126,8 @@ target_sources(otherlib
     src/ui/console/console_widgets.cpp
     src/ui/console/console_input_node.cpp
     src/ui/console/console_history_node.cpp
+    src/ui/console/console_log_layout.cpp
+    src/ui/console/console_log_pane.cpp
     src/ui/console/console.cpp
     src/ui/menu-bar/menu_item.cpp
     src/ui/menu-bar/menu.cpp

@@ -15,7 +15,6 @@
 #include "core/defines.hpp"
 #include "data-structures/std_container.hpp"
 
-
 namespace other {
 
   struct toml_format_options {
@@ -195,9 +194,9 @@ namespace other {
     bool pending_blank = false;
     bool any_content = false;
 
-    std::string current_table_path = "";    /// "" = document root
-    std::set<std::string> declared_tables;  /// explicit [x] headers, dup detection
-    std::set<std::string> current_table_keys;
+    std::string current_table_path = "";     /// "" = document root
+    ostd::set<std::string> declared_tables;  /// explicit [x] headers, dup detection
+    ostd::set<std::string> current_table_keys;
 
     toml::table mirror;
     toml::table* current_mirror_table = nullptr;

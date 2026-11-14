@@ -74,7 +74,7 @@ namespace other {
 
     ostd::map<natural_t, natural_t> in_degree;
 
-    std::set<natural_t> no_incoming_edges;
+    ostd::set<natural_t> no_incoming_edges;
     auto all_node_ids = nodes.get_all_node_ids();
     for (const auto& node_id : all_node_ids) {
       auto incoming_edges = std::ranges::count_if(links, [&](const auto& l) {
@@ -87,7 +87,7 @@ namespace other {
     }
 
     /// build list of edges to process
-    ostd::map<natural_t, std::set<pin::address>> edges;
+    ostd::map<natural_t, ostd::set<pin::address>> edges;
     for (const auto& l : links) {
       edges[l.from.node_id].insert({ l.to.node_id, l.to.pin_index });
     }

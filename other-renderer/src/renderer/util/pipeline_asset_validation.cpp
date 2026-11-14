@@ -13,16 +13,16 @@ namespace other {
   namespace detail {
     namespace {
 
-      void validate_resources(validation_result& result, const toml::table& tbl, std::set<std::string>& out_buffer_names, std::set<std::string>& out_texture_names, std::set<std::string>& out_shader_names);
-      void validate_frame_bindings(validation_result& result, const toml::table& tbl, std::set<std::string>& out_binding_names);
+      void validate_resources(validation_result& result, const toml::table& tbl, ostd::set<std::string>& out_buffer_names, ostd::set<std::string>& out_texture_names, ostd::set<std::string>& out_shader_names);
+      void validate_frame_bindings(validation_result& result, const toml::table& tbl, ostd::set<std::string>& out_binding_names);
       void validate_frame_inputs_outputs(validation_result& result, const toml::table& tbl);
       void validate_frame_executors(validation_result& result, const toml::table& tbl);
       void validate_frame_resource_tags(validation_result& result, const toml::table& tbl);
-      void validate_frame_passes(validation_result& result, const toml::table& tbl, std::set<std::string>& out_pass_names);
+      void validate_frame_passes(validation_result& result, const toml::table& tbl, ostd::set<std::string>& out_pass_names);
       void validate_pass_uniforms(validation_result& result, const toml::table& tbl);
       void validate_frame_pass_bindings(validation_result& result, const toml::table& tbl);
-      void validate_cross_references(validation_result& result, const toml::table& tbl, const std::set<std::string>& buffer_names, const std::set<std::string>& texture_names,
-                                     const std::set<std::string>& shader_names, const std::set<std::string>& binding_names, const std::set<std::string>& pass_names);
+      void validate_cross_references(validation_result& result, const toml::table& tbl, const ostd::set<std::string>& buffer_names, const ostd::set<std::string>& texture_names,
+                                     const ostd::set<std::string>& shader_names, const ostd::set<std::string>& binding_names, const ostd::set<std::string>& pass_names);
 
     }  // namespace
 
@@ -49,11 +49,11 @@ namespace other {
         result.fail("'version': must be an integer");
       }
 
-      std::set<std::string> buffer_names;
-      std::set<std::string> texture_names;
-      std::set<std::string> shader_names;
-      std::set<std::string> binding_names;
-      std::set<std::string> pass_names;
+      ostd::set<std::string> buffer_names;
+      ostd::set<std::string> texture_names;
+      ostd::set<std::string> shader_names;
+      ostd::set<std::string> binding_names;
+      ostd::set<std::string> pass_names;
 
       validate_resources(result, tbl, buffer_names, texture_names, shader_names);
 
@@ -235,8 +235,8 @@ namespace other {
         return false;
       }
 
-      void validate_resources(validation_result& result, const toml::table& tbl, std::set<std::string>& out_buffer_names,
-                              std::set<std::string>& out_texture_names, std::set<std::string>& out_shader_names) {
+      void validate_resources(validation_result& result, const toml::table& tbl, ostd::set<std::string>& out_buffer_names,
+                              ostd::set<std::string>& out_texture_names, ostd::set<std::string>& out_shader_names) {
         const auto buffers = tbl.at_path("resources.buffers");
         const auto textures = tbl.at_path("resources.textures");
         const auto shaders = tbl.at_path("resources.shaders");
@@ -401,7 +401,7 @@ namespace other {
         }
       }
 
-      void validate_frame_bindings(validation_result& result, const toml::table& tbl, std::set<std::string>& out_binding_names) {
+      void validate_frame_bindings(validation_result& result, const toml::table& tbl, ostd::set<std::string>& out_binding_names) {
         const auto frame_bindings = tbl.at_path("frame.bindings");
         if (!frame_bindings || !frame_bindings.is_array_of_tables()) {
           result.fail("frame.bindings: missing or not an array of tables");
@@ -625,7 +625,7 @@ namespace other {
         }
       }
 
-      void validate_frame_passes(validation_result& result, const toml::table& tbl, std::set<std::string>& out_pass_names) {
+      void validate_frame_passes(validation_result& result, const toml::table& tbl, ostd::set<std::string>& out_pass_names) {
         const auto passes = tbl.at_path("frame.passes");
         if (!passes || !passes.is_array_of_tables()) {
           result.fail("frame.passes: missing or not an array of tables");
@@ -780,7 +780,7 @@ namespace other {
       }
 
       void validate_cross_references(validation_result& result, const toml::table& tbl,
-                                     const std::set<std::string>& buffer_names, const std::set<std::string>& texture_names, const std::set<std::string>& shader_names, const std::set<std::string>& binding_names, const std::set<std::string>& pass_names) {
+                                     const ostd::set<std::string>& buffer_names, const ostd::set<std::string>& texture_names, const ostd::set<std::string>& shader_names, const ostd::set<std::string>& binding_names, const ostd::set<std::string>& pass_names) {
         const auto resource_exists = [&](const std::string& n) {
           return buffer_names.contains(n) || texture_names.contains(n);
         };

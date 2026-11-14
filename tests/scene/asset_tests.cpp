@@ -31,7 +31,6 @@
 #include "audio/audio_test_fixtures.hpp"
 #include "mock_rendering_api.hpp"
 
-
 namespace other {
 
   TEST_F(asset_tests, asset_type_from_extension) {
@@ -151,7 +150,7 @@ namespace other {
       EXPECT_CALL(*mock_api, create_mesh_resource(_, _))
         .Times(model_count)
         .WillRepeatedly(testing::Invoke([](const resource_handle& handle, resource_type) -> mesh* {
-          static std::deque<mesh> meshes;  /// stable addresses; callers hold the pointer
+          static ostd::deque<mesh> meshes;  /// stable addresses; callers hold the pointer
           return &meshes.emplace_back(handle);
         }));
       EXPECT_CALL(*mock_api, destroy_mesh_resource(_))
@@ -164,7 +163,7 @@ namespace other {
       EXPECT_CALL(*mock_api, create_buffer_resource(_, _))
         .Times(2 * model_count)
         .WillRepeatedly(testing::Invoke([](const resource_handle& handle, resource_type) -> gpu_buffer* {
-          static std::deque<gpu_buffer> buffers;  /// stable addresses; callers hold the pointer
+          static ostd::deque<gpu_buffer> buffers;  /// stable addresses; callers hold the pointer
           return &buffers.emplace_back(handle);
         }));
       EXPECT_CALL(*mock_api, destroy_buffer_resource(_))

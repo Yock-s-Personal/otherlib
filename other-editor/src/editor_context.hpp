@@ -32,6 +32,10 @@ namespace other {
     camera* scene_active_camera = nullptr;
     natural_t scene_viewport_handle = 0;
 
+    /// requested by ui, applied in editor_driver::update_running so the active scene
+    ///  never changes while a frame is being rendered
+    opt<natural_t> pending_scene_activation;
+
     camera editor_camera;
     ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
     ImGuizmo::OPERATION gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;

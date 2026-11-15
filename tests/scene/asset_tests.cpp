@@ -5,6 +5,9 @@
 
 #include <deque>
 #include <fstream>
+#include <map>
+#include <numeric>
+#include <vector>
 
 #include <asio/asio.hpp>
 #include <glm/gtc/matrix_transform.hpp>
@@ -799,6 +802,82 @@ worker_count = {}
     handler = nullptr;
     std::error_code ec;
     std::filesystem::remove_all(rig_dir, ec);
+  }
+
+  /// a draw holds gpu::kMaxMaterials instances; the rest roll over into further draws for the
+  ///  same mesh instead of being dropped
+  TEST_F(animation_draw_tests, instances_past_the_per_draw_cap_roll_into_more_draws) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_for_model_uploads(events, 1);
+
+    const filepath model_path = "tests/resources/models/suzanne3.fbx";
+    const natural_t model_id = handler->load_asset(model_path);
+    ASSERT_NE(model_id, 0);
+    pump_until(io_context, jobs, *handler, [&] {
+      return handler->asset_loaded(model_id);
+    });
+
+    constexpr uint32_t kCap = static_cast<uint32_t>(gpu::kMaxMaterials);
+    constexpr uint32_t kRemainder = kCap / 2;
+    constexpr size_t kInstances = kCap * 2 + kRemainder;
+    scene s("Instance Rollover Scene");
+    for (size_t i = 0; i < kInstances; ++i) {
+      scene_object& obj = s.create_object(std::format("Instance{}", i));
+      render_component render = {};
+      render.model_asset_id = model_id;
+      /// the tint tags each instance, so a lost or duplicated slot shows up below
+      render.tint = glm::vec4(static_cast<float>(i), 0.f, 0.f, 1.f);
+      s.add_component<render_component>(&obj, std::move(render));
+    }
+
+    render_data data = s.prepare_render_data(handler);
+
+    /// 3 submeshes, each split into two full draws and a remainder
+    ASSERT_EQ(data.num_draw_calls, 9u);
+    ASSERT_EQ(data.draw_calls.size(), 9u);
+    ASSERT_EQ(data.mesh_keys.size(), 9u);
+    ASSERT_EQ(data.draw_tints.size(), 9u);
+    ASSERT_EQ(data.model_buffers.size(), 9u);
+    ASSERT_EQ(data.bone_buffers.size(), 9u);
+
+    std::map<uint32_t, std::vector<uint32_t>> counts_by_submesh;
+    std::map<uint32_t, std::vector<float>> tags_by_submesh;
+    for (size_t i = 0; i < data.draw_calls.size(); ++i) {
+      const draw_call& call = data.draw_calls[i];
+      ASSERT_LE(call.instance_count, kCap);
+      /// a rolled-over draw carries its own mesh range, not an empty one
+      EXPECT_GT(call.index_count, 0u);
+
+      const uint32_t submesh = data.mesh_keys[i].submesh_index;
+      EXPECT_EQ(call.submesh_index, submesh);
+      counts_by_submesh[submesh].push_back(call.instance_count);
+      for (uint32_t slot = 0; slot < call.instance_count; ++slot) {
+        tags_by_submesh[submesh].push_back(data.draw_tints[i].tints[slot].x);
+      }
+    }
+
+    std::vector<float> expected_tags(kInstances);
+    std::iota(expected_tags.begin(), expected_tags.end(), 0.f);
+
+    ASSERT_EQ(counts_by_submesh.size(), 3u);
+    for (auto& [submesh, counts] : counts_by_submesh) {
+      std::ranges::sort(counts);
+      EXPECT_EQ(counts, (std::vector<uint32_t>{ kRemainder, kCap, kCap }));
+
+      /// every instance landed in exactly one slot
+      std::vector<float>& tags = tags_by_submesh[submesh];
+      std::ranges::sort(tags);
+      EXPECT_EQ(tags, expected_tags);
+    }
+
+    handler = nullptr;
   }
 
   /// tick and draw fill composed end-to-end: embedded clip resolved, sampled by scene::update,

@@ -45,6 +45,8 @@ namespace other {
     auto* fs = subsystem<file_system>::get();
     OTHER_ASSERT(fs != nullptr, "file_system subsystem is not available.");
 
+    load_errors.clear();
+
     /// the project root mount anchors every canonical virtual path (=> stable_id) the
     //  resolver produces; it must exist before anything under it is registered or virtualized
     const filepath project_root = std::filesystem::absolute(path).parent_path();
@@ -116,6 +118,18 @@ namespace other {
 
     waiting_for_scene_load = process_scene_sections(table);
 
+    /// dropped before anything is resolved or added to the scene graph
+    ostd::vector<natural_t> unusable = {};
+    for (const project::scene& scene_data : scenes_in_project) {
+      if (!std::filesystem::exists(scene_data.path) || !serialization::is_scene_file_extension(scene_data.path.extension().string())) {
+        unusable.push_back(scene_data.scene_id);
+      }
+    }
+    for (const natural_t id : unusable) {
+      drop_scene(id, "scene file is missing or is not a scene document");
+    }
+    waiting_for_scene_load = !scenes_in_project.empty();
+
     /// one resolve over everything the project declares: the csproj (scripts) and every
     //  scene document (models/textures/hook scripts ride the scene's manifest edges)
     ostd::vector<filepath> resolve_roots = {};
@@ -123,6 +137,7 @@ namespace other {
       CORE_LOG_INFO("Loading .NET project from '{}'", project_scripts.csproject_path.string());
       resolve_roots.push_back(project_scripts.csproject_path);
     }
+
     for (const project::scene& scene_data : scenes_in_project) {
       if (std::filesystem::exists(scene_data.path) && serialization::is_scene_file_extension(scene_data.path.extension().string())) {
         resolve_roots.push_back(scene_data.path);
@@ -301,6 +316,31 @@ namespace other {
     all_scenes_unloaded = std::ranges::all_of(scenes_in_project, [](const scene& s) { return !s.scene_loaded; });
     all_scenes_loaded = false;
     CORE_LOG_DEBUG(" - scene removed. all_scenes_unloaded: {}", all_scenes_unloaded);
+  }
+
+  void project::drop_scene(natural_t scene_id, const std::string_view reason) {
+    auto it = std::ranges::find(scenes_in_project, scene_id, &scene::scene_id);
+    if (it == scenes_in_project.end()) {
+      return;
+    }
+
+    CORE_LOG_ERROR("[PROJECT] Dropping scene '{}' ({}): {}", it->name, it->path.string(), reason);
+    load_errors.push_back({ .subject = it->name, .message = std::string{ reason } });
+
+    if (starting_scene_id == scene_id) {
+      CORE_LOG_ERROR("[PROJECT] Starting scene '{}' was dropped; no scene will be activated.", it->name);
+      starting_scene_id = 0;
+    }
+
+    scenes_in_project.erase(it);
+    all_scenes_loaded = std::ranges::all_of(scenes_in_project, &scene::scene_loaded);
+  }
+
+  void project::drop_script_project(const std::string_view reason) {
+    CORE_LOG_ERROR("[PROJECT] Dropping script project '{}': {}", project_scripts.csproject_path.string(), reason);
+    load_errors.push_back({ .subject = project_scripts.csproject_path.string(), .message = std::string{ reason } });
+    project_scripts.csproject_path.clear();
+    has_script_project = false;
   }
 
   void project::attach_project_dll(const filepath& dll_path) {

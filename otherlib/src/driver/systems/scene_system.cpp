@@ -21,7 +21,6 @@
 #include "driver/systems/project_system.hpp"
 #include "scripting/scene_interface.hpp"
 
-
 namespace other {
 
   void scene_system::initialize(driver_kernel* kernel) {
@@ -120,7 +119,11 @@ namespace other {
     auto* s = get_scene(id);
     OTHER_ASSERT(s != nullptr, "Failed to retrieve scene [{}] after adding to scene graph.", scene_path.string());
 
-    get_driver().add_scene_asset(s, scene_path);
+    /// set here, not on load success, so a failed load can still be matched to this scene
+    s->asset_id = get_driver().add_scene_asset(s, scene_path);
+    if (s->asset_id == 0) {
+      CORE_LOG_ERROR("Failed to add scene asset for '{}'", scene_path.string());
+    }
     return id;
   }
 

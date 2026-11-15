@@ -53,6 +53,11 @@ namespace other {
     opt<filepath> last_loaded_project_file;
     scope<project> loaded_project = nullptr;
 
+    /// asset ids from scene.asset-load-failed; their scenes are dropped on the next tick
+    ostd::vector<natural_t> failed_scene_assets;
+
+    void drop_failed_scenes(driver_kernel* kernel);
+
     void handle_new_project(driver_kernel* kernel, const value& data);
     void handle_open_project(driver_kernel* kernel, const value& data);
     void handle_save_project(driver_kernel* kernel, const value& data);

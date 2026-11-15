@@ -1419,7 +1419,7 @@ namespace other {
       }
     });
 
-    bool instance_overflow_warned = false;
+    bool draw_overflow_warned = false;
     {
       PROFILE_SECTION("scene::prepare_render_data--render_view");
       storage->registry.view<object_handle, render_component>().each([&](const object_handle& handle, render_component& render) {
@@ -1507,11 +1507,20 @@ namespace other {
             draw_material = &imported_materials[sm.material_index];
           }
 
+          /// per-instance slots (tints + model matrices) are fixed arrays of kMaxMaterials, so a
+          ///  full draw rolls over into a new draw for the same key; the map tracks the open one
           auto it = data.mesh_indices.find(key);
-          if (it == data.mesh_indices.end()) {
-            auto [itr, inserted] = data.mesh_indices.insert({ key, data.num_draw_calls++ });
-            OTHER_ASSERT(inserted, "Failed to insert mesh key into map");
+          if (it == data.mesh_indices.end() || data.draw_calls[it->second].instance_count >= gpu::kMaxMaterials) {
+            /// the per-draw rings hold kMaxDrawCalls slots; one more draw would overrun them
+            if (data.num_draw_calls >= renderer::kMaxDrawCalls) {
+              if (!draw_overflow_warned) {
+                CORE_LOG_WARN("Scene needs more than {} draws; extra instances are dropped this frame.", renderer::kMaxDrawCalls);
+                draw_overflow_warned = true;
+              }
+              continue;
+            }
 
+            const size_t draw_index = data.num_draw_calls++;
             data.mesh_keys.emplace_back() = key;
             data.draw_calls.emplace_back() = draw_call{};
             data.draw_materials.emplace_back() = draw_material;
@@ -1519,7 +1528,13 @@ namespace other {
             data.model_buffers.emplace_back() = gpu::model_matrix_buffer{};
             data.bone_buffers.emplace_back() = gpu::bone_matrix_buffer{};
 
-            it = itr;
+            if (it == data.mesh_indices.end()) {
+              auto [itr, inserted] = data.mesh_indices.insert({ key, draw_index });
+              OTHER_ASSERT(inserted, "Failed to insert mesh key into map");
+              it = itr;
+            } else {
+              it->second = draw_index;
+            }
           }
           OTHER_ASSERT(it != data.mesh_indices.end(), "Mesh key not found in map after insertion");
 
@@ -1537,16 +1552,6 @@ namespace other {
             call.index_count = sm.idx_cnt;
 
             call.line_thickness = 1.f;
-          }
-
-          /// per-instance slots (tints + model matrices) are fixed arrays: a dropped instance
-          ///  beats a buffer overrun; a real >kMaxMaterials-instance path is instancing work
-          if (call.instance_count >= gpu::kMaxMaterials) {
-            if (!instance_overflow_warned) {
-              CORE_LOG_WARN("Draw for submesh {} exceeded {} instances; extra instances are dropped this frame.", sm_idx, gpu::kMaxMaterials);
-              instance_overflow_warned = true;
-            }
-            continue;
           }
 
           glm::mat4 world_transform = get_world_transform(handle.id);  // * transform_it->second;

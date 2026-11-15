@@ -44,6 +44,7 @@ namespace other {
 
     auto& events = *get_driver().get_event_system();
     events.register_event("project.loaded");
+    events.register_event("project.load-failed");
     events.register_event("project.unloaded");
     events.register_event("project.assembly-refreshed");
     /// the refresh detached every behavior whose type lived in the old assembly; rebuild
@@ -82,9 +83,11 @@ namespace other {
     events.add_listener("script-file.asset-unloaded", [this, kernel](const value& data) { handle_script_file_unloaded(kernel, data); });
 
     // scene asset events
-    events.add_listener("scene.asset-load-failed", [this](const value&) {
-      if (loaded_project->is_loading()) {
-        loaded_project->error_building_scene_graph();
+    events.add_listener("scene.asset-load-failed", [this](const value& data) {
+      /// recorded here and dropped in tick, so the scene graph is not changed from inside an asset callback
+      if (loaded_project->is_loading() && data.type() == value_type::UINT64) {
+        const natural_t asset_id = data;
+        failed_scene_assets.push_back(asset_id);
       }
     });
   }
@@ -100,6 +103,9 @@ namespace other {
 
     if (get_driver().current_driver_state() == driver_state::DRIVER_STATE_RUNNING &&
         loaded_project->is_loading()) {
+      /// before the finished check: a drop can complete the scene graph
+      drop_failed_scenes(kernel);
+
       const bool csproj_built_and_attached = !loaded_project->expects_script_project() || loaded_project->script_project_mounted();
       // loaded_project->script_project_mounted();
       const bool scene_graph_loaded = loaded_project->scene_graph_loaded();
@@ -107,10 +113,14 @@ namespace other {
       if (finished_loading) {
         loaded_project->set_state(project::state::LOADED);
         get_driver().trigger_event("project.loaded");
-      } else if (loaded_project->did_scene_graph_error_occurred() && loaded_project->did_script_project_error_occurred()) {
+      } else if (loaded_project->did_scene_graph_error_occurred() || loaded_project->did_script_project_error_occurred()) {
         CORE_LOG_ERROR("Failed to load project due to scene graph or script project load error. Unloading project.");
         loaded_project->set_state(project::state::LOAD_FAILED);
+      }
 
+      // if load failed we clean up what we need to
+      if (get_driver().current_driver_state() == driver_state::DRIVER_STATE_RUNNING &&
+          loaded_project->load_failed()) {
         auto& assets = kernel->get_core_system<asset_system>();
         auto& scenes = kernel->get_core_system<scene_system>();
         auto& project_scene_graph = scenes.get_scene_graph();
@@ -119,12 +129,16 @@ namespace other {
           natural_t id = data.scene_id;
 
           scene* s = project_scene_graph.find_scene(id);
-          OTHER_ASSERT(s != nullptr, "Scene with ID '{}' not found in project scene graph.", id);
+          if (s == nullptr) {
+            CORE_LOG_WARN("Scene with ID '{}' not found in project scene graph.", id);
+            continue;
+          }
 
           assets.begin_asset_unload(s->asset_id);
         }
 
         loaded_project->fail_load();
+        get_driver().trigger_event("project.load-failed");
       }
     }
 
@@ -181,6 +195,33 @@ namespace other {
     OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
   }
 
+  void project_system::drop_failed_scenes(driver_kernel* kernel) {
+    PROFILE_SECTION("project_system::drop_failed_scenes");
+    if (failed_scene_assets.empty()) {
+      return;
+    }
+
+    auto& project_scene_graph = kernel->get_core_system<scene_system>().get_scene_graph();
+    for (const natural_t asset_id : failed_scene_assets) {
+      /// the load plan reports a parent it never dispatched with asset id 0
+      if (asset_id == 0) {
+        continue;
+      }
+
+      /// only graph scenes are project scenes; a failed document node or dependency
+      ///  was already logged by the asset layer and its scene still loads
+      scene* s = project_scene_graph.find_scene([asset_id](const scene& sc) -> bool { return sc.asset_id == asset_id; });
+      if (s == nullptr) {
+        continue;
+      }
+
+      const natural_t scene_id = s->id;
+      project_scene_graph.remove_scene(scene_id);
+      loaded_project->drop_scene(scene_id, "scene document failed to load");
+    }
+    failed_scene_assets.clear();
+  }
+
   void project_system::load_project(driver_kernel* kernel, const filepath& project_file) {
     OTHER_ASSERT(kernel != nullptr, "Kernel pointer is null in project system load_project.");
     OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
@@ -194,6 +235,7 @@ namespace other {
     }
 
     CORE_LOG_DEBUG("Begin project load: {}", project_file.string());
+    failed_scene_assets.clear();
     loaded_project->load_from_file(kernel, project_file);
     last_loaded_project_file = project_file;
 

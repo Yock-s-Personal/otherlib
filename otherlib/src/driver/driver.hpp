@@ -21,7 +21,6 @@
 #include "file/filesystem.hpp"
 #include "input/input_system.hpp"
 
-#include "audio/audio_environment.hpp"
 #include "renderer/renderer.hpp"
 #include "script/scripting_environment.hpp"
 
@@ -46,6 +45,7 @@
 #include "ui/field_editor_registry.hpp"
 #include "vm/other_device.hpp"
 
+#include "audio/audio_environment.hpp"
 #include "message/message.hpp"
 
 namespace json = nlohmann;
@@ -100,6 +100,7 @@ namespace other {
     natural_t get_asset_id_from_path(const filepath& path) const;
 
     void process_driver_event(driver_event event);
+    void request_failure_shutdown(const std::string_view reason);
     void request_shutdown();
 
     std::string get_driver_info_string(const std::string_view str) const;
@@ -249,7 +250,6 @@ namespace other {
     natural_t add_interface(const std::string_view interface_name, sol::table inteface_table);
     // void add_interface(const std::string_view interface_name, plugin* plugin_ptr);
 
-
     void handle_file_refresh(const filepath& path);
 
     virtual void on_early_initialize() {}
@@ -308,6 +308,8 @@ namespace other {
     };
     running_state runtime_state;
     shutdown_state shutdown_state;
+
+    exit_code result = exit_code::SUCCESS;
 
     config_table config;
     command_line cmd_line;

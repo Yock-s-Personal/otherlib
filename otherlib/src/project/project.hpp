@@ -24,6 +24,13 @@ namespace other {
     std::string project_name;
     std::string project_path;
   };
+
+  struct load_error {
+    /// scene name or csproj path
+    std::string subject;
+    std::string message;
+  };
+
   class project {
    public:
     enum state {
@@ -81,6 +88,9 @@ namespace other {
     void add_loaded_scene(natural_t scene_id);
     void remove_loaded_scene(natural_t scene_id);
 
+    void drop_scene(natural_t scene_id, const std::string_view reason);
+    void drop_script_project(const std::string_view reason);
+
     const std::string& get_project_name() const { return project_metadata.name; }
 
     inline void error_building_script_project() { able_to_load_script_project = false; }
@@ -115,6 +125,8 @@ namespace other {
     inline std::span<project::scene> get_scenes() { return scenes_in_project; }
     inline const std::span<const project::scene> get_scenes() const { return scenes_in_project; }
 
+    inline std::span<const load_error> get_load_errors() const { return load_errors; }
+
    private:
     struct project_args {
       std::string name;
@@ -144,6 +156,8 @@ namespace other {
     bool has_script_project = true;
     bool able_to_load_script_project = true;
     bool able_to_load_scene_graph = true;
+
+    ostd::vector<load_error> load_errors;
 
     void attach_project_dll(const filepath& dll_path);
     void attach_project_cs_file(const filepath& cs_file);

@@ -253,6 +253,9 @@ namespace other {
     state_machine.handle_event(event, this);
   }
 
+  void driver::request_failure_shutdown(const std::string_view reason) {
+  }
+
   void driver::request_shutdown() {
     if (current_driver_state() == driver_state::DRIVER_STATE_SHUTTING_DOWN ||
         current_driver_state() == driver_state::DRIVER_STATE_STOPPED) {

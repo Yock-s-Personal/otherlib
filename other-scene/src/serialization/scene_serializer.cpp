@@ -83,6 +83,8 @@ namespace other {
             }
           }
 
+          /// a play-stop restore reads this to give the rebuilt object its managed instance back
+          s.set_pending_object_source_id(record.file_id);
           scene_object& object = s.create_object(record.name, parent);
           id_remap[record.file_id] = object.id;
           object.visible = record.visible;

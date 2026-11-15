@@ -72,8 +72,7 @@ namespace other {
       if (active_scene == nullptr) {
         return;
       }
-      scene_object& obj = active_scene->get_object(id);
-      obj.name = (std::string)name;
+      active_scene->rename_object(id, (std::string)name);
     }
 
     void native_scene_get_object_ids(natural_t* out_ids, int32_t* out_count, int32_t max_count) {

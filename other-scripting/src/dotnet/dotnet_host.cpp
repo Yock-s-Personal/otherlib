@@ -281,7 +281,7 @@ namespace other {
     obj->managed_object = interop_functions.create_object(type->dotnet_id, false, argv, arg_ts, argc);
     if (obj->managed_object == nullptr) {
       CORE_LOG_ERROR("Failed to create managed object of type [{}]", type->full_name());
-      remove_object(name);
+      remove_object(obj->handle);
       return nullptr;
     } else {
       CORE_LOG_DEBUG("Created managed object [{}] of type [{}]", name, type->full_name());
@@ -301,7 +301,7 @@ namespace other {
     interop_functions.destroy_object(obj->managed_object);
     obj->managed_object = nullptr;
 
-    [[maybe_unused]] auto _ = remove_object(obj->object_name);
+    [[maybe_unused]] auto _ = remove_object(obj->handle);
   }
 
   ostd::map<natural_t, dotnet_object>::iterator dotnet_host::destroy_managed_object(ostd::map<natural_t, dotnet_object>::iterator obj_itr) {
@@ -315,7 +315,7 @@ namespace other {
     interop_functions.destroy_object(obj_itr->second.managed_object);
     obj_itr->second.managed_object = nullptr;
 
-    return remove_object(obj_itr->second.object_name);
+    return remove_object(obj_itr->second.handle);
   }
 
   filepath dotnet_host::get_bindings_assembly_path() const {
@@ -326,25 +326,25 @@ namespace other {
     OTHER_ASSERT(!name.empty(), "Object name cannot be empty.");
     OTHER_ASSERT(type != nullptr, "Type cannot be null");
 
-    auto [itr, success] = managed_objects.emplace(FNV(name), dotnet_object{ this });
-    if (!success) {
-      /// returning the existing entry here would alias two owners onto one slot and
-      ///  leak the old GC handle when the caller overwrites managed_object
-      CORE_LOG_ERROR("Failed to create new managed object: Object with name '{}' already exists.", name);
-      return nullptr;
-    }
+    /// a fresh handle per object: names repeat across scenes and inside one, so a name can
+    ///  never be the key
+    const natural_t handle = ++next_object_handle;
+    auto [itr, success] = managed_objects.emplace(handle, dotnet_object{ this });
+    OTHER_ASSERT(success, "Managed object handle {} is already in use.", handle);
+
+    itr->second.handle = handle;
     itr->second.object_name = name;
     itr->second.dn_type = type;
     return &itr->second;
   }
 
-  ostd::map<natural_t, dotnet_object>::iterator dotnet_host::remove_object(const std::string_view name) {
-    CORE_LOG_DEBUG("Removing managed object '{}'", name);
-    auto it = managed_objects.find(FNV(name));
+  ostd::map<natural_t, dotnet_object>::iterator dotnet_host::remove_object(natural_t handle) {
+    auto it = managed_objects.find(handle);
     if (it != managed_objects.end()) {
+      CORE_LOG_DEBUG("Removing managed object '{}' [{}]", it->second.object_name, handle);
       return managed_objects.erase(it);
     } else {
-      CORE_LOG_ERROR("Failed to remove managed object: Object with name '{}' not found.", name);
+      CORE_LOG_ERROR("Failed to remove managed object: no object with handle {}.", handle);
     }
     return managed_objects.end();
   }

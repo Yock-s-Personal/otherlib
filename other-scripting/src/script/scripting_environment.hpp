@@ -28,6 +28,9 @@ namespace other {
 
     integer_t create_object(const std::string_view name);
     void destroy_object(integer_t id);
+    /// names are labels, not identity: updates the object, its managed object, and the
+    ///  behavior slots that derive their names from it
+    void rename_object(integer_t id, const std::string_view name);
 
     void dotnet_register_native_object(integer_t id, const std::string_view type_name);
     void dotnet_unregister_native_object(integer_t id);

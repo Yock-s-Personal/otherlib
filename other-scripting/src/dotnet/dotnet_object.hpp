@@ -102,6 +102,9 @@ namespace other {
 
     void* managed_object = nullptr;
 
+    /// assigned by the host and never reused; the key in the host's object table
+    natural_t handle = 0;
+    /// a label for logs: several live objects may share one name
     std::string object_name = "UnknownDotnetObject";
     dotnet_type* dn_type = nullptr;
 

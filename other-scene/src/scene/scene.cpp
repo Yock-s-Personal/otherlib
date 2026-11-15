@@ -240,6 +240,15 @@ namespace other {
 
     play_snapshot = capture_snapshot();
 
+    /// the snapshot records each object under its runtime id; the generation tells stop()
+    ///  whether the object in that slot is still the one that was captured
+    play_object_generations.clear();
+    for (const natural_t id : get_all_object_ids()) {
+      if (const scene_object* object = find_object(id); object != nullptr) {
+        play_object_generations[id] = object->generation;
+      }
+    }
+
     playing = true;
     if (storage->physics != nullptr) {
       revalidate_physics();  /// restored/edited bodies must match their authored settings before simulating
@@ -312,6 +321,7 @@ namespace other {
     ostd::vector<uint8_t> snapshot = std::move(play_snapshot);
     play_snapshot.clear();
     restore_snapshot(snapshot);
+    play_object_generations.clear();
   }
 
   ostd::vector<uint8_t> scene::capture_snapshot() {
@@ -335,15 +345,21 @@ namespace other {
 
     /// whatever the rebuild did not reclaim was created during play and is not part of
     ///  the restored state - destroying it now is a genuine removal (Remove fires)
-    if (!preserved_script_objects.empty()) {
+    if (!preserved_script_objects.empty() || !orphaned_script_objects.empty()) {
       auto* script_env = subsystem<scripting_environment>::get();
       OTHER_ASSERT(script_env != nullptr, "Scripting environment is not initialized.");
-      for (const integer_t orphan_id : preserved_script_objects) {
-        CORE_LOG_DEBUG("Destroying script object with ID {} left unclaimed by the restore.", orphan_id);
+      for (const integer_t orphan_id : orphaned_script_objects) {
+        CORE_LOG_DEBUG("Destroying script object with ID {} created during play.", orphan_id);
         script_env->destroy_object(orphan_id);
       }
+      for (const auto& [object_id, script_id] : preserved_script_objects) {
+        CORE_LOG_DEBUG("Destroying script object with ID {} left unclaimed by the restore (object {}).", script_id, object_id);
+        script_env->destroy_object(script_id);
+      }
+      orphaned_script_objects.clear();
       preserved_script_objects.clear();
     }
+    pending_object_source_id = 0;
   }
 
   void scene::destroy_all_non_root_objects() {
@@ -1007,6 +1023,30 @@ namespace other {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scene::destroy_object");
     storage->tree.destroy_object(id);
+  }
+
+  void scene::rename_object(natural_t id, const std::string_view name) {
+    ASSERT_MAIN_THREAD();
+    PROFILE_SECTION("scene::rename_object");
+    if (name.empty()) {
+      CORE_LOG_ERROR("Cannot rename scene object {}: the name is empty.", id);
+      return;
+    }
+
+    scene_object* object = find_object(id);
+    if (object == nullptr) {
+      CORE_LOG_ERROR("Cannot rename scene object {}: it is not in scene '{}'.", id, this->name);
+      return;
+    }
+    object->name = name;
+
+    /// the script object carries the name as a label; keep the two in step
+    const script_component* script = try_get_component<script_component>(id);
+    if (script != nullptr && script->script_object_id >= 0) {
+      auto* script_env = subsystem<scripting_environment>::get();
+      OTHER_ASSERT(script_env != nullptr, "Scripting environment is not initialized.");
+      script_env->rename_object(script->script_object_id, name);
+    }
   }
 
   bool scene::reparent_object(natural_t id, natural_t new_parent_id) {
@@ -1748,16 +1788,20 @@ namespace other {
     auto* script_env = subsystem<scripting_environment>::get();
     OTHER_ASSERT(script_env != nullptr, "Scripting environment is not initialized.");
 
-    if (preserving_script_objects) {
-      for (auto it = preserved_script_objects.begin(); it != preserved_script_objects.end(); ++it) {
-        script_object* preserved = script_env->get_object(*it);
-        if (preserved != nullptr && preserved->name == script->object->name) {
-          script->script_object_id = *it;
-          script_env->rebind_dotnet_object(*it, (void*)script->object);
-          preserved_script_objects.erase(it);
-          CORE_LOG_DEBUG("Rebound script object with ID {} for scene object '{}' [ID: {}] (entity {})", script->script_object_id, script->object->name, script->object->id, (natural_t)entity);
-          return;
-        }
+    /// consumed by every creation so a stale id can never reach a later object
+    const natural_t source_id = std::exchange(pending_object_source_id, 0);
+    if (preserving_script_objects && source_id != 0) {
+      /// matched on the snapshot record's id, never the name: same-named objects must each
+      ///  get their own instance back
+      if (const auto it = preserved_script_objects.find(source_id); it != preserved_script_objects.end()) {
+        script->script_object_id = it->second;
+        preserved_script_objects.erase(it);
+
+        /// the object may have been renamed during play; the restored name wins
+        script_env->rename_object(script->script_object_id, script->object->name);
+        script_env->rebind_dotnet_object(script->script_object_id, (void*)script->object);
+        CORE_LOG_DEBUG("Rebound script object with ID {} for scene object '{}' [ID: {}] (entity {})", script->script_object_id, script->object->name, script->object->id, (natural_t)entity);
+        return;
       }
     }
 
@@ -1782,9 +1826,16 @@ namespace other {
 
     script_component& script = storage->registry.get<script_component>(entity);
     if (preserving_script_objects && script.script_object_id >= 0) {
-      /// play-stop restore: the managed instance outlives the native rebuild and is
-      ///  reclaimed by name in on_create_script_component
-      preserved_script_objects.push_back(script.script_object_id);
+      /// play-stop restore: the managed instance outlives the native rebuild and is handed back
+      ///  in on_create_script_component. only an object that existed at capture can be reclaimed;
+      ///  a newer generation means the slot was reused by an object created during play
+      const scene_object* object = script.object;
+      const auto captured = object != nullptr ? play_object_generations.find(object->id) : play_object_generations.end();
+      if (captured != play_object_generations.end() && captured->second == object->generation) {
+        preserved_script_objects[object->id] = script.script_object_id;
+      } else {
+        orphaned_script_objects.push_back(script.script_object_id);
+      }
       return;
     }
     script_env->destroy_object(script.script_object_id);

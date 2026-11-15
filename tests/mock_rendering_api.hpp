@@ -74,6 +74,7 @@ namespace other {
     MOCK_METHOD(void, bind_image, (const resource_handle& handle, uint32_t index, uint32_t level, bool layered, int32_t layer, texture::format frmt, access_flags flags), (override));
     MOCK_METHOD(void*, get_texture_gpu_resource, (const resource_handle& handle), (override));
     MOCK_METHOD(void, blit_texture, (const blit_data& src, const blit_data& dest, const glm::ivec3& size), (override));
+    MOCK_METHOD(void, present_texture, (const resource_handle& handle), (override));
 
     MOCK_METHOD(void, bind_buffer_resource, (const resource_handle& handle, gpu_buffer::buf_type type), (override));
     MOCK_METHOD(void, unbind_buffer_resource, (const resource_handle& handle), (override));

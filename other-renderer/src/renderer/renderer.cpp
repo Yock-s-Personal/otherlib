@@ -105,6 +105,12 @@ namespace other {
     }
   }
 
+  void renderer::present_texture(const resource_handle& handle) {
+    ASSERT_MAIN_THREAD();
+    PROFILE_SECTION("renderer::present_texture");
+    rendering()->api()->present_texture(handle);
+  }
+
   void renderer::end_frame() {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("renderer::end_frame");

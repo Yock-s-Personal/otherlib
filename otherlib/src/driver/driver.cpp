@@ -614,12 +614,8 @@ namespace other {
     if (!rendering_enabled()) {
       return;
     }
-    PROFILE_SECTION("driver::render");
-    {
-      PROFILE_SECTION("driver::render--on_render");
-      on_render();
-    }
 
+    PROFILE_SECTION("driver::render");
     if (driver_kernel_ptr->has_core_system<rendering_system>()) {
       driver_kernel_ptr->get_core_system<rendering_system>().render(driver_kernel_ptr.get());
     }

@@ -14,10 +14,10 @@ namespace other {
       return get_other_environment_install_folder();
     }
 
-    static filepath environment_build_root() {
+    static filepath environment_build_root(const filepath& exe_dir) {
       /// dev builds run under <repo>/build/...; walk up from the exe looking for 'build'.
       ///  installed builds have no such ancestor (empty -> install prefix classifies instead)
-      filepath dir = get_current_exe_directory();
+      filepath dir = exe_dir;
       while (!dir.empty() && dir != dir.parent_path()) {
         if (dir.filename() == "build") {
           return dir;
@@ -218,23 +218,47 @@ namespace other {
   }
 
   bool is_environment_owned(const filepath& abs) {
-    static const std::array<filepath, 2> roots = {
-      environment_build_root(),
-      environment_install_prefix(),
-    };
-    return std::ranges::any_of(roots, [&](const filepath& r) { return !r.empty() && try_relative(abs, r).has_value(); });
+    static const std::array<filepath, 2> roots = is_packaged_build() ?
+      std::array<filepath, 2>{ environment_root(), filepath{} } :
+      std::array<filepath, 2>{ environment_build_root(get_current_exe_directory()), environment_install_prefix() };
+    return std::ranges::any_of(roots, [&](const filepath& r) -> bool { return !r.empty() && try_relative(abs, r).has_value(); });
+  }
+
+  bool is_packaged_layout(const filepath& path) {
+    if (path.empty()) {
+      return false;
+    }
+    std::error_code ec;
+    return std::filesystem::is_directory(path / "engine" / "resources", ec);
+  }
+
+  filepath environment_root_for(const filepath& exe) {
+    /// packaged first: a package may sit under a folder named 'build'
+    if (is_packaged_layout(exe)) {
+      return exe / "engine";
+    }
+
+    const filepath build_root = environment_build_root(exe);
+    if (!build_root.empty()) {
+      return build_root.parent_path();
+    }
+    return environment_install_prefix();
   }
 
   filepath environment_root() {
-    const filepath r = environment_build_root();
-    if (!r.empty()) {
-      return r.parent_path();
-    }
-    return get_other_environment_install_folder();
+    static const filepath root = environment_root_for(get_current_exe_directory());
+    return root;
   }
 
   bool is_installed_build() {
-    return environment_build_root().empty();
+    if (is_packaged_build()) {
+      return false;
+    }
+    return environment_build_root(get_current_exe_directory()).empty();
+  }
+
+  bool is_packaged_build() {
+    return is_packaged_layout(get_current_exe_directory());
   }
 
 }  // namespace other

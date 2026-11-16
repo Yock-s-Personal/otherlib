@@ -313,14 +313,16 @@ namespace other {
     CORE_LOG_DEBUG("[script {}] attaching behavior '{}' to object '{}'", parent_id, behavior_name, parent->name);
 
     integer_t behavior_script_id = instantiate_dotnet_behavior(parent, behavior_name);
-    if (behavior_script_id < 0) {
-      return;
-    }
 
+    /// kept with an invalid id when the type is missing (the project assembly failed to build):
+    ///  a saved scene still names the behavior, and the next assembly refresh retries it
     parent->behavior_handles.push_back({
       .type_name = std::string(behavior_name),
       .script_object_id = behavior_script_id,
     });
+    if (behavior_script_id < 0) {
+      return;
+    }
 
     CORE_LOG_DEBUG("[script {}] behavior '{}' attached with script_object ID {}", parent_id, behavior_name, behavior_script_id);
   }

@@ -180,6 +180,9 @@ namespace other {
     inline mode get_current_mode() const {
       return current_mode;
     }
+    inline exit_code get_exit_code() const {
+      return process_exit_code;
+    }
 
     inline void queue_project_load(const filepath& project_file) {
       std::lock_guard lock(runtime_state.mutex);
@@ -309,7 +312,8 @@ namespace other {
     running_state runtime_state;
     shutdown_state shutdown_state;
 
-    exit_code result = exit_code::SUCCESS;
+    /// what the process returns; only request_failure_shutdown changes it
+    exit_code process_exit_code = exit_code::SUCCESS;
 
     config_table config;
     command_line cmd_line;

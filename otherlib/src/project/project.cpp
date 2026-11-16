@@ -46,6 +46,7 @@ namespace other {
     OTHER_ASSERT(fs != nullptr, "file_system subsystem is not available.");
 
     load_errors.clear();
+    script_project_failure.reset();
 
     /// the project root mount anchors every canonical virtual path (=> stable_id) the
     //  resolver produces; it must exist before anything under it is registered or virtualized
@@ -109,9 +110,9 @@ namespace other {
     waiting_for_script_load = process_scripting_sections(table, kernel);
     if (waiting_for_script_load &&
         (project_scripts.csproject_path.empty() || !std::filesystem::exists(project_scripts.csproject_path))) {
-      CORE_LOG_ERROR("Project's .NET project file '{}' does not exist. Cannot load project scripts.", project_scripts.csproject_path.string());
       waiting_for_script_load = false;
-      project_scripts.csproject_path.clear();
+      /// never resolved, so no asset plan covers it and a rebuild would have nothing to start
+      drop_script_project("C# project file does not exist", {}, false);
     }
 
     has_script_project = !project_scripts.csproject_path.empty();
@@ -282,12 +283,21 @@ namespace other {
   }
 
   bool project::refresh_built_script(const filepath& script_asset_path) {
-    if (script_asset_path.extension() != ".dll" || script_asset_path != project_scripts.cs_script_source) {
+    if (script_asset_path.extension() != ".dll") {
+      return false;
+    }
+
+    /// scripts dropped at load never recorded a source; the csproj's own assembly mounts
+    ///  here the first time a rebuild gets through
+    const bool first_mount = script_project_failure.has_value() && script_project_failure->can_retry &&
+      project_scripts.cs_script_source.empty() && script_asset_path.stem() == script_project_failure->csproj_path.stem();
+    if (!first_mount && script_asset_path != project_scripts.cs_script_source) {
       return false;
     }
 
     CORE_LOG_INFO("[PROJECT] Assembly refresh: reattaching '{}'", script_asset_path.string());
     attach_project_dll(script_asset_path);
+    clear_script_failure();
     return true;
   }
 
@@ -336,11 +346,47 @@ namespace other {
     all_scenes_loaded = std::ranges::all_of(scenes_in_project, &scene::scene_loaded);
   }
 
-  void project::drop_script_project(const std::string_view reason) {
+  void project::drop_script_project(const std::string_view reason, const std::string_view details, bool can_retry) {
     CORE_LOG_ERROR("[PROJECT] Dropping script project '{}': {}", project_scripts.csproject_path.string(), reason);
     load_errors.push_back({ .subject = project_scripts.csproject_path.string(), .message = std::string{ reason } });
+    script_project_failure = script_failure{
+      .csproj_path = project_scripts.csproject_path,
+      .reason = std::string{ reason },
+      .details = std::string{ details },
+      .can_retry = can_retry,
+    };
     project_scripts.csproject_path.clear();
     has_script_project = false;
+  }
+
+  void project::record_script_failure(const std::string_view reason, const std::string_view details) {
+    CORE_LOG_ERROR("[PROJECT] Script project '{}' failed: {}", script_project_path().string(), reason);
+    /// a dropped project keeps its record: the path and the retry flag still hold
+    if (!script_project_failure.has_value()) {
+      script_project_failure = script_failure{ .csproj_path = project_scripts.csproject_path };
+    }
+    script_project_failure->reason = reason;
+    script_project_failure->details = details;
+  }
+
+  filepath project::script_project_path() const {
+    return script_project_failure.has_value() ?
+      script_project_failure->csproj_path :
+      project_scripts.csproject_path;
+  }
+
+  void project::clear_script_failure() {
+    if (!script_project_failure.has_value()) {
+      return;
+    }
+
+    /// the load error a drop left behind is resolved too
+    const std::string subject = script_project_failure->csproj_path.string();
+    std::erase_if(load_errors, [&subject](const load_error& e) -> bool { return e.subject == subject; });
+
+    project_scripts.csproject_path = script_project_failure->csproj_path;
+    has_script_project = !project_scripts.csproject_path.empty();
+    script_project_failure.reset();
   }
 
   void project::attach_project_dll(const filepath& dll_path) {

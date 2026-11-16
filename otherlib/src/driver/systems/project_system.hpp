@@ -41,6 +41,15 @@ namespace other {
 
     void handle_project_event(driver_kernel* kernel, const project_event_data& data);
 
+    /// rebuilds the C# project on the next tick; callers are usually mid-frame in a ui window
+    void request_script_rebuild();
+    /// a build of the csproj is requested or in flight
+    bool script_project_building();
+
+    inline const opt<filepath>& get_project_file() const {
+      return last_loaded_project_file;
+    }
+
     inline project& get_project() {
       OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
       return *loaded_project;
@@ -51,12 +60,15 @@ namespace other {
 
     opt<filepath> next_project_file_to_load;
     opt<filepath> last_loaded_project_file;
+    bool config_project_attempted = false;
+    bool script_rebuild_requested = false;
     scope<project> loaded_project = nullptr;
 
     /// asset ids from scene.asset-load-failed; their scenes are dropped on the next tick
     ostd::vector<natural_t> failed_scene_assets;
 
     void drop_failed_scenes(driver_kernel* kernel);
+    void rebuild_script_project(driver_kernel* kernel);
 
     void handle_new_project(driver_kernel* kernel, const value& data);
     void handle_open_project(driver_kernel* kernel, const value& data);

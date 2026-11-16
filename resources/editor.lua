@@ -27,6 +27,7 @@ Other:Driver():OpenWindow("viewport")
 Other:Driver():OpenWindow("scene-hierarchy")
 Other:Driver():OpenWindow("object-editor")
 Other:Driver():OpenWindow("scene-graph-editor")
+Other:Driver():OpenWindow("project-overview")
 -- Other:Driver():OpenWindow("render-pipeline-editor")
 
 -- Other:Console():RegisterConsoleCommand("testcmd", "A test command that prints its arguments", function(...)

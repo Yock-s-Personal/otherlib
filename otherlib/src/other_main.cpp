@@ -36,7 +36,7 @@ exit_code other_main(const command_line& cmd, const config_table& config, const 
 
     try {
       driver_instance->run();
-      res = exit_code::SUCCESS;
+      res = driver_instance->get_exit_code();
     } catch (const other::buffer_parsing_error& e) {
       CORE_LOG_ERROR("A buffer was corrupted. [Arena inspection unimplemented]");
       CORE_LOG_ERROR("Buffer parsing error: {}", e.what());

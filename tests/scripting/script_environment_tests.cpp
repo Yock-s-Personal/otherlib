@@ -267,6 +267,46 @@ namespace other {
     env->destroy_object(parent_id);
   }
 
+  /// a missing type (the project assembly failed to build) leaves an invalid handle, not
+  ///  nothing: scene capture reads behavior names from the handles, so dropping it would
+  ///  erase the behavior from the next saved scene
+  TEST_F(script_environment_tests, behavior_with_missing_type_keeps_an_invalid_handle) {
+    auto* env = subsystem<scripting_environment>::get();
+    ASSERT_NE(env, nullptr);
+
+    const integer_t parent_id = env->create_object("MissingTypeParent");
+    ASSERT_GE(parent_id, 0);
+    env->attach_dotnet_object(parent_id, "TestParentObject");
+    script_object* parent = env->get_object(parent_id);
+    ASSERT_NE(parent, nullptr);
+    ASSERT_NE(parent->dotnet_object, nullptr);
+
+    env->attach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
+    ASSERT_EQ(parent->behavior_handles.size(), 1u);
+    EXPECT_EQ(parent->behavior_handles[0].type_name, "NoSuchBehaviorType");
+    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+    EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 0);
+
+    /// attach stays idempotent per type, and a refresh that still lacks the type changes nothing
+    env->attach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
+    EXPECT_EQ(parent->behavior_handles.size(), 1u);
+    env->reattach_invalidated_dotnet_behaviors();
+    ASSERT_EQ(parent->behavior_handles.size(), 1u);
+    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+
+    /// a type that exists attaches beside it and the unresolved one can still be removed
+    env->attach_dotnet_behavior(parent_id, "TestBehavior");
+    ASSERT_EQ(parent->behavior_handles.size(), 2u);
+    EXPECT_GE(parent->behavior_handles[1].script_object_id, 0);
+
+    env->detach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
+    ASSERT_EQ(parent->behavior_handles.size(), 1u);
+    EXPECT_EQ(parent->behavior_handles[0].type_name, "TestBehavior");
+    EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 1);
+
+    env->destroy_object(parent_id);
+  }
+
   /// a name is a label: renaming updates it everywhere without replacing the managed object
   TEST_F(script_environment_tests, rename_updates_object_and_behavior_labels) {
     auto* env = subsystem<scripting_environment>::get();

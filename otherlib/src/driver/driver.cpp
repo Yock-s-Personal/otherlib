@@ -254,6 +254,10 @@ namespace other {
   }
 
   void driver::request_failure_shutdown(const std::string_view reason) {
+    CORE_LOG_ERROR("Fatal: {}", reason);
+    /// set before the request: a shutdown already under way must still exit non-zero
+    process_exit_code = exit_code::FAILURE;
+    request_shutdown();
   }
 
   void driver::request_shutdown() {

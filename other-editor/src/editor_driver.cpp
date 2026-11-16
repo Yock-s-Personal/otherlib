@@ -24,6 +24,7 @@
 #include "ui/menu-bar/menu_item.hpp"
 #include "ui/object-editor/object_editor.hpp"
 #include "ui/project-creator/project_creator.hpp"
+#include "ui/project-overview/project_overview.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
 #include "ui/scene-graph-editor/scene_graph_editor.hpp"
@@ -42,6 +43,7 @@ namespace other {
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
     ui->register_window<ui::scene_graph_editor>("scene-graph-editor", context, *get_event_system(), this);
+    ui->register_window<ui::project_overview>("project-overview", *get_event_system(), this);
   }
 
   void editor_driver::on_initialize() {

@@ -95,8 +95,10 @@ namespace other {
   void project_system::tick(driver_kernel* kernel, double dt) {
     PROFILE_SECTION("project_system::tick");
     const auto& config = get_driver().configuration();
+    /// tried once: a hard failure leaves the project empty, which would reload it every tick
     if (get_driver().current_driver_state() == driver_state::DRIVER_STATE_RUNNING &&
-        loaded_project->is_empty() && config.project_file.has_value()) {
+        !config_project_attempted && loaded_project->is_empty() && config.project_file.has_value()) {
+      config_project_attempted = true;
       filepath project_file = *config.project_file;
       load_project(kernel, project_file);
     }
@@ -113,33 +115,21 @@ namespace other {
       if (finished_loading) {
         loaded_project->set_state(project::state::LOADED);
         get_driver().trigger_event("project.loaded");
-      } else if (loaded_project->did_scene_graph_error_occurred() || loaded_project->did_script_project_error_occurred()) {
-        CORE_LOG_ERROR("Failed to load project due to scene graph or script project load error. Unloading project.");
-        loaded_project->set_state(project::state::LOAD_FAILED);
       }
+    }
 
-      // if load failed we clean up what we need to
-      if (get_driver().current_driver_state() == driver_state::DRIVER_STATE_RUNNING &&
-          loaded_project->load_failed()) {
-        auto& assets = kernel->get_core_system<asset_system>();
-        auto& scenes = kernel->get_core_system<scene_system>();
-        auto& project_scene_graph = scenes.get_scene_graph();
+    /// hard failures only (unparseable project file): soft ones drop their item and the load
+    ///  carries on. nothing was resolved yet, so there are no assets to unload
+    if (get_driver().current_driver_state() == driver_state::DRIVER_STATE_RUNNING &&
+        loaded_project->load_failed()) {
+      CORE_LOG_ERROR("Failed to load project '{}'.", last_loaded_project_file.value_or(filepath{}).string());
+      loaded_project->fail_load();
+      get_driver().trigger_event("project.load-failed");
+    }
 
-        for (auto& data : loaded_project->get_scenes()) {
-          natural_t id = data.scene_id;
-
-          scene* s = project_scene_graph.find_scene(id);
-          if (s == nullptr) {
-            CORE_LOG_WARN("Scene with ID '{}' not found in project scene graph.", id);
-            continue;
-          }
-
-          assets.begin_asset_unload(s->asset_id);
-        }
-
-        loaded_project->fail_load();
-        get_driver().trigger_event("project.load-failed");
-      }
+    if (script_rebuild_requested && get_driver().current_driver_state() == driver_state::DRIVER_STATE_RUNNING) {
+      script_rebuild_requested = false;
+      rebuild_script_project(kernel);
     }
 
     if (get_driver().current_driver_state() == driver_state::DRIVER_STATE_SHUTTING_DOWN &&
@@ -193,6 +183,63 @@ namespace other {
 
   void project_system::generate_project_at(driver_kernel* kernel, const filepath& directory) {
     OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
+  }
+
+  void project_system::request_script_rebuild() {
+    script_rebuild_requested = true;
+  }
+
+  bool project_system::script_project_building() {
+    OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
+    if (script_rebuild_requested) {
+      return true;
+    }
+
+    /// the asset layer keys on the path string, and the project file may spell it with '/'
+    filepath csproj = loaded_project->script_project_path();
+    if (csproj.empty()) {
+      return false;
+    }
+    csproj.make_preferred();
+
+    /// asked of the asset layer, not tracked here: a saved source file starts builds too
+    auto& assets = sibling<asset_system>(get_driver().get_kernel());
+    const natural_t asset_id = assets.get_asset_id_from_path(csproj);
+    if (asset_id == 0) {
+      return false;
+    }
+
+    const auto state = static_cast<asset_state>(assets.get_asset_state(asset_id));
+    return state != asset_state::LOADED && state != asset_state::UNLOADED && state != asset_state::ERROR_STATE;
+  }
+
+  void project_system::rebuild_script_project(driver_kernel* kernel) {
+    OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
+    PROFILE_SECTION("project_system::rebuild_script_project");
+    if (!loaded_project->is_loaded()) {
+      CORE_LOG_WARN("Cannot rebuild the C# project while the project is in state {}.", loaded_project->get_state());
+      return;
+    }
+
+    const opt<script_failure>& failure = loaded_project->get_script_failure();
+    if (failure.has_value() && !failure->can_retry) {
+      CORE_LOG_WARN("C# project '{}' was not part of this project load; reopen the project to pick it up.", failure->csproj_path.string());
+      return;
+    }
+
+    const filepath csproj = loaded_project->script_project_path();
+    if (csproj.empty()) {
+      CORE_LOG_WARN("Project has no C# project to rebuild.");
+      return;
+    }
+    if (!std::filesystem::exists(csproj)) {
+      loaded_project->record_script_failure("C# project file does not exist", csproj.string());
+      return;
+    }
+
+    /// the path a saved source file takes: the plan rebuilds the csproj, then reloads its assembly
+    CORE_LOG_INFO("Rebuilding C# project '{}'", csproj.string());
+    sibling<asset_system>(*kernel).file_changed(csproj);
   }
 
   void project_system::drop_failed_scenes(driver_kernel* kernel) {
@@ -366,20 +413,33 @@ namespace other {
     PROFILE_SECTION("project_system::handle_script_project_load_failed");
 
     CORE_LOG_DEBUG("Script project load failed. Project state: {}", loaded_project->get_state());
-    if (loaded_project->is_loading()) {
-      loaded_project->error_building_script_project();
-
-      natural_t asset_id = data;
-      opt<filepath> script = sibling<asset_system>(*kernel).get_local_asset_path(asset_id);
-      if (!script.has_value()) {
-        CORE_LOG_ERROR("Failed to get local asset path for script project asset with ID: {} that failed to load", asset_id);
-        return;
-      }
-
-      CORE_LOG_ERROR("Failed to load script project asset with ID: {} at path '{}'", asset_id, script.value().string());
-    } else {
+    if (!loaded_project->is_loading() && !loaded_project->is_loaded()) {
       CORE_LOG_WARN("Unimplemented handling of script project asset load failed event in project for project state {}", loaded_project->get_state());
+      return;
     }
+
+    natural_t asset_id = data;
+    opt<filepath> script = sibling<asset_system>(*kernel).get_local_asset_path(asset_id);
+
+    /// id 0 is a csproj the plan never built because something it depends on failed
+    const bool build_ran = asset_id != 0 && script.has_value();
+    const std::string_view reason = build_ran ? "C# project failed to build" : "a dependency of the C# project failed to load";
+    const std::string details = build_ran ? project_tool::read_build_log(*script) : std::string{};
+
+    if (loaded_project->is_loading() && loaded_project->expects_script_project()) {
+      loaded_project->drop_script_project(reason, details);
+    } else if (build_ran || !loaded_project->get_script_failure().has_value()) {
+      /// already dropped, or past load (hot reload, a requested rebuild): there is nothing new to
+      ///  drop. an event with no build behind it never replaces what a build reported
+      loaded_project->record_script_failure(reason, details);
+    }
+
+    if (!script.has_value()) {
+      CORE_LOG_ERROR("Failed to get local asset path for script project asset with ID: {} that failed to load", asset_id);
+      return;
+    }
+
+    CORE_LOG_ERROR("Failed to load script project asset with ID: {} at path '{}'", asset_id, script.value().string());
   }
 
   void project_system::handle_script_source_loaded(driver_kernel* kernel, const value& data) {
@@ -416,6 +476,23 @@ namespace other {
     PROFILE_SECTION("project_system::handle_script_source_load_failed");
     natural_t asset_id = data;
     CORE_LOG_ERROR("Failed to load script source asset with ID: {}", asset_id);
+
+    /// id 0 is a slot the plan never dispatched: the csproj failed and its own event reports
+    ///  it. a real id is an assembly that built but would not load, which never mounts
+    if (asset_id == 0) {
+      return;
+    }
+
+    const opt<filepath> assembly = sibling<asset_system>(*kernel).get_local_asset_path(asset_id);
+    const std::string_view reason = "the built assembly failed to load";
+    const std::string details = assembly.has_value() ? std::format("Could not load '{}'. The editor log has the loader's error.", assembly->string()) : std::string{};
+
+    if (loaded_project->is_loading() && loaded_project->expects_script_project()) {
+      loaded_project->drop_script_project(reason, details);
+    } else if (loaded_project->is_loaded() && assembly.has_value() && assembly->stem() == loaded_project->script_project_path().stem()) {
+      /// the csproj's own assembly only: other script sources can load, and fail, after the project has
+      loaded_project->record_script_failure(reason, details);
+    }
   }
 
   void project_system::handle_script_source_unloaded(driver_kernel* kernel, const value& data) {

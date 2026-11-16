@@ -31,6 +31,16 @@ namespace other {
     std::string message;
   };
 
+  /// why the C# project is not running its current sources; kept until a build gets through
+  struct script_failure {
+    filepath csproj_path;
+    std::string reason;
+    /// msbuild errors when a build failed, otherwise whatever else is known
+    std::string details;
+    /// false when the csproj was never resolved, so no asset plan can rebuild it
+    bool can_retry = true;
+  };
+
   class project {
    public:
     enum state {
@@ -89,15 +99,16 @@ namespace other {
     void remove_loaded_scene(natural_t scene_id);
 
     void drop_scene(natural_t scene_id, const std::string_view reason);
-    void drop_script_project(const std::string_view reason);
+    void drop_script_project(const std::string_view reason, const std::string_view details = {}, bool can_retry = true);
+    /// a build failed without dropping anything: whatever assembly is mounted stays mounted
+    void record_script_failure(const std::string_view reason, const std::string_view details);
 
     const std::string& get_project_name() const { return project_metadata.name; }
+    inline const metadata& get_metadata() const { return project_metadata; }
 
-    inline void error_building_script_project() { able_to_load_script_project = false; }
-    inline bool did_script_project_error_occurred() const { return !able_to_load_script_project; }
-
-    inline void error_building_scene_graph() { able_to_load_scene_graph = false; }
-    inline bool did_scene_graph_error_occurred() const { return !able_to_load_scene_graph; }
+    /// the csproj a rebuild would build: the mounted one, or the one that failed
+    filepath script_project_path() const;
+    inline const opt<script_failure>& get_script_failure() const { return script_project_failure; }
 
     inline const filepath& get_project_rc_path() const { return rc_path; }
     inline const filepath get_csproj_path() const { return project_scripts.csproject_path; }
@@ -154,10 +165,11 @@ namespace other {
 
     // assume there is one since that is default during project creation
     bool has_script_project = true;
-    bool able_to_load_script_project = true;
-    bool able_to_load_scene_graph = true;
 
     ostd::vector<load_error> load_errors;
+    opt<script_failure> script_project_failure;
+
+    void clear_script_failure();
 
     void attach_project_dll(const filepath& dll_path);
     void attach_project_cs_file(const filepath& cs_file);

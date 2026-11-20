@@ -1,0 +1,25 @@
+[driver]
+boot-file = "resources/editor-assets/editor-boot.oasm"
+plugins = []
+
+[application]
+name = "Other Runtime"
+core-log-level = "info"
+core-log-file = "logs/runtime.log"
+auto-play-loaded-scenes = true
+
+[filesystem]
+watch-assets = false
+
+[rendering]
+main-pipeline = "default-instancing"
+pipelines = [ "resources/editor-assets/default-pipeline.toml" ]
+
+[ui]
+enable = false
+
+[scripting]
+dotnet-runtime-config = "other-csharp-interop/resources/OtherCsBindings.runtimeconfig.json"
+dotnet-bindings = "build/other-csharp/${build-config}/OtherCsBindings.dll"
+other-csharp = "build/other-csharp/${build-config}/OtherCs.dll"
+other-lua-directory = "other-lua-interop"

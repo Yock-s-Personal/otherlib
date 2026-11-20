@@ -6,9 +6,10 @@
 #include <array>
 #include <vector>
 
+#include "core/profiler.hpp"
+
 #include "cli/process.hpp"
 #include "cli/tools/dev_common.hpp"
-#include "core/profiler.hpp"
 
 namespace other {
   namespace cli {
@@ -22,6 +23,7 @@ namespace other {
 
   drivers:
     editor    the Other Environment editor (default)
+    runtime   the Other Environment runtime
     server    the Other Environment server
     scratch   the gl-testing scratch driver
 
@@ -44,12 +46,14 @@ namespace other {
       const driver_spec* find_driver(std::string_view name) {
         /// the server resolves its config relative to --cwd, so its config file path
         ///  stays bare while everything else points into resources/
-        static const std::array<driver_spec, 3> kDrivers = { {
-          { .name = "editor", .output_dir = "other-editor", .executable = "other_editor", .config_file = "resources/editor-config.toml" },
-          { .name = "server", .output_dir = "other-server", .executable = "other_server", .config_file = "server-config.toml",
-            .extra_args = { "--cwd", "other-server" } },
-          { .name = "scratch", .output_dir = "scratch", .executable = "gl-testing", .config_file = "resources/gl-test-config.toml" },
-        } };
+        static const std::array<driver_spec, 4> kDrivers = {
+          {
+            { .name = "editor", .output_dir = "other-editor", .executable = "other_editor", .config_file = "resources/editor-config.toml" },
+            { .name = "runtime", .output_dir = "other-runtime", .executable = "other_runtime", .config_file = "resources/runtime-config.toml" },
+            { .name = "server", .output_dir = "other-server", .executable = "other_server", .config_file = "server-config.toml", .extra_args = { "--cwd", "other-server" } },
+            { .name = "scratch", .output_dir = "scratch", .executable = "gl-testing", .config_file = "resources/gl-test-config.toml" },
+          }
+        };
 
         for (const driver_spec& spec : kDrivers) {
           if (spec.name == name) {
@@ -111,9 +115,9 @@ namespace other {
       const filepath executable = find_built_executable(ctx.env, spec->output_dir, spec->executable, options.config, resolved_config);
       if (executable.empty()) {
         return tool_result::error(std::format("no{} {} build found under 'build/{}' (build one with: build{})",
-          options.config.has_value() ? std::format(" {}", options.config.value()) : "",
-          spec->executable, spec->output_dir,
-          options.config.has_value() ? std::format(" --config {}", options.config.value()) : ""));
+                                              options.config.has_value() ? std::format(" {}", options.config.value()) : "",
+                                              spec->executable, spec->output_dir,
+                                              options.config.has_value() ? std::format(" --config {}", options.config.value()) : ""));
       }
 
       std::vector<std::string> driver_args = { std::string{ spec->config_file } };

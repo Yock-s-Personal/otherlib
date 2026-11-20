@@ -876,7 +876,7 @@ namespace other {
 
     const glm::ivec2 size = tex_itr->second.get_size();
     glNamedFramebufferTexture(present_framebuffer, GL_COLOR_ATTACHMENT0, gpu_itr->second, 0);
-    glBlitFramebuffer(0, 0, size.x, size.y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+    glBlitNamedFramebuffer(present_framebuffer, 0, 0, 0, size.x, size.y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     CHECKGL();
   }
 

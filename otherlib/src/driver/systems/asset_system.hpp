@@ -72,6 +72,10 @@ namespace other {
     double watch_interval = 0.25;
     double watch_accumulator = 0.0;
 
+    /// set by begin_full_unload; the all-assets-unloaded event is owed once it has drained
+    bool full_unload_requested = false;
+    bool full_unload_confirmed = false;
+
     void mount_mounts(driver_kernel* kernel);
     void push_watch_filters();
 

@@ -7,8 +7,9 @@
 #include <filesystem>
 #include <vector>
 
-#include "cli/tools/dev_common.hpp"
 #include "core/profiler.hpp"
+
+#include "cli/tools/dev_common.hpp"
 
 namespace other {
   namespace cli {
@@ -48,8 +49,9 @@ namespace other {
 
         /// every directory that holds a runnable build output; plugin outputs (spacesim,
         ///  test-project, ...) load inside the editor process and need no copies
-        const std::array<filepath, 7> output_dirs = {
+        const std::array output_dirs = {
           root / "build" / "other-editor",
+          root / "build" / "other-runtime",
           root / "build" / "other-server",
           root / "build" / "other-cli",
           root / "build" / "other-cli" / "user",
@@ -166,7 +168,7 @@ namespace other {
         }
 
         const tool_result configured = run_attached(ctx,
-          { .executable = cmake.value(), .arguments = configure_args, .working_directory = root }, options.dry_run);
+                                                    { .executable = cmake.value(), .arguments = configure_args, .working_directory = root }, options.dry_run);
         if (!configured.success()) {
           return tool_result::error(std::format("cmake project generation failed (exit {})", configured.code));
         }
@@ -181,7 +183,7 @@ namespace other {
       sidestep_running_executable(ctx, build_dir, "build", options.dry_run);
 
       const tool_result built = run_attached(ctx,
-        { .executable = cmake.value(), .arguments = build_args, .working_directory = root }, options.dry_run);
+                                             { .executable = cmake.value(), .arguments = build_args, .working_directory = root }, options.dry_run);
       if (!built.success()) {
         return { .code = built.code, .message = std::format("build failed (exit {})", built.code) };
       }
@@ -191,7 +193,7 @@ namespace other {
         return tool_result::ok("dry run only, nothing built");
       }
       return tool_result::ok(std::format("built Other Environment [{}]{}", config,
-        target.has_value() ? std::format(" (target {})", target.value()) : ""));
+                                         target.has_value() ? std::format(" (target {})", target.value()) : ""));
     }
 
   }  // namespace cli

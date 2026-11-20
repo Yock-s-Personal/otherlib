@@ -53,6 +53,7 @@ namespace other {
     void close_window(const std::string_view window_name);
     void close_all_windows();
     bool is_window_open(const std::string_view window_name) const;
+    bool any_window_open() const;
 
     void register_main_menu_bar_menu(const std::string_view menu_name);
     void register_main_menu_bar_menu(const ui::menu& menu);

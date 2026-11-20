@@ -191,6 +191,10 @@ namespace other {
     project_file_handle = nullptr;
     file_buffer.release();
 
+    /// before the unmount: a load still in flight would otherwise dispatch its parent through
+    ///  a virtual path under the mount that is about to go
+    system->cancel_asset_plan();
+
     /// unmounting the project root also drops its domain watcher, so no re_resolve
     //  can arrive between project close and the next resolve_roots
     if (!project_mount_name.empty()) {
@@ -307,10 +311,13 @@ namespace other {
     CORE_LOG_DEBUG("[PROJECT] Adding loaded scene with ID '{}'.", scene_id);
 
     it->scene_id = scene_id;
-    it->scene_loaded = true;
-    it->incoming_scenes.clear();
-    it->outgoing_scenes.clear();
-    all_scenes_loaded = std::ranges::all_of(scenes_in_project, [](const scene& s) { return s.incoming_scenes.empty() && s.outgoing_scenes.empty(); });
+    /// two entries can name one scene file, and the scene graph loads it once for both
+    for (scene& entry : scenes_in_project) {
+      if (entry.scene_id == scene_id) {
+        entry.scene_loaded = true;
+      }
+    }
+    all_scenes_loaded = std::ranges::all_of(scenes_in_project, &scene::scene_loaded);
     all_scenes_unloaded = false;
     CORE_LOG_DEBUG(" - scene loaded. all_scenes_loaded: {}", all_scenes_loaded);
   }

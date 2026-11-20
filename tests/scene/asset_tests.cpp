@@ -657,6 +657,84 @@ worker_count = {}
     handler = nullptr;
   }
 
+  /// a full unload (driver shutdown) that begins mid-load must take the in-flight asset
+  ///  down too; it used to finish into the loaded set after the pass and all_assets_unloaded
+  ///  never came true
+  TEST_F(asset_tests, full_unload_during_load_still_reaches_all_unloaded) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_for_model_uploads(events, 1);
+
+    filepath test_file_path = "tests/resources/models/suzanne3.fbx";
+    ASSERT_TRUE(std::filesystem::exists(test_file_path));
+
+    const natural_t asset_id = handler->load_asset(test_file_path);
+    ASSERT_NE(asset_id, 0);
+    ASSERT_EQ(handler->get_asset_state(asset_id), asset_state::LOADING);
+
+    handler->begin_unload();
+    EXPECT_EQ(handler->get_num_pending_unloads(), 1);
+    EXPECT_FALSE(handler->all_assets_unloaded());
+
+    pump_until(io_context, jobs, *handler, [&] { return handler->all_assets_unloaded(); });
+    EXPECT_EQ(handler->get_num_pending_unloads(), 0);
+    EXPECT_EQ(handler->get_num_loaded_assets(), 0);
+
+    handler = nullptr;
+  }
+
+  /// a project that resets mid-load unmounts its root while the plan is live. once cancelled,
+  ///  children still finish but their parent is never dispatched; it used to be dispatched
+  ///  through a virtual path under the mount that had just gone
+  TEST_F(asset_tests, cancelled_plan_dispatches_no_parent) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_and_expect_no_resource_creation(events);
+
+    const filepath project_root = std::filesystem::temp_directory_path() / "other-asset-tests" / "cancel-proj";
+    std::filesystem::remove_all(project_root.parent_path());
+    std::filesystem::create_directories(project_root / "scripts");
+    const filepath csproj = project_root / "CancelProj.csproj";
+    std::ofstream(csproj) << "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Library</OutputType>\n  </PropertyGroup>\n</Project>";
+    std::ofstream(project_root / "scripts" / "a.cs") << "class A {}";
+    std::ofstream(project_root / "scripts" / "b.cs") << "class B {}";
+
+    auto* fs = subsystem<file_system>::get();
+    ASSERT_NE(fs, nullptr);
+    ASSERT_NE(fs->mount_directory("cancelproj", project_root, mount_scope::PROJECT), nullptr);
+
+    /// the two sources go out at once; the csproj waits on both, its assembly on the csproj
+    const std::array roots{ csproj };
+    handler->resolve_roots(roots);
+    ASSERT_EQ(handler->get_num_loading_assets(), 2u);
+
+    handler->cancel_plan();
+    pump_until(io_context, jobs, *handler, [&] { return handler->get_num_loading_assets() == 0; });
+
+    EXPECT_EQ(handler->get_num_loaded_assets(), 2u);
+    EXPECT_EQ(handler->get_asset_id_from_path(csproj), 0u) << "the csproj was dispatched after the plan was cancelled";
+
+    handler->begin_unload();
+    pump_until(io_context, jobs, *handler, [&] { return handler->all_assets_unloaded(); });
+
+    handler = nullptr;
+    fs->unmount("cancelproj");
+    std::error_code ec;
+    std::filesystem::remove_all(project_root.parent_path(), ec);
+  }
+
   /// asset machinery + the script environment: prepare_render_data tests need live scenes
   ///  (script_component hooks) AND models loaded through the real pipeline
   class animation_draw_tests : public asset_tests {

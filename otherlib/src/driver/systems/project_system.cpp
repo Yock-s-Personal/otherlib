@@ -185,6 +185,10 @@ namespace other {
     OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
   }
 
+  void project_system::cancel_asset_plan() {
+    sibling<asset_system>(get_driver().get_kernel()).cancel_load_plan();
+  }
+
   void project_system::request_script_rebuild() {
     script_rebuild_requested = true;
   }

@@ -130,6 +130,11 @@ namespace other {
     push_watch_filters();
   }
 
+  void asset_system::cancel_load_plan() {
+    OTHER_ASSERT(asset_mgr != nullptr, "Asset manager is not initialized in driver.");
+    asset_mgr->cancel_plan();
+  }
+
   natural_t asset_system::begin_asset_load(const filepath& asset_path) {
     OTHER_ASSERT(asset_mgr != nullptr, "Asset manager is not initialized in driver.");
     PROFILE_SECTION("asset_system::begin_asset_load");

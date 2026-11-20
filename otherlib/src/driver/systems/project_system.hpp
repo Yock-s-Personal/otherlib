@@ -69,6 +69,7 @@ namespace other {
 
     void drop_failed_scenes(driver_kernel* kernel);
     void rebuild_script_project(driver_kernel* kernel);
+    void cancel_asset_plan();
 
     void handle_new_project(driver_kernel* kernel, const value& data);
     void handle_open_project(driver_kernel* kernel, const value& data);

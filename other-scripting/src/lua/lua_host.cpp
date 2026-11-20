@@ -3,14 +3,15 @@
  **/
 #include "lua/lua_host.hpp"
 
+#include <sol/load_result.hpp>
+
 #include "core/defines.hpp"
+#include "core/fnv.hpp"
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
+#include "file/path_helpers.hpp"
 
 #include "lua/lua_script.hpp"
-#include "script/scripting_environment.hpp"
-
-#include "sol/load_result.hpp"
 
 namespace other {
 
@@ -71,7 +72,7 @@ namespace other {
     PROFILE_SECTION("lua_host::load_host");
     lua_state.open_libraries(sol::lib::base, sol::lib::package, sol::lib::string, sol::lib::math, sol::lib::table, sol::lib::io, sol::lib::os, sol::lib::debug);
 
-    filepath default_path = std::format("{}/lua", get_other_environment_install_folder().string());
+    filepath default_path = environment_root() / "lua";
     filepath script_dir = config.get_value<std::string>("scripting.other-lua-directory", default_path.string());
     CORE_LOG_DEBUG("Lua script directory from config: '{}'", script_dir.string());
     if (!std::filesystem::exists(script_dir)) {

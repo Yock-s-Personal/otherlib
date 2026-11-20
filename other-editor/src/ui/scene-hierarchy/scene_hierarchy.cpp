@@ -158,7 +158,7 @@ namespace other {
           ImGui::SetKeyboardFocusHere();
         }
         if (ImGui::InputText("##rename_input", rename_buf, sizeof(rename_buf), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll)) {
-          obj->name = std::string(rename_buf);
+          active_scene->rename_object(obj->id, rename_buf);
           editor_ctx.notify_scene_edited();
           renaming_object_id = 0;
           ImGui::CloseCurrentPopup();

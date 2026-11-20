@@ -43,7 +43,6 @@ namespace other {
     glm::vec4 color;
   };
 
-
   /// per-instance tint multipliers for one draw, folded into the packed base_color at bind time
   struct draw_instance_tints {
     glm::vec4 tints[gpu::kMaxMaterials];
@@ -108,6 +107,7 @@ namespace other {
     void bind_frame_bindings(const render_data& data);
     void clear(framebuffer::clear_mask_bit clear_flags, const glm::vec4& clear_color = glm::vec4(0.0f), float clear_depth = 1.0f, uint32_t clear_stencil = 0);
     void render(std::span<viewport> viewports);
+    void present_texture(const resource_handle& handle);
     void end_frame();
 
     /// emitters over renderer-owned draw streams, valid any time in the frame (incl. script ticks);

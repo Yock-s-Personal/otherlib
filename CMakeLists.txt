@@ -220,6 +220,7 @@ add_subdirectory(other-cli)
 add_subdirectory(otherlib)
 
 add_subdirectory(other-editor)
+add_subdirectory(other-runtime)
 add_subdirectory(other-server)
 
 add_subdirectory(script-testing)

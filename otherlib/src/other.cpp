@@ -152,6 +152,20 @@ namespace other {
       }
     }
 
+    if (cmd.config_file.empty()) {
+      if (const opt<filepath> adj = find_exe_adjacent_config(get_current_exe_full_path()); adj.has_value()) {
+        cmd.config_file = adj->string();
+        if (!cmd.working_directory.has_value()) {
+          std::error_code ec;
+          std::filesystem::current_path(adj->parent_path(), ec);
+          if (ec) {
+            std::println(std::cerr, "[ERROR]: Failed to set working directory to '{}': {}", adj->parent_path().string(), ec.message());
+            return std::make_tuple(false, config_table{}, cmd);
+          }
+        }
+      }
+    }
+
     config_table config = {};
     if (std::filesystem::exists(cmd.config_file)) {
       PROFILE_SECTION("other::entry--load-config");
@@ -170,6 +184,21 @@ namespace other {
 
     detail::finalize_configuration_table(config, cmd);
     return std::make_tuple(true, config, cmd);
+  }
+
+  opt<filepath> find_exe_adjacent_config(const filepath& exe_path) {
+    if (exe_path.empty()) {
+      return std::nullopt;
+    }
+
+    filepath candidate = exe_path;
+    candidate.replace_extension(".toml");
+
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(candidate, ec)) {
+      return std::nullopt;
+    }
+    return candidate;
   }
 
   namespace detail {

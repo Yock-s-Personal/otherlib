@@ -8,6 +8,10 @@
 
 #include "serialization/scene_serializer.hpp"
 
+#include "dotnet/dotnet_object.hpp"
+#include "script/script_object.hpp"
+#include "script/scripting_environment.hpp"
+
 #include "object/animation_component.hpp"
 #include "object/audio_source_component.hpp"
 #include "object/grid_component.hpp"
@@ -29,6 +33,19 @@ namespace other {
   using namespace serialization;
 
   namespace {
+
+    script_object* script_object_of(scene& s, natural_t object_id) {
+      const script_component* script = s.try_get_component<script_component>(object_id);
+      if (script == nullptr || script->script_object_id < 0) {
+        return nullptr;
+      }
+      return subsystem<scripting_environment>::get()->get_object(script->script_object_id);
+    }
+
+    dotnet_object* managed_object_of(scene& s, natural_t object_id) {
+      script_object* obj = script_object_of(s, object_id);
+      return obj != nullptr ? obj->dotnet_object : nullptr;
+    }
 
     /// a small scene with hierarchy, tags, and a spread of component types
     void populate_test_scene(scene& s) {
@@ -95,14 +112,10 @@ namespace other {
   }  // namespace
 
   TEST_F(scene_serializer_tests, capture_then_instantiate_reproduces_the_scene) {
-    /// managed script objects are keyed by object name environment-wide, so the source
-    ///  scene must be gone before another scene instantiates the same names
-    scene_document doc = {};
-    {
-      scene source("Source Scene");
-      populate_test_scene(source);
-      doc = capture_scene(source, default_codec_services());
-    }
+    /// the source stays alive on purpose: both scenes then hold the same object names at once
+    scene source("Source Scene");
+    populate_test_scene(source);
+    const scene_document doc = capture_scene(source, default_codec_services());
 
     EXPECT_EQ(doc.objects.size(), 2u);
     /// parents precede children in the document
@@ -113,6 +126,13 @@ namespace other {
     scene target("Target Scene");
     instantiate_scene(target, doc, default_codec_services());
     expect_test_scene_state(target);
+    expect_test_scene_state(source);
+
+    for (const std::string_view name : { std::string_view{ "Parent" }, std::string_view{ "Child" } }) {
+      scene_object* object = target.find_object(name);
+      ASSERT_NE(object, nullptr);
+      EXPECT_NE(managed_object_of(target, object->id), nullptr) << "'" << name << "' in the target lost its managed object to the source";
+    }
   }
 
   TEST_F(scene_serializer_tests, capture_is_stable_across_a_roundtrip) {
@@ -209,6 +229,78 @@ namespace other {
     script_component* restored_script = s.try_get_component<script_component>(restored_parent->id);
     ASSERT_NE(restored_script, nullptr);
     EXPECT_EQ(restored_script->script_object_id, pre_play_script_id);
+  }
+
+  /// stop hands each managed instance back to the object it belonged to, matched on the
+  ///  snapshot's object id; names can repeat, and can change during play
+  TEST_F(scene_serializer_tests, play_stop_returns_managed_instances_to_same_named_objects) {
+    scene s("Twin Play Scene");
+    /// position tells the objects apart: stop reassigns every runtime id
+    const auto add_twin = [&s](float x) -> natural_t {
+      scene_object& object = s.create_object("Twin");
+      s.set_transform(object.id, transform(glm::vec3(x, 0.f, 0.f)));
+      return object.id;
+    };
+    const natural_t left_id = add_twin(-1.f);
+    const natural_t right_id = add_twin(1.f);
+    const natural_t doomed_id = add_twin(5.f);
+
+    ASSERT_NE(managed_object_of(s, left_id), nullptr);
+    ASSERT_NE(managed_object_of(s, right_id), nullptr);
+    ASSERT_NE(managed_object_of(s, doomed_id), nullptr);
+    const natural_t left_handle = managed_object_of(s, left_id)->handle;
+    const natural_t right_handle = managed_object_of(s, right_id)->handle;
+    const natural_t doomed_handle = managed_object_of(s, doomed_id)->handle;
+
+    s.play();
+
+    /// renamed during play: still the same object, and the restored name wins
+    s.rename_object(right_id, "Renamed");
+
+    /// destroyed during play, and a new object with the same name created. matching by name
+    ///  would hand the new object's instance to the restored twin
+    s.destroy_object(doomed_id);
+    scene_object& spawned = s.create_object("Twin");
+    s.set_transform(spawned.id, transform(glm::vec3(9.f, 0.f, 0.f)));
+    ASSERT_NE(managed_object_of(s, spawned.id), nullptr);
+    const natural_t spawned_handle = managed_object_of(s, spawned.id)->handle;
+
+    s.stop();
+
+    const auto object_at = [&s](float x) -> scene_object* {
+      for (const natural_t id : s.get_children_ids(s.root_object().id)) {
+        if (s.get_transform(id).local_position.x == x) {
+          return s.find_object(id);
+        }
+      }
+      return nullptr;
+    };
+
+    /// root + the three twins that existed when play began
+    EXPECT_EQ(s.get_object_count(), 4u);
+    EXPECT_EQ(object_at(9.f), nullptr);
+
+    scene_object* left = object_at(-1.f);
+    ASSERT_NE(left, nullptr);
+    ASSERT_NE(managed_object_of(s, left->id), nullptr);
+    EXPECT_EQ(managed_object_of(s, left->id)->handle, left_handle);
+
+    scene_object* right = object_at(1.f);
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(right->name, "Twin");
+    script_object* right_script = script_object_of(s, right->id);
+    ASSERT_NE(right_script, nullptr);
+    ASSERT_NE(right_script->dotnet_object, nullptr);
+    EXPECT_EQ(right_script->dotnet_object->handle, right_handle);
+    EXPECT_EQ(right_script->name, "Twin");
+
+    /// the destroyed twin comes back with a fresh instance: its own died with it, and the
+    ///  same-named one created during play is not part of the restored state
+    scene_object* restored = object_at(5.f);
+    ASSERT_NE(restored, nullptr);
+    ASSERT_NE(managed_object_of(s, restored->id), nullptr);
+    EXPECT_NE(managed_object_of(s, restored->id)->handle, doomed_handle);
+    EXPECT_NE(managed_object_of(s, restored->id)->handle, spawned_handle);
   }
 
   TEST_F(scene_serializer_tests, animation_component_play_serialize) {

@@ -28,6 +28,12 @@ namespace other {
     void emit_instruction(const instruction& op);
     void execute_driver_command(const std::string& command);
 
+    /// true once the boot file was attempted, loaded or not
+    inline bool boot_attempted() const { return boot_loaded; }
+    /// no program left to run: never loaded, ended, or faulted. not the device's IDLE flag,
+    ///  which is cleared for good once a program loads
+    bool idle();
+
     constexpr static inline uint32_t kDefaultInstructionBudget = 2048;
 
    private:

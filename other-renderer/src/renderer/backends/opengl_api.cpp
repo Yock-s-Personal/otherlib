@@ -108,8 +108,15 @@ namespace other {
 
     std::string gl_version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
     std::string gl_renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
+    int32_t buffers = 0;
+    int32_t samples = 0;
+    glGetIntegerv(GL_SAMPLE_BUFFERS, &buffers);
+    glGetIntegerv(GL_SAMPLES, &samples);
+
     CORE_LOG_DEBUG("OpenGL Version: {}", gl_version);
     CORE_LOG_DEBUG("OpenGL Renderer: {}", gl_renderer);
+    CORE_LOG_DEBUG(" - Buffers: {}", buffers);
+    CORE_LOG_DEBUG(" - Samples: {}", samples);
     set_gpu_context(gpu_context);
 
     glEnable(GL_DEPTH_TEST);
@@ -136,6 +143,11 @@ namespace other {
     buffer_resources.clear();
     mesh_resources.clear();
     resource_handles.clear();
+
+    if (present_framebuffer != 0) {
+      glDeleteFramebuffers(1, &present_framebuffer);
+      present_framebuffer = 0;
+    }
 
     SDL_GLContext ctx = gl_ctx(get_gpu_context());
     if (ctx == nullptr) {
@@ -841,6 +853,30 @@ namespace other {
                        size.x, size.y, size.z);
     glBindTexture(get_gl_texture_type(texture_resources[src.handle.id].get_type()), 0);
     debug_group_end();
+    CHECKGL();
+  }
+
+  void opengl_api::present_texture(const resource_handle& handle) {
+    PROFILE_SECTION("opengl_api::present_texture");
+    PROFILE_GPU_SECTION("opengl_api::present_texture");
+    auto gpu_itr = gpu_resources.find(handle.id);
+    auto tex_itr = texture_resources.find(handle.id);
+    if (gpu_itr == gpu_resources.end() || tex_itr == texture_resources.end()) {
+      CORE_LOG_ERROR("Texture resources with ID {} not found. Can't present texture", handle.id);
+      return;
+    }
+
+    if (present_framebuffer == 0) {
+      glCreateFramebuffers(1, &present_framebuffer);
+    }
+
+    int32_t width = 0;
+    int32_t height = 0;
+    SDL_GetWindowSizeInPixels(native_window(), &width, &height);
+
+    const glm::ivec2 size = tex_itr->second.get_size();
+    glNamedFramebufferTexture(present_framebuffer, GL_COLOR_ATTACHMENT0, gpu_itr->second, 0);
+    glBlitNamedFramebuffer(present_framebuffer, 0, 0, 0, size.x, size.y, 0, 0, width, height, GL_COLOR_BUFFER_BIT, GL_LINEAR);
     CHECKGL();
   }
 

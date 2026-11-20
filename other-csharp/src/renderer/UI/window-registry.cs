@@ -76,6 +76,10 @@ namespace Other.UI
       }
     }
 
+    public bool AnyWindowOpen() {
+      return windows.Values.Any(w => w.IsOpen);
+    }
+
     public void RenderAll()
     {
       foreach (var kvp in windows)

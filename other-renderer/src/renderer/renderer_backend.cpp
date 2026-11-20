@@ -85,7 +85,9 @@ namespace other {
           return;
       }
 
-      SDL_Window* window = window_mgr->create_window("Other Environment", window_size.x, window_size.y, flags);
+      const std::string title = config.get_value<std::string>("application.name", "Other Environment");
+
+      SDL_Window* window = window_mgr->create_window(title.c_str(), window_size.x, window_size.y, flags);
       OTHER_ASSERT(window != nullptr, "Failed to create main window: {}", SDL_GetError());
 
       set_rendering_api(make_scope<opengl_api>(), std::move(window_mgr));

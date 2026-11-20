@@ -24,8 +24,10 @@
 #include "ui/menu-bar/menu_item.hpp"
 #include "ui/object-editor/object_editor.hpp"
 #include "ui/project-creator/project_creator.hpp"
+#include "ui/project-overview/project_overview.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
+#include "ui/scene-graph-editor/scene_graph_editor.hpp"
 #include "ui/scene-hierarchy/scene_hierarchy.hpp"
 #include "ui/viewport/viewport.hpp"
 
@@ -40,6 +42,8 @@ namespace other {
     ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
+    ui->register_window<ui::scene_graph_editor>("scene-graph-editor", context, *get_event_system(), this);
+    ui->register_window<ui::project_overview>("project-overview", *get_event_system(), this);
   }
 
   void editor_driver::on_initialize() {
@@ -248,6 +252,22 @@ namespace other {
     PROFILE_SECTION("editor_driver::update_running");
     auto& kernel = get_kernel();
     auto& rendering_sys = kernel.get_core_system<rendering_system>();
+
+    if (context.pending_scene_activation.has_value()) {
+      const natural_t scene_id = *context.pending_scene_activation;
+      context.pending_scene_activation.reset();
+
+      /// the scene can leave the graph between the click and this update
+      auto& scenes = kernel.get_core_system<scene_system>();
+      if (scenes.get_scene_graph().has_scene(scene_id)) {
+        /// object ids are per scene, a kept selection would point at unrelated objects
+        context.current_selection.objects.clear();
+        scenes.set_scene_to_active(scene_id);
+      } else {
+        CORE_LOG_WARN("Scene with ID {} is no longer in the scene graph; not activating it.", scene_id);
+      }
+    }
+
     auto* s = get_active_scene();
     if (s != nullptr) {
       for (auto& vp : rendering_sys.get_viewports()) {

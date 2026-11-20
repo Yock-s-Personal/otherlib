@@ -17,6 +17,8 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/core/filesystem_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/event_system_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/logger_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/path_helpers_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/exe_adjacent_config_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/cli_tool_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/scene_tool_tests.cpp

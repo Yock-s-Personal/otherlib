@@ -69,9 +69,12 @@ namespace other {
 
   bool is_under_any_project_mount(const filepath& path);
   bool is_environment_owned(const filepath& path);
+  bool is_packaged_layout(const filepath& path);
 
+  filepath environment_root_for(const filepath& exe);
   filepath environment_root();
   bool is_installed_build();
+  bool is_packaged_build();
 
 }  // namespace other
 

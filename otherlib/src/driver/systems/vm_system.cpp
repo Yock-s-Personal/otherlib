@@ -93,4 +93,8 @@ namespace other {
   void vm_system::execute_driver_command(const std::string& command) {
   }
 
+  bool vm_system::idle() {
+    return vm::has_flag(&core_device, other_command_device::STOPPED) || vm::has_flag(&core_device, other_command_device::VM_ERROR);
+  }
+
 }  // namespace other

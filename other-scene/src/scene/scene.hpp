@@ -129,6 +129,13 @@ namespace other {
     void destroy_object(natural_t id);
     void destroy_all_non_root_objects();
 
+    /// sets the object's name and the label on its script object; names need not be unique
+    void rename_object(natural_t id, const std::string_view name);
+
+    /// document id of the record the next create_object call rebuilds; a play-stop restore
+    ///  uses it to hand each managed instance back to the object it belonged to
+    inline void set_pending_object_source_id(natural_t file_id) { pending_object_source_id = file_id; }
+
     /// reconciles authored physics settings/shapes against built bodies (restore, inspector/C# edits,
     ///  replica-role changes); runs on play, per frame while playing, and on replication adopt/release
     void revalidate_physics();
@@ -411,11 +418,18 @@ namespace other {
     opt<serialization::scene_document> pending_document = std::nullopt;
     /// state captured by play() and restored by reset() when the scene stops
     ostd::vector<uint8_t> play_snapshot = {};
+    /// generation of each object slot when play_snapshot was captured; a slot reused during
+    ///  play holds a newer generation, so its object is not the one the snapshot recorded
+    ostd::unordered_map<natural_t, uint32_t> play_object_generations = {};
 
-    /// stop is a disable, not a remove: managed script instances survive, their ids held here
-    /// between teardown and by-name rebind; objects created during play are swept as real removals
+    /// stop is a disable, not a remove: managed script instances survive the rebuild. each is held
+    ///  under the runtime id its object had at capture (the id the snapshot stores) and handed
+    ///  back to the object rebuilt from that record, so same-named objects never trade instances
     bool preserving_script_objects = false;
-    ostd::vector<integer_t> preserved_script_objects = {};
+    ostd::unordered_map<natural_t, integer_t> preserved_script_objects = {};
+    /// script objects of objects created during play; swept after the rebuild as real removals
+    ostd::vector<integer_t> orphaned_script_objects = {};
+    natural_t pending_object_source_id = 0;
   };
 
 }  // namespace other

@@ -253,6 +253,13 @@ namespace other {
     state_machine.handle_event(event, this);
   }
 
+  void driver::request_failure_shutdown(const std::string_view reason) {
+    CORE_LOG_ERROR("Fatal: {}", reason);
+    /// set before the request: a shutdown already under way must still exit non-zero
+    process_exit_code = exit_code::FAILURE;
+    request_shutdown();
+  }
+
   void driver::request_shutdown() {
     if (current_driver_state() == driver_state::DRIVER_STATE_SHUTTING_DOWN ||
         current_driver_state() == driver_state::DRIVER_STATE_STOPPED) {
@@ -614,12 +621,8 @@ namespace other {
     if (!rendering_enabled()) {
       return;
     }
-    PROFILE_SECTION("driver::render");
-    {
-      PROFILE_SECTION("driver::render--on_render");
-      on_render();
-    }
 
+    PROFILE_SECTION("driver::render");
     if (driver_kernel_ptr->has_core_system<rendering_system>()) {
       driver_kernel_ptr->get_core_system<rendering_system>().render(driver_kernel_ptr.get());
     }

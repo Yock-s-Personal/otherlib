@@ -83,7 +83,10 @@ namespace other {
   void asset_system::tick(driver_kernel* kernel, double dt) {
     PROFILE_SECTION("asset_system::tick");
     asset_mgr->update_pipelines();
-    if (asset_mgr->all_assets_unloaded()) {
+    /// once, when a requested full unload has drained. not on any tick with nothing held:
+    ///  that is also true at start-up, before anything has begun loading
+    if (full_unload_requested && !full_unload_confirmed && asset_mgr->all_assets_unloaded()) {
+      full_unload_confirmed = true;
       get_driver().get_event_system()->trigger_event("assets.all-assets-unloaded");
     }
 
@@ -128,6 +131,11 @@ namespace other {
 
     asset_mgr->re_resolve(path);
     push_watch_filters();
+  }
+
+  void asset_system::cancel_load_plan() {
+    OTHER_ASSERT(asset_mgr != nullptr, "Asset manager is not initialized in driver.");
+    asset_mgr->cancel_plan();
   }
 
   natural_t asset_system::begin_asset_load(const filepath& asset_path) {
@@ -197,6 +205,8 @@ namespace other {
 
   void asset_system::begin_full_unload() {
     CORE_LOG_DEBUG("Beginning full unload of all assets.");
+    full_unload_requested = true;
+    full_unload_confirmed = false;
     asset_mgr->begin_unload();
   }
 

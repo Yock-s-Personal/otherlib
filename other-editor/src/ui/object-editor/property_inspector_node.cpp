@@ -186,7 +186,7 @@ namespace other {
         name_buf[sizeof(name_buf) - 1] = '\0';
 
         if (inspector::draw_object_header_editable(name_buf, sizeof(name_buf), obj.id, colors::scene_object::kSignature)) {
-          obj.name = std::string(name_buf);
+          active_scene->rename_object(obj.id, name_buf);
           context.notify_scene_edited();
         }
         ImGui::Separator();

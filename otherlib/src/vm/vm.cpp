@@ -205,6 +205,24 @@ namespace other {
     execute_current_instruction(device);
   }
 
+  uint32_t vm::run_frame(other_command_device* device, uint32_t max_instructions) {
+    OTHER_ASSERT(device != nullptr, "Null VM device!");
+    PROFILE_SECTION("vm::run_frame");
+    /// a yield lasts until the frame after the one it was made in
+    remove_flag(device, other_command_device::YIELDED);
+
+    uint32_t executed = 0;
+    while (executed < max_instructions && !device->stopped && !has_flag(device, other_command_device::STOPPED) &&
+           !has_flag(device, other_command_device::YIELDED)) {
+      step(device);
+      ++executed;
+      if (has_flag(device, other_command_device::VM_ERROR)) {
+        break;
+      }
+    }
+    return executed;
+  }
+
   void vm::execute_current_instruction(other_command_device* device) {
     OTHER_ASSERT(device != nullptr, "Null VM device!");
 

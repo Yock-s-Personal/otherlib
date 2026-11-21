@@ -41,6 +41,7 @@ namespace other {
       { core_command_device::TIME_SINCE_EPOCH, "epoch_time", {}, kU64Ret, VM_SE_READS_HOST },
       { core_command_device::RANDOM, "random", {}, kU64Ret, VM_SE_PURE },
       { core_command_device::ERROR_NAME, "error_name", kErrorNameParams, kU64Ret, VM_SE_PURE },
+      { core_command_device::YIELD, "yield", {}, kVoidRet, VM_SE_MAY_BLOCK },
     };
 
     constexpr logger::level to_log_level(uint64_t level) {
@@ -117,6 +118,10 @@ namespace other {
         }
         device->write_return_register(bytes_to_write);
       } break;
+
+      /// for a program that waits on something only a later frame can change: asking again
+      ///  in the same frame gets the same answer
+      case YIELD: vm::add_flag(device, other_command_device::YIELDED); break;
       default:
         OTHER_ASSERT(false, "Invalid function ID for core_device: {:#04x}", function_id);
     }

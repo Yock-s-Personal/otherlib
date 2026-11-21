@@ -28,6 +28,8 @@ namespace other {
       ostd::vector<std::string> steps;
       /// project.loaded answers 0 this many times before it answers 1
       uint32_t frames_until_loaded = 3;
+      /// how many times the program gave up the rest of its frame
+      uint32_t yields = 0;
       bool refuse_load = false;
     };
 
@@ -97,6 +99,7 @@ namespace other {
      public:
       enum function : uint8_t {
         LOG = 0x00,
+        YIELD = 0x01,
         NUM_FUNCTIONS
       };
       explicit traced_core_device(boot_trace* trace) : trace(trace) {}
@@ -107,11 +110,17 @@ namespace other {
       std::span<const function_descriptor> functions() const override {
         constexpr static function_descriptor kFunctions[] = {
           { LOG, "log", kLogParams, kVoidRet },
+          { YIELD, "yield", kNoParams, kVoidRet },
         };
         return kFunctions;
       }
 
-      void dispatch(uint8_t, other_command_device* device) override {
+      void dispatch(uint8_t function_id, other_command_device* device) override {
+        /// counted and not obeyed: these tests step the device themselves, with no frames
+        if (function_id == YIELD) {
+          ++trace->yields;
+          return;
+        }
         const uint64_t level = device->read_register_as_u64(vm_register_idx::VM_R2);
         trace->steps.push_back(std::format("log '{}' at level {}", detail::read_device_string(device, vm_register_idx::VM_R0, vm_register_idx::VM_R1), level));
       }
@@ -498,7 +507,25 @@ namespace other {
 
   TEST_F(project_program_tests, the_entry_with_no_hooks_loads_the_project_and_stops) {
     const boot_trace trace = build_and_run();
-    EXPECT_EQ(trace.steps, (ostd::vector<std::string>{ "load 'game/game.toml' with flag 0", "loaded" }));
+    EXPECT_EQ(trace.steps, (ostd::vector<std::string>{ "load 'game/game.toml' with flag 0" }));
+    /// nothing waits for the load, so nothing asks whether it has finished
+    EXPECT_EQ(trace.frames_until_loaded, 3);
+  }
+
+  TEST_F(project_program_tests, the_entry_waits_for_the_load_only_when_a_post_load_handler_needs_it) {
+    write("assets/vm/a.oasm", marking_hook("pre_load", 1));
+    boot_trace trace = build_and_run();
+    EXPECT_EQ(trace.steps, (ostd::vector<std::string>{ "mark 1", "load 'game/game.toml' with flag 0" }));
+    EXPECT_EQ(trace.frames_until_loaded, 3);
+    EXPECT_EQ(trace.yields, 0);
+
+    write("assets/vm/b.oasm", marking_hook("post_load", 2));
+    trace = build_and_run();
+    EXPECT_EQ(trace.steps, (ostd::vector<std::string>{ "mark 1", "load 'game/game.toml' with flag 0", "loaded", "mark 2" }));
+    EXPECT_EQ(trace.frames_until_loaded, 0);
+    /// it asked four times, three of them too early, and gave up the rest of a frame before
+    ///  each one: the answer cannot change until another frame has run
+    EXPECT_EQ(trace.yields, 4);
   }
 
   TEST_F(project_program_tests, a_load_that_does_not_start_is_an_error_and_not_a_wait) {

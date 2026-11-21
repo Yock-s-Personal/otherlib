@@ -78,8 +78,9 @@ namespace other {
   ///  a .obin in there is a build's output and is left out
   ostd::vector<project_vm_source> collect_project_vm_sources(const project_vm_settings& settings);
 
-  /// the unit that holds the program's entry: the pre_load handlers, the load and the wait for
-  ///  it, then the post_load handlers. the handlers of each hook are called in the order given
+  /// the unit that holds the program's entry: the pre_load handlers and the load, then, when
+  ///  there are post_load handlers, the wait for the load and those handlers. the handlers of
+  ///  each hook are called in the order given
   std::string generate_boot_unit(std::string_view project_load_path, std::span<const project_hook_handler> hooks);
 
   /// links the project's sources and the generated entry into one program. commands resolve

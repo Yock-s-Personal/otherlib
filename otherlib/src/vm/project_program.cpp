@@ -151,13 +151,17 @@ namespace other {
     text += "  set rflag, 0\n";
     text += "  syscall project.load\n";
     text += "  jne __boot_refused\n";
-    /// the load runs over many frames; the device spends its share of each one asking
-    text += "@__boot_wait:\n";
-    text += "  set rflag, 0\n";
-    text += "  syscall project.loaded\n";
-    text += "  mov rf, rflag\n";
-    text += "  je __boot_wait\n";
-    call_handlers(hook_id::POST_LOAD);
+    /// the load runs over many frames, and only a post_load handler has to see it finish. the
+    ///  answer cannot change within a frame, so the wait asks once and gives the rest away
+    if (std::ranges::any_of(hooks, [](const project_hook_handler& handler) -> bool { return handler.hook == hook_id::POST_LOAD; })) {
+      text += "@__boot_wait:\n";
+      text += "  syscall core.yield\n";
+      text += "  set rflag, 0\n";
+      text += "  syscall project.loaded\n";
+      text += "  mov rf, rflag\n";
+      text += "  je __boot_wait\n";
+      call_handlers(hook_id::POST_LOAD);
+    }
     text += "  stopdev\n";
     /// level 4 is an error. the device then stops with the project still empty, which is what
     ///  a driver takes as a failed boot

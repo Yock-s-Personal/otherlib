@@ -35,6 +35,10 @@ namespace other {
       DEBUG = 1 << 4,
       REPL = 1 << 5,
 
+      /// set by core.yield: the program has nothing more to do this frame. vm::run_frame
+      ///  stops on it and clears it when the next frame starts
+      YIELDED = 1 << 6,
+
       VM_ERROR = 1 << 7,
     };
     state current_state = STOPPED;

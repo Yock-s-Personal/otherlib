@@ -35,7 +35,7 @@ namespace other {
       if (ass->absolute_path.empty()) {
         return ass->virtual_path.generic_string();
       }
-      return to_mount_qualified(ass->absolute_path);
+      return to_saved_asset_path(ass->absolute_path);
     };
     scene_codec_services.resolve_asset = [this](const std::string& path, const filepath& document) -> natural_t {
       const asset_path resolved = resolve_asset_path(path, document);

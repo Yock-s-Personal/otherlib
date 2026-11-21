@@ -13,6 +13,8 @@
 #include "core/defines.hpp"
 #include "data-structures/std_container.hpp"
 
+#include "vm/project_program.hpp"
+
 namespace other {
 
   class command_bus;
@@ -74,6 +76,41 @@ namespace other {
   std::string set_toml_string(std::string_view text, std::string_view table, std::string_view key, std::string_view value);
   /// text without key's line in [table]; unchanged when there is none
   std::string remove_toml_key(std::string_view text, std::string_view table, std::string_view key);
+
+  /// what a compile of a project would use, for showing before one is run
+  struct compile_preview {
+    /// the name a package gets when the caller gives none
+    std::string public_name;
+    ostd::vector<std::string> scenes;
+    /// empty when the project names none, or names one it does not have
+    std::string starting_scene;
+    /// in load order
+    ostd::vector<std::string> pipelines;
+    /// empty when the project has several and does not say which
+    std::string main_pipeline;
+    /// the VM sources that are linked, as paths from the project's folder
+    ostd::vector<std::string> vm_sources;
+    ostd::vector<project_hook_handler> hooks;
+    /// what stops a compile whatever is chosen: a project file that cannot be read, VM sources
+    ///  that do not build, a pipeline that cannot be collected
+    ostd::vector<std::string> problems;
+  };
+
+  /// reads the project and builds its boot program in memory. nothing is written anywhere
+  compile_preview preview_project_compile(const command_bus& bus, const filepath& project_file);
+
+  /// the three things a compile can be told that a project file can also hold. an empty one
+  ///  is left as the file has it
+  struct compile_choices {
+    std::string public_name;
+    std::string starting_scene;
+    std::string main_pipeline;
+  };
+
+  /// writes into the project file each choice that differs from what the file gives, as a
+  ///  text edit that keeps everything else. the file is not touched when nothing differs.
+  ///  returns why it could not, or nothing when it is done
+  opt<std::string> save_compile_choices(const filepath& project_file, const compile_choices& choices);
 
   /// builds the package in a staging folder and swaps it in when every stage has passed, so
   ///  a failed compile never replaces a good package. commands resolve against the devices

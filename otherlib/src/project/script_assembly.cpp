@@ -4,12 +4,11 @@
 #include "project/script_assembly.hpp"
 
 #include <filesystem>
+#include <fstream>
 #include <sstream>
 
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
-
-#include "tools/project_tool.hpp"
 
 #include "cli/process.hpp"
 
@@ -25,12 +24,16 @@ namespace other {
 
     /// one entry per line of the build's error log, without the '   1:7>' msbuild puts in
     ///  front of each to say which of its nodes wrote it
-    ostd::vector<std::string> lines_of(const std::string& text) {
+    ostd::vector<std::string> lines_of(const filepath& log_path) {
       ostd::vector<std::string> lines;
-      std::istringstream stream(text);
+      std::ifstream stream(log_path, std::ios::binary);
       for (std::string line; std::getline(stream, line);) {
         if (!line.empty() && line.back() == '\r') {
           line.pop_back();
+        }
+        /// msbuild opens a utf-8 log with a byte order mark
+        if (line.starts_with("\xEF\xBB\xBF")) {
+          line.erase(0, 3);
         }
         const size_t node_end = line.find_first_not_of(" 0123456789:");
         if (node_end != std::string::npos && node_end > 0 && line[node_end] == '>') {
@@ -45,8 +48,8 @@ namespace other {
 
   }  // namespace
 
-  filepath built_assembly_path(const filepath& csproj, const std::string_view configuration) {
-    return csproj.parent_path() / "bin" / configuration / (csproj.stem().string() + ".dll");
+  filepath package_build_folder(const filepath& csproj, const std::string_view configuration) {
+    return csproj.parent_path() / "obj" / "package" / configuration;
   }
 
   script_assembly_result build_script_assembly(const script_assembly_request& request) {
@@ -66,10 +69,12 @@ namespace other {
       return failed("the .NET SDK was not found: 'dotnet' is not on the PATH");
     }
 
-    /// the same errors-only log the editor's builds write, so a failure reads the same in both.
-    ///  removed first: a build that never starts must not leave the last build's errors behind
-    const filepath log_path = project_tool::build_log_path(csproj);
-    std::filesystem::create_directories(log_path.parent_path(), ec);
+    /// an errors-only log, as the editor's builds write one. removed first: a build that never
+    ///  starts must not leave the last build's errors behind
+    const filepath build_folder = package_build_folder(csproj, request.configuration);
+    const filepath output = build_folder / "bin";
+    const filepath log_path = build_folder / "build-errors.log";
+    std::filesystem::create_directories(build_folder, ec);
     std::filesystem::remove(log_path, ec);
 
     const cli::process_launch launch = {
@@ -79,6 +84,13 @@ namespace other {
         csproj.string(),
         "-c",
         request.configuration,
+        /// both of this build's own. left where they are by default, the build would replace
+        ///  the assembly an open editor has loaded, and the editor would take that for a change
+        ///  to load
+        "-o",
+        output.string(),
+        /// msbuild wants this one to end in a separator
+        std::format("-p:IntermediateOutputPath={}/", (build_folder / "obj").generic_string()),
         "--no-incremental",
         "-nologo",
         /// nothing on the console: msbuild prints a summary there whatever the verbosity, and
@@ -97,7 +109,7 @@ namespace other {
     }
     if (built.exit_code != 0) {
       script_assembly_result result;
-      result.errors = lines_of(project_tool::read_build_log(csproj));
+      result.errors = lines_of(log_path);
       if (result.errors.empty()) {
         result.errors.push_back(std::format("'dotnet build' of '{}' failed with exit code {}", csproj.string(), built.exit_code));
       }
@@ -107,9 +119,9 @@ namespace other {
       return result;
     }
 
-    const filepath built_assembly = built_assembly_path(csproj, request.configuration);
+    const filepath built_assembly = output / (csproj.stem().string() + ".dll");
     if (!std::filesystem::is_regular_file(built_assembly, ec)) {
-      return failed(std::format("the build succeeded but '{}' is not there; the project must set AppendTargetFrameworkToOutputPath to false", built_assembly.string()));
+      return failed(std::format("the build succeeded but '{}' is not there; the project's assembly must have the name of its project file", built_assembly.string()));
     }
 
     std::filesystem::create_directories(request.destination, ec);

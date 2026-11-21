@@ -711,6 +711,10 @@ namespace other {
     PROFILE_SECTION("driver::begin_shutdown_sequence");
     CORE_LOG_DEBUG("Beginning shutdown sequence");
 
+    /// first, while the scene, the project and its mounts are all still there: a driver may
+    ///  have work of its own running that reads through them
+    on_shutdown_request();
+
     if (driver_kernel_ptr->has_core_system<rendering_system>()) {
       auto& rendering = driver_kernel_ptr->get_core_system<rendering_system>();
       rendering.close_all_windows();
@@ -744,7 +748,6 @@ namespace other {
     driver_kernel_ptr->get_core_system<network_system>().begin_shutdown_sequence(driver_kernel_ptr.get());
     driver_kernel_ptr->get_core_system<asset_system>().begin_full_unload();
 
-    on_shutdown_request();
     process_driver_event(driver_event::DRIVER_EVENT_STOP);
 
     if (!driver_kernel_ptr->get_core_system<network_system>().network_active()) {

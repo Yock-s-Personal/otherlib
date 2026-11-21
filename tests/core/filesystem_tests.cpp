@@ -8,6 +8,7 @@
 
 #include "core/fnv.hpp"
 #include "event/event_system.hpp"
+#include "file/path_helpers.hpp"
 
 namespace other {
 
@@ -105,6 +106,36 @@ namespace other {
 
     /// a miss must return null, not crash
     ASSERT_EQ(mount->get_file(FNV("this-path-does-not-exist")), nullptr);
+  }
+
+  TEST_F(filesystem_tests, a_saved_asset_path_names_the_engine_when_the_working_directory_holds_the_file_too) {
+    asio::io_context io;
+    event_system events{ io };
+    auto* fs = mounted_fs(events, temp_root, kMountName);
+    /// a driver mounts the working directory as it starts; the tests run from the source tree's root
+    if (fs->get_mount(file_system::kCwd) == nullptr) {
+      fs->mount_directory(file_system::kCwd, file_system::get_cwd());
+    }
+    const filepath in_working_directory = file_system::get_cwd() / "tests" / "CMakeLists.txt";
+    ASSERT_TRUE(std::filesystem::is_regular_file(in_working_directory));
+
+    /// a file under a mount of its own keeps that mount's name
+    EXPECT_EQ(to_saved_asset_path(temp_root / "sub" / "nested.txt"), "fstest://sub/nested.txt");
+
+    /// the engine somewhere else, as when the editor is installed: a file only the working
+    ///  directory holds can only be named through it
+    fs->unmount(file_system::kEngineMount);
+    fs->mount_directory(file_system::kEngineMount, temp_root / "sub" / "deep");
+    EXPECT_EQ(to_saved_asset_path(in_working_directory), "cwd://tests/CMakeLists.txt");
+    EXPECT_EQ(to_saved_asset_path(temp_root / "sub" / "deep" / "leaf.lua"), "engine://leaf.lua");
+
+    /// a source tree: the engine's root is the working directory. a scene saved there has to
+    ///  load in a package, where the engine's files are under the engine mount and the
+    ///  working directory is the package's own folder
+    fs->unmount(file_system::kEngineMount);
+    fs->mount_directory(file_system::kEngineMount, file_system::get_cwd());
+    EXPECT_EQ(to_saved_asset_path(in_working_directory), "engine://tests/CMakeLists.txt");
+    EXPECT_EQ(to_saved_asset_path(temp_root / "sub" / "nested.txt"), "fstest://sub/nested.txt");
   }
 
 }  // namespace other

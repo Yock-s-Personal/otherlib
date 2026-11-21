@@ -28,9 +28,14 @@ namespace other {
     inline bool can_undo() const { return !edit_history.empty(); }
     inline bool can_redo() const { return !edit_future.empty(); }
 
+    /// goes up with every edit, undo and redo, and back to zero on clear. two equal counts
+    ///  mean nothing was changed in between
+    inline uint64_t change_count() const { return changes; }
+
    private:
     ostd::vector<edit> edit_history;
     ostd::vector<edit> edit_future;
+    uint64_t changes = 0;
   };
 
 }  // namespace other

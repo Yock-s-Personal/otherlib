@@ -14,6 +14,7 @@ namespace other {
     e.apply();
     edit_future.clear();
     edit_history.push_back(e);
+    ++changes;
   }
 
   void edit_stack::record(const edit& e) {
@@ -22,11 +23,13 @@ namespace other {
     PROFILE_SECTION("edit_stack::record");
     edit_future.clear();
     edit_history.push_back(e);
+    ++changes;
   }
 
   void edit_stack::clear() {
     edit_history.clear();
     edit_future.clear();
+    changes = 0;
   }
 
   void edit_stack::undo() {
@@ -38,6 +41,7 @@ namespace other {
 
       edit_history.pop_back();
       edit_future.push_back(e);
+      ++changes;
     }
   }
 
@@ -50,6 +54,7 @@ namespace other {
 
       edit_future.pop_back();
       edit_history.push_back(e);
+      ++changes;
     }
   }
 

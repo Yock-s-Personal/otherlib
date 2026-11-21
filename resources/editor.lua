@@ -9,6 +9,7 @@ Other:Driver():AddMainMenuBarMenu(
         { Name = "New Project", Action = function() Other:Driver().TriggerEvent("project.new-project") end },
         { Name = "Open Project", Action = function() Other:Driver().TriggerEvent("project.open-project") end },
         { Name = "Save Project", Action = function() Other:Driver().TriggerEvent("project.save-project") end },
+        { Name = "Compile...", Action = function() Other:Driver():OpenWindow("project-compiler") end },
       }
     },
     -- { 

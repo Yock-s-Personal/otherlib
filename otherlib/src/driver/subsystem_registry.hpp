@@ -39,7 +39,7 @@ namespace other {
     std::vector<natural_t> initialization_order;
     std::unordered_map<natural_t, subsystem_definition> registry;
 
-    std::vector<natural_t> resolve_dependencies(std::span<const std::string_view> requested_systems, const subsystem_definition& def);
+    std::vector<natural_t> resolve_dependencies(std::span<const std::string_view> requested_systems);
   };
 
   subsystem_registry register_all_subsystems();

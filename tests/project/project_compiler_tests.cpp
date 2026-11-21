@@ -4,17 +4,24 @@
  * packaging a project: what is checked before anything is written, what ends up in the
  * package, and what a failed compile leaves behind. the runtime, the engine's assemblies and
  * its lua files are stand-ins in a temp folder; the engine's resources are the real ones.
+ * then what the editor's window is built on: a preview of a compile, the choices written
+ * back to the project file, and a compile that runs on a worker thread.
  **/
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <thread>
 
 #include <asio/asio.hpp>
 
+#include "core/config_table.hpp"
+#include "core/job_system.hpp"
 #include "event/event_system.hpp"
 #include "file/filesystem.hpp"
 #include "file/path_helpers.hpp"
 
+#include "project/compile_session.hpp"
 #include "project/pipeline_collector.hpp"
 #include "project/project_compiler.hpp"
 #include "vm/builtin_command_devices.hpp"
@@ -500,6 +507,207 @@ namespace other {
     EXPECT_EQ(set_toml_string("[a]\r\nb = \"old\"\r\n", "a", "b", "new"), "[a]\r\nb = \"new\"\r\n");
     /// a header with a comment after it is still the header
     EXPECT_EQ(set_toml_string("[a] # the a table\nb = 1\n", "a", "b", "2"), "[a] # the a table\nb = \"2\"\n");
+  }
+
+  TEST_F(project_compiler_tests, a_preview_says_what_a_compile_would_use_and_writes_nothing) {
+    command_bus bus;
+    register_builtin_command_devices(bus);
+    const compile_preview preview = preview_project_compile(bus, project_folder);
+
+    EXPECT_TRUE(preview.problems.empty()) << (preview.problems.empty() ? "" : preview.problems.front());
+    EXPECT_EQ(preview.public_name, "Sandbox Game");
+    EXPECT_EQ(preview.scenes, (ostd::vector<std::string>{ "Main", "Second" }));
+    EXPECT_EQ(preview.starting_scene, "Main");
+    EXPECT_EQ(preview.pipelines, (ostd::vector<std::string>{ "default-instancing" }));
+    EXPECT_EQ(preview.main_pipeline, "default-instancing");
+    EXPECT_EQ(preview.vm_sources, (ostd::vector<std::string>{ "assets/vm/startup.ocmd" }));
+    ASSERT_EQ(preview.hooks.size(), 1);
+    EXPECT_EQ(preview.hooks.front().hook, hook_id::PRE_LOAD);
+    EXPECT_EQ(preview.hooks.front().unit, "assets/vm/startup.ocmd");
+
+    /// the boot program was built in memory
+    EXPECT_TRUE(nothing_was_written());
+    EXPECT_FALSE(std::filesystem::exists(project_folder / "boot.obin"));
+    EXPECT_EQ(read(project_folder / "game.toml"), kProject);
+  }
+
+  TEST_F(project_compiler_tests, a_preview_leaves_open_what_the_project_does_not_decide) {
+    command_bus bus;
+    register_builtin_command_devices(bus);
+
+    /// a starting scene the project does not have is no starting scene
+    write("game/game.toml", set_toml_string(kProject, "scene-graph", "starting-scene", "Gone"));
+    compile_preview preview = preview_project_compile(bus, project_folder);
+    EXPECT_TRUE(preview.starting_scene.empty());
+    EXPECT_TRUE(preview.problems.empty());
+
+    /// several pipelines and no word on which one reaches the window
+    write_pipeline("game/assets/pipelines/mine.toml", "mine");
+    const std::string two = std::format("{}\n[rendering]\npipelines = [ \"assets/pipelines/mine.toml\", \"{}\" ]\n", kProject, kDefaultProjectPipeline);
+    write("game/game.toml", two);
+    preview = preview_project_compile(bus, project_folder);
+    EXPECT_EQ(preview.pipelines, (ostd::vector<std::string>{ "mine", "default-instancing" }));
+    EXPECT_TRUE(preview.main_pipeline.empty());
+    EXPECT_TRUE(preview.problems.empty());
+
+    write("game/game.toml", std::format("{}main-pipeline = \"mine\"\n", two));
+    EXPECT_EQ(preview_project_compile(bus, project_folder).main_pipeline, "mine");
+
+    /// the name the project gives itself wins over its metadata
+    write("game/game.toml", set_toml_string(kProject, "project", "public-name", "From The File"));
+    EXPECT_EQ(preview_project_compile(bus, project_folder).public_name, "From The File");
+  }
+
+  TEST_F(project_compiler_tests, a_preview_names_what_would_stop_any_compile) {
+    command_bus bus;
+    register_builtin_command_devices(bus);
+
+    write("game/assets/vm/startup.ocmd", "on pre_load {\n  no such command\n}\n");
+    compile_preview preview = preview_project_compile(bus, project_folder);
+    EXPECT_TRUE(any_holds(preview.problems, "the project's VM sources do not build"));
+    /// and still says the rest
+    EXPECT_EQ(preview.scenes.size(), 2);
+    EXPECT_EQ(preview.starting_scene, "Main");
+
+    write("game/assets/vm/startup.ocmd", "");
+    write("game/game.toml", "[project]\n");
+    preview = preview_project_compile(bus, project_folder);
+    EXPECT_TRUE(any_holds(preview.problems, "the project has no scenes"));
+
+    write("game/game.toml", "this is not toml = = =");
+    EXPECT_TRUE(any_holds(preview_project_compile(bus, project_folder).problems, "is not a project file"));
+    EXPECT_TRUE(any_holds(preview_project_compile(bus, sandbox / "nothing-here").problems, "cannot be read"));
+  }
+
+  TEST_F(project_compiler_tests, choices_are_written_into_the_project_file_only_where_they_differ) {
+    const filepath file = project_folder / "game.toml";
+    const auto written_at = std::filesystem::last_write_time(file);
+
+    /// what the file already gives, by a key or by its metadata, and what is left empty
+    EXPECT_FALSE(save_compile_choices(project_folder, { .public_name = "Sandbox Game", .starting_scene = "Main" }).has_value());
+    EXPECT_FALSE(save_compile_choices(project_folder, {}).has_value());
+    EXPECT_EQ(read(file), kProject);
+    EXPECT_EQ(std::filesystem::last_write_time(file), written_at);
+
+    EXPECT_FALSE(save_compile_choices(project_folder, { .public_name = "Renamed", .starting_scene = "Second", .main_pipeline = "mine" }).has_value());
+    const std::string text = read(file);
+    EXPECT_TRUE(text.starts_with("# a comment that has to survive the packaging\n[project]\npublic-name = \"Renamed\"\n"));
+    EXPECT_TRUE(text.contains("starting-scene = \"Second\""));
+    EXPECT_FALSE(text.contains("starting-scene = \"Main\""));
+    EXPECT_TRUE(text.ends_with("\n[rendering]\nmain-pipeline = \"mine\"\n"));
+    /// the scene list is as it was
+    EXPECT_TRUE(text.contains("  { name = \"Second\", path = \"game/assets/scenes/second.oscn\" },\n"));
+
+    /// and the next compile takes them from the file
+    command_bus bus;
+    register_builtin_command_devices(bus);
+    const compile_preview preview = preview_project_compile(bus, project_folder);
+    EXPECT_EQ(preview.public_name, "Renamed");
+    EXPECT_EQ(preview.starting_scene, "Second");
+
+    /// once they are in the file, writing them again changes nothing
+    const std::string after = read(file);
+    EXPECT_FALSE(save_compile_choices(project_folder, { .public_name = "Renamed", .starting_scene = "Second", .main_pipeline = "mine" }).has_value());
+    EXPECT_EQ(read(file), after);
+
+    const opt<std::string> missing = save_compile_choices(sandbox / "nothing-here", { .public_name = "x" });
+    ASSERT_TRUE(missing.has_value());
+    EXPECT_TRUE(missing->contains("cannot be read"));
+  }
+
+  /// the same project, compiled through a session on a real job system
+  class compile_session_tests : public project_compiler_tests {
+   protected:
+    void SetUp() override {
+      project_compiler_tests::SetUp();
+      register_builtin_command_devices(bus);
+      jobs = std::make_unique<job_system>(io);
+      jobs->initialize(config_table::load_from_source("[application.async]\nworker_count = 2\n"));
+    }
+
+    void TearDown() override {
+      jobs->shutdown();
+      jobs = nullptr;
+      project_compiler_tests::TearDown();
+    }
+
+    /// polls as an owner with a frame to draw does; false when the compile never finishes
+    bool poll_until_finished(compile_session& session) {
+      const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(60);
+      while (std::chrono::steady_clock::now() < deadline) {
+        jobs->poll();
+        if (session.poll()) {
+          return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      return false;
+    }
+
+    command_bus bus;
+    std::unique_ptr<job_system> jobs;
+  };
+
+  TEST_F(compile_session_tests, a_compile_runs_on_a_worker_and_its_report_is_there_when_polling_finds_it_done) {
+    compile_session session;
+    EXPECT_FALSE(session.running());
+    EXPECT_FALSE(session.poll());
+    EXPECT_FALSE(session.last_report().has_value());
+
+    ASSERT_TRUE(session.start(*jobs, bus, settings()));
+    EXPECT_TRUE(session.running());
+    EXPECT_FALSE(session.last_report().has_value());
+
+    ASSERT_TRUE(poll_until_finished(session));
+    EXPECT_FALSE(session.running());
+    ASSERT_TRUE(session.last_report().has_value());
+    EXPECT_TRUE(session.last_report()->success) << (session.last_report()->errors.empty() ? "" : session.last_report()->errors.front());
+    EXPECT_EQ(session.last_report()->package_root, output / "Sandbox Game");
+    EXPECT_EQ(read(output / "Sandbox Game" / "Sandbox Game.exe"), "the runtime");
+    /// finished is found once
+    EXPECT_FALSE(session.poll());
+  }
+
+  TEST_F(compile_session_tests, one_compile_at_a_time_and_the_next_one_clears_the_last_report) {
+    compile_session session;
+    ASSERT_TRUE(session.start(*jobs, bus, settings()));
+    /// refused however far the first one has got: it is running until a poll has taken its report
+    EXPECT_FALSE(session.start(*jobs, bus, settings(package_config::DEBUG)));
+    session.wait();
+    ASSERT_TRUE(session.last_report().has_value());
+    EXPECT_TRUE(session.last_report()->success);
+    EXPECT_FALSE(std::filesystem::exists(output / "Sandbox Game-debug"));
+
+    ASSERT_TRUE(session.start(*jobs, bus, settings(package_config::DEBUG)));
+    EXPECT_FALSE(session.last_report().has_value());
+    session.wait();
+    ASSERT_TRUE(session.last_report().has_value());
+    EXPECT_TRUE(session.last_report()->success);
+    EXPECT_TRUE(std::filesystem::exists(output / "Sandbox Game-debug" / "Sandbox Game.exe"));
+  }
+
+  TEST_F(compile_session_tests, a_compile_that_fails_reports_why) {
+    compile_settings named = settings();
+    named.public_name = "What?";
+    compile_session session;
+    ASSERT_TRUE(session.start(*jobs, bus, named));
+    /// waiting needs nobody to poll the job system
+    session.wait();
+    EXPECT_FALSE(session.running());
+    ASSERT_TRUE(session.last_report().has_value());
+    EXPECT_FALSE(session.last_report()->success);
+    EXPECT_TRUE(any_holds(session.last_report()->errors, "the public name 'What?' cannot be used"));
+    EXPECT_TRUE(nothing_was_written());
+  }
+
+  TEST_F(compile_session_tests, a_session_that_goes_away_waits_for_its_compile) {
+    {
+      compile_session session;
+      ASSERT_TRUE(session.start(*jobs, bus, settings()));
+    }
+    /// the worker wrote into the session until it had finished, so the package is whole
+    EXPECT_TRUE(std::filesystem::exists(output / "Sandbox Game" / kPackageMarker));
+    EXPECT_FALSE(std::filesystem::exists(output / ".staging"));
   }
 
 }  // namespace other

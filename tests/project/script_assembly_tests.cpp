@@ -48,6 +48,11 @@ namespace other {
       out.write(text.data(), static_cast<std::streamsize>(text.size()));
     }
 
+    static std::string read(const filepath& path) {
+      std::ifstream in(path, std::ios::binary);
+      return std::string{ std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>() };
+    }
+
     filepath sandbox;
     filepath csproj;
   };
@@ -61,7 +66,7 @@ namespace other {
     EXPECT_TRUE(std::filesystem::is_regular_file(release / "Game.dll"));
     /// a Release build writes symbols too; they are not asked for, so they stay behind
     EXPECT_FALSE(std::filesystem::exists(release / "Game.pdb"));
-    EXPECT_TRUE(std::filesystem::is_regular_file(built_assembly_path(csproj, "Release")));
+    EXPECT_TRUE(std::filesystem::is_regular_file(package_build_folder(csproj, "Release") / "bin" / "Game.dll"));
 
     /// the other configuration is its own build, and takes its symbols when told to
     const filepath debug = sandbox / "package-debug" / "bin";
@@ -69,7 +74,34 @@ namespace other {
     ASSERT_TRUE(with_symbols.success) << (with_symbols.errors.empty() ? "" : with_symbols.errors.front());
     EXPECT_TRUE(std::filesystem::is_regular_file(debug / "Game.dll"));
     EXPECT_TRUE(std::filesystem::is_regular_file(debug / "Game.pdb"));
-    EXPECT_TRUE(std::filesystem::is_regular_file(built_assembly_path(csproj, "Debug")));
+    EXPECT_TRUE(std::filesystem::is_regular_file(package_build_folder(csproj, "Debug") / "bin" / "Game.dll"));
+  }
+
+  TEST_F(script_assembly_tests, a_build_for_a_package_leaves_alone_what_an_open_editor_built_and_loaded) {
+    /// an editor builds into bin/<configuration> and obj/<configuration>, loads the assembly
+    ///  from there and watches it for changes
+    write("game/bin/Debug/Game.dll", "the assembly the editor has loaded");
+    write("game/obj/Debug/Game.dll", "the editor's intermediate copy");
+    write("game/obj/Game.build-errors.log", "the editor's last build errors");
+    const auto loaded_at = std::filesystem::last_write_time(sandbox / "game/bin/Debug/Game.dll");
+
+    const filepath destination = sandbox / "package" / "bin";
+    const script_assembly_result built = build_script_assembly({ .csproj = csproj, .configuration = "Debug", .destination = destination });
+    ASSERT_TRUE(built.success) << (built.errors.empty() ? "" : built.errors.front());
+    EXPECT_GT(std::filesystem::file_size(destination / "Game.dll"), 1024);
+
+    EXPECT_EQ(read(sandbox / "game/bin/Debug/Game.dll"), "the assembly the editor has loaded");
+    EXPECT_EQ(std::filesystem::last_write_time(sandbox / "game/bin/Debug/Game.dll"), loaded_at);
+    EXPECT_EQ(read(sandbox / "game/obj/Debug/Game.dll"), "the editor's intermediate copy");
+    EXPECT_EQ(read(sandbox / "game/obj/Game.build-errors.log"), "the editor's last build errors");
+    EXPECT_FALSE(std::filesystem::exists(sandbox / "game/bin/Release"));
+
+    /// and its errors go to a log of its own, so they cannot be taken for the editor's
+    write("game/Thing.cs", "namespace Game { public class Thing { public int Value => missing; } }\n");
+    const script_assembly_result broken = build_script_assembly({ .csproj = csproj, .configuration = "Debug", .destination = destination });
+    EXPECT_FALSE(broken.success);
+    EXPECT_TRUE(read(package_build_folder(csproj, "Debug") / "build-errors.log").contains("error CS0103"));
+    EXPECT_EQ(read(sandbox / "game/obj/Game.build-errors.log"), "the editor's last build errors");
   }
 
   TEST_F(script_assembly_tests, a_project_that_does_not_compile_gives_the_compilers_errors_and_copies_nothing) {
@@ -111,9 +143,9 @@ namespace other {
     EXPECT_FALSE(std::filesystem::exists(sandbox / "game" / "bin"));
   }
 
-  TEST_F(script_assembly_tests, a_build_leaves_its_assembly_under_bin_and_the_configuration) {
-    EXPECT_EQ(built_assembly_path("my-game/MyGame.csproj", "Release"), filepath{ "my-game/bin/Release/MyGame.dll" });
-    EXPECT_EQ(built_assembly_path("my-game/MyGame.csproj", "Debug"), filepath{ "my-game/bin/Debug/MyGame.dll" });
+  TEST_F(script_assembly_tests, a_package_build_works_under_obj_package_and_the_configuration) {
+    EXPECT_EQ(package_build_folder("my-game/MyGame.csproj", "Release"), filepath{ "my-game/obj/package/Release" });
+    EXPECT_EQ(package_build_folder("my-game/MyGame.csproj", "Debug"), filepath{ "my-game/obj/package/Debug" });
   }
 
 }  // namespace other

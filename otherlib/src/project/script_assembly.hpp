@@ -32,11 +32,13 @@ namespace other {
     ostd::vector<std::string> errors;
   };
 
-  /// where a build of csproj in that configuration leaves its assembly. the engine's projects
-  ///  turn the target framework folder off, and the asset resolver assumes the same
-  filepath built_assembly_path(const filepath& csproj, std::string_view configuration);
+  /// where a package's build of csproj works: its output in bin/, its intermediate files in
+  ///  obj/ and its error log beside them. it is under the project's obj/, which no package
+  ///  takes and no C# project compiles from, and it is not the bin/ and obj/<configuration>
+  ///  an open editor builds into and has loaded the project's assembly from
+  filepath package_build_folder(const filepath& csproj, std::string_view configuration);
 
-  /// always builds, whatever is already in bin/: a package must not ship a stale assembly or
+  /// always builds, whatever was built before: a package must not ship a stale assembly or
   ///  one from the other configuration. runs 'dotnet build' and waits for it
   script_assembly_result build_script_assembly(const script_assembly_request& request);
 

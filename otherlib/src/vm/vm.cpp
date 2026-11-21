@@ -2,12 +2,12 @@
  * \file vm/vm.cpp
  **/
 #include "vm/vm.hpp"
-#include "data-structures/std_container.hpp"
 
 #include <chrono>
 
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
+#include "data-structures/std_container.hpp"
 #include "memory/arena_allocator.hpp"
 #include "thread/thread_safety.hpp"
 
@@ -170,7 +170,7 @@ namespace other {
     CORE_LOG_DEBUG("[VM] Loading program at address: {:#06x}", device->program_load_cursor);
     CORE_LOG_DEBUG("     - entry point address: {:#06x}", header.prog_header.entry_point_address + device->program_load_cursor);
     CORE_LOG_DEBUG("     - data section address: {:#06x}", header.prog_header.data_section_offset + device->program_load_cursor);
-    CORE_LOG_DEBUG("     - number of instructions: {}", header.prog_header.num_instructions);
+    CORE_LOG_DEBUG("     - number of instructions: {}", code_size / other_command_device::kOpCodeSize);
     CORE_LOG_DEBUG("     - data section size: {}", device->current_program_metadata.data_size);
 
     auto program_bytes = bytes.subspan(sizeof(ocmd_file_header));

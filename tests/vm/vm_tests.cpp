@@ -37,14 +37,13 @@ namespace other {
       .file_version_major = 1,
       .file_version_minor = 0,
       .file_version_patch = 0,
+      .reserved = { 0 },
       .prog_header = {
-        .has_code_flag = 1,
         .code_section_offset = sizeof(ocmd_file_header),
         .data_section_offset = 0,
         .entry_point_address = sizeof(ocmd_file_header),
-        .num_instructions = 4,
+        .has_code_flag = 1,
       },
-      .reserved = { 0 },
     };
     const std::vector<uint8_t> bytes = {
       0x00, 0x01, 0x02, 0x03,

@@ -186,7 +186,9 @@ namespace other {
     const ocmd_file_header& file_header = *(reinterpret_cast<const ocmd_file_header*>(instructions.data()));
     const program_header& prog_header = file_header.prog_header;
 
-    natural_t num_instructions = prog_header.num_instructions;
+    /// the header holds no count: the code section is whole instructions, its closing stop included
+    OTHER_ASSERT(prog_header.data_section_offset >= prog_header.code_section_offset, "Code section ends before it starts!");
+    natural_t num_instructions = (prog_header.data_section_offset - prog_header.code_section_offset) / sizeof(instruction);
     CORE_LOG_DEBUG("OCMD File Version: {}.{}", static_cast<int>(file_header.file_version_major), static_cast<int>(file_header.file_version_minor));
     CORE_LOG_DEBUG("Number of Instructions: {}", num_instructions);
     CORE_LOG_DEBUG("Entry Point Address: {:#06x}", prog_header.entry_point_address);

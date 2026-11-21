@@ -84,6 +84,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/oasm_parsing2_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/ocmd_compiler_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/ocmd_linker_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/obin_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/vm_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/console_log_layout_tests.cpp

@@ -4,6 +4,8 @@
 #ifndef OTHERLIB_VM_COMMAND_FILES_OCMD_PROGRAM_HPP
 #define OTHERLIB_VM_COMMAND_FILES_OCMD_PROGRAM_HPP
 
+#include <string>
+
 #include "vm/command_files/code_generator.hpp"
 #include "vm/command_files/compiler_definition.hpp"
 
@@ -32,6 +34,15 @@ namespace other {
     ostd::vector<compiled_data_section> compiled_data_sections;
 
     bool valid = false;
+  };
+
+  struct ocmd_unit {
+    std::string name;
+    ocmd_program program;
+  };
+
+  struct ocmd_link_options {
+    bool strict = false;
   };
 
 }  // namespace other

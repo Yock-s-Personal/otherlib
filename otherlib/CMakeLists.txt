@@ -107,6 +107,7 @@ target_sources(otherlib
     src/vm/instruction.cpp
     src/vm/opcode.cpp
     src/vm/command_bus.cpp
+    src/vm/builtin_command_devices.cpp
     src/vm/control_table.cpp
     src/vm/vm_type.cpp
     src/vm/other_device.cpp

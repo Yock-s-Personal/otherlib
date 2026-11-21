@@ -2,6 +2,7 @@
  * \file vm/ocmd_linker_tests.cpp
  **/
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <format>
@@ -11,12 +12,14 @@
 #include <unordered_map>
 #include <vector>
 
+#include "vm/command_files/compiler_error.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
 #include "vm/command_files/ocmd_linker.hpp"
 #include "vm/default_symbol_resolver.hpp"
 #include "vm/diagnostics/ocmd_trace_sink.hpp"
 #include "vm/opcode.hpp"
 #include "vm/other_device.hpp"
+#include "vm/vm.hpp"
 
 #include "fuzzing.hpp"
 #include "vm_tests.hpp"
@@ -277,11 +280,10 @@ namespace other {
       .file_version_minor = OCMD_FILE_FORMAT_VERSION_MINOR,
       .file_version_patch = OCMD_FILE_FORMAT_VERSION_PATCH,
       .prog_header = {
-        .has_code_flag = 1,
         .code_section_offset = 0,
         .data_section_offset = expected_code_size,  // 4 instructions in code section
         .entry_point_address = 0,
-        .num_instructions = 4,
+        .has_code_flag = uint8_t{ 1u },
       },
     };
 
@@ -416,7 +418,7 @@ namespace other {
     }
   }
 
-  TEST_F(vm_tests, ocmd_linker_leaves_unresolved_placeholders) {
+  TEST_F(vm_tests, ocmd_linker_unresolved_symbol_is_an_error) {
     const std::string_view source =
       R"(
     $main:
@@ -432,39 +434,7 @@ namespace other {
     ASSERT_TRUE(program.valid);
     ASSERT_EQ(program.compiled_blocks.size(), 2);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
-    std::span bytes_no_header = std::span(bytes).subspan(sizeof(ocmd_file_header));
-    const ocmd_file_header& header = detail::read_linked_header(std::span(bytes));
-    detail::expect_linked_layout_matches_program(program, header, bytes_no_header);
-
-    const uint16_t main_address = detail::code_block_address(program, 0);
-
-    instruction main_first_instr = detail::read_instruction_at(bytes_no_header, main_address);
-    instruction main_second_instr = detail::read_instruction_at(bytes_no_header, main_address + sizeof(instruction));
-    instruction main_third_instr = detail::read_instruction_at(bytes_no_header, main_address + 2 * sizeof(instruction));
-
-    instruction expected_first = opcode_call_at(0xFFFF);
-    instruction expected_second = opcode_set_x_to_address(vm_register_idx::VM_R1, 0xFFFF);
-    instruction expected_third = opcode_write_x_to_memory(vm_register_idx::VM_R2, 0xFFFF);
-
-    {
-      std::stringstream ss;
-      ss << "Linked binary hexdump:\n";
-      for (size_t i = 0; i < bytes_no_header.size(); i += sizeof(instruction)) {
-        ss << std::format("{:#08x}: {:#010x}", i, detail::read_instruction_at(bytes_no_header, i).opcode);
-        ss << "\n";
-      }
-      SCOPED_TRACE(ss.str());
-      EXPECT_EQ(main_first_instr.opcode, expected_first.opcode)
-        << std::format("Expected instruction {:#010x} at address 0x{:04X},", expected_first.opcode, main_address, main_first_instr.opcode)
-        << std::format(" Found instruction {:#010x} instead.", main_first_instr.opcode);
-      EXPECT_EQ(main_second_instr.opcode, expected_second.opcode)
-        << std::format("Expected instruction {:#010x} at address 0x{:04X},", expected_second.opcode, main_address + sizeof(instruction), main_second_instr.opcode)
-        << std::format(" Found instruction {:#010x} instead.", main_second_instr.opcode);
-      EXPECT_EQ(main_third_instr.opcode, expected_third.opcode)
-        << std::format("Expected instruction {:#010x} at address 0x{:04X},", expected_third.opcode, main_address + 2 * sizeof(instruction), expected_third.opcode)
-        << std::format(" Found instruction {:#010x} instead.", main_third_instr.opcode);
-    }
+    EXPECT_THROW(ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag), ocmd_linking_error);
   }
 
   TEST_F(vm_tests, ocmd_linker_light_fuzzing) {
@@ -488,6 +458,360 @@ namespace other {
       const ocmd_file_header& header = detail::read_linked_header(std::span(bytes));
       detail::expect_linked_layout_matches_program(program, header, bytes_no_header);
     }
+  }
+
+  namespace {
+
+    ocmd_unit compile_unit(const std::string_view name, const std::string_view source, diagnostic_engine* diag) {
+      return ocmd_unit{ .name = std::string{ name }, .program = detail::compile_source(source, diag) };
+    }
+
+    /// the linker's message when it refuses the units; empty when they link
+    std::string link_error(std::span<const ocmd_unit> units, diagnostic_engine* diag) {
+      try {
+        ocmd_linker{ units }.link(make_scope<default_symbol_resolver>(), diag);
+      } catch (const ocmd_linking_error& e) {
+        return e.what();
+      }
+      return "";
+    }
+
+    /// false when the program has not stopped after a generous number of steps
+    bool run_linked(other_command_device& device, std::span<const uint8_t> bytes) {
+      vm::load_program_from_bytes(&device, bytes);
+      for (size_t step = 0; step < 4096 && !vm::has_flag(&device, other_command_device::STOPPED); ++step) {
+        vm::step(&device);
+      }
+      return vm::has_flag(&device, other_command_device::STOPPED);
+    }
+
+    constexpr std::string_view kCallsHelper = R"(
+    /entry: main
+    $main:
+      call helper
+    end
+    )";
+
+    constexpr std::string_view kHelper = R"(
+    $helper:
+      set r1, 7
+      ret
+    end
+    )";
+
+  }  // namespace
+
+  TEST_F(vm_tests, ocmd_linker_units_call_across_files) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", kCallsHelper, &diag),
+      compile_unit("b.oasm", kHelper, &diag),
+    };
+    ASSERT_TRUE(units[0].program.valid);
+    ASSERT_TRUE(units[1].program.valid);
+
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ units }.link(make_scope<default_symbol_resolver>(), &diag);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    EXPECT_TRUE(run_linked(device, bytes));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 7);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_share_data_across_files) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", R"(
+      /entry: main
+      $main:
+        set r1, [numbers.answer]
+      end
+      )", &diag),
+      compile_unit("b.oasm", R"(
+      #numbers {
+        .answer : int32 = 42
+      }
+      )", &diag),
+    };
+    ASSERT_TRUE(units[0].program.valid);
+    ASSERT_TRUE(units[1].program.valid);
+
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ units }.link(make_scope<default_symbol_resolver>(), &diag);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    EXPECT_TRUE(run_linked(device, bytes));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 42);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_link_the_same_in_any_order) {
+    diagnostic_engine diag;
+    const ocmd_unit a = compile_unit("a.oasm", kCallsHelper, &diag);
+    const ocmd_unit b = compile_unit("b.oasm", kHelper, &diag);
+
+    const std::array forward = { a, b };
+    const std::array backward = { b, a };
+    const ostd::vector<uint8_t> forward_bytes = ocmd_linker{ forward }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> backward_bytes = ocmd_linker{ backward }.link(make_scope<default_symbol_resolver>(), &diag);
+    EXPECT_EQ(forward_bytes, backward_bytes);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_duplicate_block_is_an_error) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", kHelper, &diag),
+      compile_unit("b.oasm", kHelper, &diag),
+    };
+
+    const std::string error = link_error(units, &diag);
+    EXPECT_NE(error.find("block 'helper'"), std::string::npos) << error;
+    EXPECT_NE(error.find("a.oasm"), std::string::npos) << error;
+    EXPECT_NE(error.find("b.oasm"), std::string::npos) << error;
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_duplicate_data_section_is_an_error) {
+    constexpr std::string_view source = R"(
+    #numbers {
+      .answer : int32 = 42
+    }
+    )";
+
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", source, &diag),
+      compile_unit("b.oasm", source, &diag),
+    };
+
+    const std::string error = link_error(units, &diag);
+    EXPECT_NE(error.find("data section 'numbers'"), std::string::npos) << error;
+    EXPECT_NE(error.find("a.oasm"), std::string::npos) << error;
+    EXPECT_NE(error.find("b.oasm"), std::string::npos) << error;
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_two_entries_is_an_error) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", R"(
+      /entry: first
+      $first:
+        ret
+      end
+      )", &diag),
+      compile_unit("b.oasm", R"(
+      /entry: second
+      $second:
+        ret
+      end
+      )", &diag),
+    };
+
+    const std::string error = link_error(units, &diag);
+    EXPECT_NE(error.find("'/entry:' is set in 'a.oasm' and again in 'b.oasm'"), std::string::npos) << error;
+  }
+
+  TEST_F(vm_tests, ocmd_linker_single_file_runs_from_its_top) {
+    diagnostic_engine diag;
+    const auto program = detail::compile_source("set r1, 5\nset r2, 6\n", &diag);
+    ASSERT_TRUE(program.valid);
+
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    EXPECT_TRUE(run_linked(device, bytes));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 5);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R2), 6);
+    /// the script ended on a stop, not on a ret that popped an empty call stack
+    EXPECT_EQ(device.sp, 0);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_leave_out_loose_code) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", kCallsHelper, &diag),
+      compile_unit("b.oasm", R"(
+      set r5, 9
+      $helper:
+        set r1, 7
+        ret
+      end
+      )", &diag),
+    };
+    ASSERT_TRUE(units[0].program.valid);
+    ASSERT_TRUE(units[1].program.valid);
+
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ units }.link(make_scope<default_symbol_resolver>(), &diag);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    EXPECT_TRUE(run_linked(device, bytes));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 7);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R5), 0);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_without_entry_is_an_error) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", "$one:\n  ret\nend\n", &diag),
+      compile_unit("b.oasm", "$two:\n  ret\nend\n", &diag),
+    };
+
+    const std::string error = link_error(units, &diag);
+    EXPECT_NE(error.find("none sets '/entry:'"), std::string::npos) << error;
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_reference_to_natural_entry_is_not_an_error) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", R"(
+      /entry: main
+      $main:
+        set r1, 1
+        call __natural_entry
+        set r1, 2
+      end
+      )", &diag),
+      compile_unit("b.oasm", kHelper, &diag),
+    };
+    ASSERT_TRUE(units[0].program.valid);
+
+    /// left out of a linked program, so the call lands on the stop that closes the code
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ units }.link(make_scope<default_symbol_resolver>(), &diag);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    EXPECT_TRUE(run_linked(device, bytes));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 1);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_strict_turns_link_warnings_into_errors) {
+    diagnostic_engine diag;
+    const std::array loose_code = {
+      compile_unit("a.oasm", kCallsHelper, &diag),
+      compile_unit("b.oasm", "set r5, 9\n$helper:\n  set r1, 7\n  ret\nend\n", &diag),
+    };
+    EXPECT_NO_THROW(ocmd_linker(loose_code).link(make_scope<default_symbol_resolver>(), &diag));
+    EXPECT_THROW(ocmd_linker(loose_code, { .strict = true }).link(make_scope<default_symbol_resolver>(), &diag), ocmd_linking_error);
+
+    const std::array left_out_symbol = {
+      compile_unit("a.oasm", "/entry: main\n$main:\n  call __natural_entry\nend\n", &diag),
+      compile_unit("b.oasm", kHelper, &diag),
+    };
+    EXPECT_NO_THROW(ocmd_linker(left_out_symbol).link(make_scope<default_symbol_resolver>(), &diag));
+    EXPECT_THROW(ocmd_linker(left_out_symbol, { .strict = true }).link(make_scope<default_symbol_resolver>(), &diag), ocmd_linking_error);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_units_unresolved_symbol_names_its_file) {
+    diagnostic_engine diag;
+    const std::array units = {
+      compile_unit("a.oasm", R"(
+      /entry: main
+      $main:
+        call nowhere
+      end
+      )", &diag),
+      compile_unit("b.oasm", kHelper, &diag),
+    };
+
+    const std::string error = link_error(units, &diag);
+    EXPECT_NE(error.find("unresolved symbol 'nowhere' in block 'main' of 'a.oasm'"), std::string::npos) << error;
+  }
+
+  TEST_F(vm_tests, ocmd_linker_labels_are_local_to_their_block) {
+    const std::string_view source = R"(
+    /entry: main
+    $main:
+      call first
+      call second
+    end
+    $first:
+      goto past
+      set r1, 1
+    @past:
+      set r2, 2
+      ret
+    end
+    $second:
+      goto past
+      set r3, 3
+    @past:
+      set r4, 4
+      ret
+    end
+    )";
+
+    diagnostic_engine diag;
+    const auto program = detail::compile_source(source, &diag);
+    ASSERT_TRUE(program.valid);
+
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    EXPECT_TRUE(run_linked(device, bytes));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 0);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R2), 2);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R3), 0);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R4), 4);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_duplicate_label_in_a_block_is_an_error) {
+    const std::string_view source = R"(
+    $main:
+    @again:
+      set r1, 1
+    @again:
+      set r2, 2
+      ret
+    end
+    )";
+
+    diagnostic_engine diag;
+    const ocmd_unit unit = compile_unit("a.oasm", source, &diag);
+    ASSERT_TRUE(unit.program.valid);
+
+    const std::string error = link_error(std::span{ &unit, 1 }, &diag);
+    EXPECT_NE(error.find("label 'again' is defined twice"), std::string::npos) << error;
+  }
+
+  TEST_F(vm_tests, ocmd_linker_data_named_like_a_host_symbol_is_an_error) {
+    const std::string_view source = R"(
+    #host {
+      .api : int32 = 1
+    }
+    )";
+
+    diagnostic_engine diag;
+    const auto program = detail::compile_source(source, &diag);
+    ASSERT_TRUE(program.valid);
+
+    auto resolver = make_scope<default_symbol_resolver>();
+    resolver->attach_code_label("host.api", 0x4321);
+    EXPECT_THROW(ocmd_linker{ program }.link(std::move(resolver), &diag), ocmd_linking_error);
+  }
+
+  TEST_F(vm_tests, ocmd_linker_program_over_device_memory_is_an_error) {
+    /// the stopdev guard is the only code, so the data section decides the size
+    const auto unit_with_data = [](const size_t data_size) -> ocmd_unit {
+      ocmd_unit unit{ .name = "big.oasm" };
+      unit.program.valid = true;
+      unit.program.compiled_data_sections.push_back({ .name = "big", .fields = {}, .data = ostd::vector<uint8_t>(data_size, 0) });
+      return unit;
+    };
+
+    diagnostic_engine diag;
+    const ocmd_unit fits = unit_with_data(other_command_device::kMaxProgramSize - sizeof(instruction));
+    EXPECT_TRUE(link_error(std::span{ &fits, 1 }, &diag).empty());
+
+    const ocmd_unit too_big = unit_with_data(other_command_device::kMaxProgramSize - sizeof(instruction) + 1);
+    const std::string error = link_error(std::span{ &too_big, 1 }, &diag);
+    EXPECT_NE(error.find("the device holds"), std::string::npos) << error;
   }
 
   namespace detail {

@@ -46,16 +46,9 @@ namespace other {
 
     {
       PROFILE_SECTION("vm_system::tick--execute_instructions");
-      uint32_t executed = 0;
-      while (executed < instruction_budget && !core_device.stopped &&
-             !vm::has_flag(&core_device, other_command_device::STOPPED)) {
-        vm::step(&core_device);
-        ++executed;
-
-        if (vm::has_flag(&core_device, other_command_device::VM_ERROR)) {
-          CORE_LOG_ERROR("VM encountered an error");
-          break;
-        }
+      const uint32_t executed = vm::run_frame(&core_device, instruction_budget);
+      if (executed > 0 && vm::has_flag(&core_device, other_command_device::VM_ERROR)) {
+        CORE_LOG_ERROR("VM encountered an error");
       }
     }
   }

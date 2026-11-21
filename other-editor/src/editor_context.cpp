@@ -102,6 +102,15 @@ namespace other {
     edit_tracker.baseline.clear();
     edit_tracker.session_active = false;
     edit_tracker.idle_frames = 0;
+    saved_change_count = 0;
+  }
+
+  bool editor_context::has_unsaved_scene_edits() const {
+    return edit_tracker.session_active || editing_history.change_count() != saved_change_count;
+  }
+
+  void editor_context::mark_scene_saved() {
+    saved_change_count = editing_history.change_count();
   }
 
   void editor_context::undo_scene_edit() {

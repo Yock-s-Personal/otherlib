@@ -142,6 +142,54 @@ namespace other {
     vm::shutdown_device(&device);
   }
 
+  TEST_F(obin_tests, a_program_that_yields_runs_no_further_until_the_next_frame) {
+    /// r1 says how far the program has got
+    constexpr std::string_view kYields = R"(
+    /entry: main
+    $main:
+      set r1, 1
+      syscall core.yield
+      set r1, 2
+      syscall core.yield
+      set r1, 3
+      stopdev
+    end
+    )";
+    const obin_build_result built = build(kYields);
+    ASSERT_TRUE(built.success);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    register_builtin_command_devices(*device.bus);
+    vm::load_program_from_bytes(&device, built.bytes);
+
+    /// the budget is far more than the program has, so the yield is what ends each frame
+    EXPECT_EQ(vm::run_frame(&device, 2048), 2);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 1);
+    EXPECT_TRUE(vm::has_flag(&device, other_command_device::YIELDED));
+    EXPECT_EQ(vm::run_frame(&device, 2048), 2);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 2);
+    EXPECT_EQ(vm::run_frame(&device, 2048), 2);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 3);
+    /// stopped, with no yield left over from the frame before
+    EXPECT_FALSE(vm::has_flag(&device, other_command_device::YIELDED));
+    EXPECT_EQ(vm::run_frame(&device, 2048), 0);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, a_frame_without_a_yield_ends_at_its_budget) {
+    const obin_build_result built = build(kAnswerSource);
+    ASSERT_TRUE(built.success);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_bytes(&device, built.bytes);
+    EXPECT_EQ(vm::run_frame(&device, 1), 1);
+    EXPECT_FALSE(vm::has_flag(&device, other_command_device::STOPPED));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 42);
+    vm::shutdown_device(&device);
+  }
+
   TEST_F(obin_tests, write_refuses_bytes_that_would_not_load) {
     obin_build_result built = build(kAnswerSource);
     ASSERT_TRUE(built.success);

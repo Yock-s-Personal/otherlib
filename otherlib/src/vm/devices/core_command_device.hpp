@@ -19,6 +19,7 @@ namespace other {
       TIME_SINCE_EPOCH = 0x04,  //                                   -> rF = us since epoch
       RANDOM = 0x05,            //                                   -> rF = uniform u64
       ERROR_NAME = 0x06,        // r0 = code, r1 = dst ptr, r2 = cap -> rF = len
+      YIELD = 0x07,             // the program runs no further until the next frame
       NUM_FUNCTIONS,
     };
     ~core_command_device() override = default;

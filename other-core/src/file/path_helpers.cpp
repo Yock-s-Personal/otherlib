@@ -84,6 +84,27 @@ namespace other {
     return vp;
   }
 
+  std::string to_saved_asset_path(const filepath& abs) {
+    std::string qualified = to_mount_qualified(abs);
+    if (!qualified.starts_with(std::format("{}{}", file_system::kCwd, file_system::kPathSeparator))) {
+      return qualified;
+    }
+
+    /// which of two mounts on the same folder a search finds is not defined, so the engine's
+    ///  is asked for by name
+    auto* fs = subsystem<file_system>::get();
+    OTHER_ASSERT(fs != nullptr, "file_system subsystem unavailable in to_saved_asset_path");
+    const ref<directory> engine = fs->get_mount(file_system::kEngineMount);
+    if (engine == nullptr) {
+      return qualified;
+    }
+    const opt<std::string> from_engine = try_relative(abs, engine->absolute_path());
+    if (!from_engine.has_value()) {
+      return qualified;
+    }
+    return std::format("{}{}{}", file_system::kEngineMount, file_system::kPathSeparator, *from_engine);
+  }
+
   asset_path resolve_asset_path(const std::string_view raw, const filepath& referencing_file) {
     PROFILE_SECTION("resolve_asset_path");
     asset_path result = { .raw = std::string{ raw } };

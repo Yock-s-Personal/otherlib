@@ -26,6 +26,9 @@ namespace other {
     static void load_program_from_file(other_command_device* device, const filepath& file);
     static void load_program_from_bytes(other_command_device* device, const std::span<const uint8_t> bytes);
     static void step(other_command_device* device);
+    /// a frame's share of a program: steps until max_instructions have run or the device has
+    ///  stopped, paused, yielded or hit an error. returns how many instructions ran
+    static uint32_t run_frame(other_command_device* device, uint32_t max_instructions);
     static void execute_current_instruction(other_command_device* device);
 
     static void shutdown_device(other_command_device* device);

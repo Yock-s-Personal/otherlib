@@ -190,9 +190,14 @@ namespace other {
     class scoped_project_environment {
      public:
       scoped_project_environment(const filepath& engine_root, const std::string& project_name, const filepath& project_folder) {
+        /// left alone when it is already there, which it is in the editor: the working directory
+        ///  belongs to the whole process, and a compile may be on a worker thread
         std::error_code ec;
-        previous_directory = std::filesystem::current_path(ec);
-        std::filesystem::current_path(project_folder.parent_path(), ec);
+        const filepath current = std::filesystem::current_path(ec);
+        if (!ec && !std::filesystem::equivalent(current, project_folder.parent_path(), ec)) {
+          previous_directory = current;
+          std::filesystem::current_path(project_folder.parent_path(), ec);
+        }
         add(file_system::kEngineMount, engine_root, mount_scope::ENGINE);
         add(project_name, project_folder, mount_scope::PROJECT);
       }
@@ -201,8 +206,10 @@ namespace other {
         for (const std::string& name : added) {
           fs->unmount(name);
         }
-        std::error_code ec;
-        std::filesystem::current_path(previous_directory, ec);
+        if (!previous_directory.empty()) {
+          std::error_code ec;
+          std::filesystem::current_path(previous_directory, ec);
+        }
       }
 
       scoped_project_environment(const scoped_project_environment&) = delete;
@@ -210,6 +217,7 @@ namespace other {
 
      private:
       ostd::vector<std::string> added;
+      /// empty when the working directory was not changed
       filepath previous_directory;
 
       void add(const std::string_view name, const filepath& folder, const mount_scope scope) {
@@ -225,6 +233,21 @@ namespace other {
       std::string name;
       filepath file;
     };
+
+    /// a game's name when nobody chose one: the project's own key, then the name in its
+    ///  metadata, then its folder
+    std::string default_public_name(const toml::table& table, const std::string_view project_name) {
+      std::string name{ project_name };
+      if (const toml::array* metadata = table.at_path("project.metadata").as_array(); metadata != nullptr) {
+        for (const toml::node& entry : *metadata) {
+          const toml::table* row = entry.as_table();
+          if (row != nullptr && row->at_path("key").value_or(std::string{}) == "name") {
+            name = row->at_path("value").value_or(name);
+          }
+        }
+      }
+      return table.at_path("project.public-name").value_or(name);
+    }
 
     struct plugin_entry {
       std::string name;
@@ -371,18 +394,8 @@ namespace other {
     }
 
     bool compile_run::check_names_and_output() {
-      /// the first of these that is there: the caller's, the project's own, its metadata, its folder
-      public_name = project_name;
-      if (const toml::array* metadata = table.at_path("project.metadata").as_array(); metadata != nullptr) {
-        for (const toml::node& entry : *metadata) {
-          const toml::table* row = entry.as_table();
-          if (row != nullptr && row->at_path("key").value_or(std::string{}) == "name") {
-            public_name = row->at_path("value").value_or(public_name);
-          }
-        }
-      }
-      public_name = table.at_path("project.public-name").value_or(public_name);
-      public_name = settings.public_name.value_or(public_name);
+      /// the caller's, or the one the project gives by itself
+      public_name = settings.public_name.value_or(default_public_name(table, project_name));
       if (const opt<std::string> reason = invalid_public_name_reason(public_name); reason.has_value()) {
         return fail(std::format("the public name '{}' cannot be used: {}", public_name, *reason));
       }
@@ -902,6 +915,98 @@ namespace other {
       lines.erase(lines.begin() + static_cast<std::ptrdiff_t>(*position.key));
     }
     return joined(lines);
+  }
+
+  compile_preview preview_project_compile(const command_bus& bus, const filepath& project_file) {
+    PROFILE_SECTION("preview_project_compile");
+    compile_preview preview;
+    const opt<filepath> found = project::find_project_file(project_file);
+    const opt<std::string> text = found.has_value() ? read_text(*found) : std::nullopt;
+    if (!text.has_value()) {
+      preview.problems.push_back(std::format("project file '{}' cannot be read", project_file.string()));
+      return preview;
+    }
+    toml::table table;
+    try {
+      table = toml::parse(*text);
+    } catch (const std::exception& e) {
+      preview.problems.push_back(std::format("'{}' is not a project file: {}", found->string(), e.what()));
+      return preview;
+    }
+
+    std::error_code ec;
+    const filepath file = std::filesystem::absolute(*found, ec);
+    preview.public_name = default_public_name(table, file.parent_path().filename().string());
+
+    if (const toml::array* listed = table.at_path("scene-graph.scenes").as_array(); listed != nullptr) {
+      for (const toml::node& entry : *listed) {
+        if (const toml::table* row = entry.as_table(); row != nullptr) {
+          preview.scenes.push_back(row->at_path("name").value_or(std::string{}));
+        }
+      }
+    }
+    if (preview.scenes.empty()) {
+      preview.problems.push_back("the project has no scenes, so there is nothing for a package to start in");
+    }
+    preview.starting_scene = table.at_path("scene-graph.starting-scene").value_or(std::string{});
+    if (std::ranges::find(preview.scenes, preview.starting_scene) == preview.scenes.end()) {
+      preview.starting_scene.clear();
+    }
+
+    if (const opt<project_rendering_settings> rendering = read_project_rendering_settings(file); rendering.has_value()) {
+      const ostd::vector<filepath> files = project_pipeline_files(*rendering, preview.problems);
+      const pipeline_collection collection = collect_pipelines(files);
+      preview.problems.append_range(collection.errors);
+      for (const collected_pipeline& pipeline : collection.pipelines) {
+        preview.pipelines.push_back(pipeline.name);
+      }
+      /// the project's own choice when it is one of them, or the only one there is
+      const std::string named = rendering->main_pipeline.value_or(preview.pipelines.size() == 1 ? preview.pipelines.front() : std::string{});
+      preview.main_pipeline = std::ranges::find(preview.pipelines, named) == preview.pipelines.end() ? std::string{} : named;
+    }
+
+    diagnostic_engine diagnostics;
+    project_program_result program = build_project_program(bus, file, &diagnostics);
+    if (!program.success) {
+      preview.problems.push_back("the project's VM sources do not build; the errors are in the log");
+    }
+    preview.vm_sources = std::move(program.sources);
+    preview.hooks = std::move(program.hooks);
+    return preview;
+  }
+
+  opt<std::string> save_compile_choices(const filepath& project_file, const compile_choices& choices) {
+    PROFILE_SECTION("save_compile_choices");
+    const opt<filepath> found = project::find_project_file(project_file);
+    const opt<std::string> original = found.has_value() ? read_text(*found) : std::nullopt;
+    if (!original.has_value()) {
+      return std::format("project file '{}' cannot be read", project_file.string());
+    }
+    toml::table table;
+    try {
+      table = toml::parse(*original);
+    } catch (const std::exception& e) {
+      return std::format("'{}' is not a project file: {}", found->string(), e.what());
+    }
+
+    std::error_code ec;
+    const std::string project_name = std::filesystem::absolute(*found, ec).parent_path().filename().string();
+    std::string text = *original;
+    /// a name the project already gives by itself is not written down a second time
+    if (!choices.public_name.empty() && choices.public_name != default_public_name(table, project_name)) {
+      text = set_toml_string(text, "project", "public-name", choices.public_name);
+    }
+    if (!choices.starting_scene.empty() && choices.starting_scene != table.at_path("scene-graph.starting-scene").value_or(std::string{})) {
+      text = set_toml_string(text, "scene-graph", "starting-scene", choices.starting_scene);
+    }
+    if (!choices.main_pipeline.empty() && choices.main_pipeline != table.at_path("rendering.main-pipeline").value_or(std::string{})) {
+      text = set_toml_string(text, "rendering", "main-pipeline", choices.main_pipeline);
+    }
+
+    if (text != *original && !write_text(*found, text)) {
+      return std::format("could not write '{}'", found->string());
+    }
+    return std::nullopt;
   }
 
   compile_report compile_project(const command_bus& bus, const compile_settings& settings) {

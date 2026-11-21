@@ -23,6 +23,7 @@
 #include "driver/systems/scene_system.hpp"
 #include "ui/menu-bar/menu_item.hpp"
 #include "ui/object-editor/object_editor.hpp"
+#include "ui/project-compiler/project_compiler.hpp"
 #include "ui/project-creator/project_creator.hpp"
 #include "ui/project-overview/project_overview.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
@@ -44,6 +45,7 @@ namespace other {
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
     ui->register_window<ui::scene_graph_editor>("scene-graph-editor", context, *get_event_system(), this);
     ui->register_window<ui::project_overview>("project-overview", *get_event_system(), this);
+    ui->register_window<ui::project_compiler>("project-compiler", context, *get_event_system(), this);
   }
 
   void editor_driver::on_initialize() {
@@ -243,8 +245,17 @@ namespace other {
     }
   }
 
+  void editor_driver::on_shutdown_request() {
+    PROFILE_SECTION("editor_driver::on_shutdown_request");
+    /// a compile reads the project through its mount and links against the VM's devices. the
+    ///  project is unloaded next and the VM goes soon after, so the compile is waited for here
+    context.project_compile.wait();
+  }
+
   void editor_driver::on_shutdown() {
     PROFILE_SECTION("editor_driver::on_shutdown");
+    /// only a compile started after the shutdown was asked for can still be running
+    context.project_compile.wait();
     context.remove_all_viewports();
   }
 
@@ -362,25 +373,33 @@ namespace other {
     }
   }
 
-  void editor_driver::save_active_scene() {
+  bool editor_driver::save_active_scene() {
     PROFILE_SECTION("editor_driver::save_active_scene");
     scene* s = get_active_scene();
     if (s == nullptr) {
       CORE_LOG_WARN("No active scene to save.");
-      return;
+      return false;
     }
 
     if (!s->source_path.has_value()) {
       CORE_LOG_ERROR("Scene '{}' has no scene document path to save to (in-memory scenes cannot be saved yet).", s->name);
-      return;
+      return false;
+    }
+
+    /// an edit still being made is closed first, so what is written is what is marked as saved
+    if (context.edit_tracker.session_active) {
+      context.edit_tracker.idle_frames = editor_context::scene_edit_tracker::kIdleFramesToCommit;
+      context.tick_edit_tracker();
     }
 
     const serialization::scene_document doc = serialization::capture_scene(*s, serialization::default_codec_services());
-    if (serialization::save_scene_document(doc, *s->source_path)) {
-      CORE_LOG_INFO("Saved scene '{}' to '{}' ({} objects).", s->name, s->source_path->string(), doc.objects.size());
-    } else {
+    if (!serialization::save_scene_document(doc, *s->source_path)) {
       CORE_LOG_ERROR("Failed to save scene '{}' to '{}'.", s->name, s->source_path->string());
+      return false;
     }
+    CORE_LOG_INFO("Saved scene '{}' to '{}' ({} objects).", s->name, s->source_path->string(), doc.objects.size());
+    context.mark_scene_saved();
+    return true;
   }
 
   ostd::vector<selected_draw> editor_driver::get_selection_draws() const {

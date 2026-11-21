@@ -264,6 +264,7 @@ namespace other {
     virtual void update_running() {}
     virtual void update_shutting_down() {}
     virtual void on_shutdown() = 0;
+    /// called as the shutdown sequence begins, before anything is unloaded
     virtual void on_shutdown_request() {}
     virtual void on_shutdown_confirm() {}
 

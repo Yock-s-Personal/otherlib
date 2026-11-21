@@ -25,18 +25,22 @@ namespace other {
         "usage: oecli vm <command> <input...> [options]\n"
         "\n"
         "commands:\n"
-        "  build <a.oasm> [b.oasm ...] -o <out.obin>   compile each source and link them into one program\n"
+        "  build <a.ocmd|a.oasm> [...] -o <out.obin>   compile each source and link them into one program\n"
         "  info <program.obin>                         print a linked program's header\n"
+        "\n"
+        "the first .ocmd input is the entry file; the files it uses are found and built with it\n"
         "\n"
         "options:\n"
         "  -o, --out <path>   output path (build only)\n"
-        "      --strict       treat link warnings as errors and write nothing (build only)";
+        "      --strict       treat warnings as errors and write nothing (build only)\n"
+        "      --emit-oasm    also write the OASM made from each .ocmd file, beside the output (build only)";
 
       struct parsed_arguments {
         std::string command = "";
         ostd::vector<filepath> inputs = {};
         opt<filepath> output = std::nullopt;
         bool strict = false;
+        bool emit_oasm = false;
         opt<std::string> error = std::nullopt;
       };
 
@@ -59,6 +63,8 @@ namespace other {
             parsed.output = filepath(args[++i]);
           } else if (arg == "--strict") {
             parsed.strict = true;
+          } else if (arg == "--emit-oasm") {
+            parsed.emit_oasm = true;
           } else if (!arg.empty() && arg.front() == '-') {
             parsed.error = std::format("unknown option '{}'", arg);
             return parsed;
@@ -77,13 +83,31 @@ namespace other {
         return path.is_absolute() ? path : ctx.working_directory / path;
       }
 
-      tool_result build(tool_context& ctx, std::span<const filepath> inputs, const filepath& output, const ocmd_link_options options) {
+      tool_result build(tool_context& ctx, std::span<const filepath> inputs, const filepath& output, const ocmd_link_options options, const bool emit_oasm) {
         PROFILE_SECTION("vm_tool::build");
+        diagnostic_engine diagnostics;
+        ocmd_toolchain toolchain;
+
         ostd::vector<oasm_source> sources;
+        ostd::vector<command_unit> units;
         sources.reserve(inputs.size());
         for (const filepath& input : inputs) {
-          if (input.extension().string() != ".oasm") {
-            return tool_result::error(std::format("'build' expects .oasm inputs, got '{}'\n{}", input.string(), kUsage));
+          const std::string extension = input.extension().string();
+          if (extension == ".ocmd") {
+            ostd::vector<command_unit> read = toolchain.read_command_units(from_working_directory(ctx, input), input.generic_string(), &diagnostics);
+            if (read.empty()) {
+              return tool_result::error(std::format("could not read '{}'; the errors are listed above", input.string()));
+            }
+            /// two inputs may use the same file
+            for (command_unit& unit : read) {
+              if (std::ranges::find(units, unit.name, &command_unit::name) == units.end()) {
+                units.push_back(std::move(unit));
+              }
+            }
+            continue;
+          }
+          if (extension != ".oasm") {
+            return tool_result::error(std::format("'build' expects .ocmd or .oasm inputs, got '{}'\n{}", input.string(), kUsage));
           }
 
           std::ifstream file(from_working_directory(ctx, input));
@@ -106,14 +130,30 @@ namespace other {
           register_builtin_command_devices(local_bus);
         }
 
-        diagnostic_engine diagnostics;
-        ocmd_toolchain toolchain;
+        const filepath destination = from_working_directory(ctx, output);
+        if (!units.empty()) {
+          ostd::vector<oasm_source> lowered = toolchain.lower_command_units(*bus, units, &diagnostics, options);
+          if (lowered.empty()) {
+            return tool_result::error("build failed; the errors are listed above");
+          }
+          /// named after the script with .oasm added, so it cannot land on a hand-written .oasm
+          for (size_t i = 0; emit_oasm && i < lowered.size(); ++i) {
+            const filepath listing = destination.parent_path() / std::format("{}.oasm", filepath{ lowered[i].name }.filename().string());
+            std::ofstream out(listing, std::ios::binary | std::ios::trunc);
+            if (!out.is_open()) {
+              return tool_result::error(std::format("failed to write '{}'", listing.string()));
+            }
+            out << lowered[i].text;
+            ctx.print("wrote '{}'", listing.string());
+          }
+          sources.append_range(std::move(lowered));
+        }
+
         const obin_build_result result = toolchain.build_obin(*bus, sources, &diagnostics, options);
         if (!result.success) {
           return tool_result::error("build failed; the errors are listed above");
         }
 
-        const filepath destination = from_working_directory(ctx, output);
         if (!toolchain.write_obin(destination, result.bytes)) {
           return tool_result::error(std::format("failed to write '{}'", destination.string()));
         }
@@ -171,7 +211,7 @@ namespace other {
         if (!parsed.output.has_value()) {
           return tool_result::error(std::format("'build' needs -o/--out\n{}", kUsage));
         }
-        return build(ctx, parsed.inputs, *parsed.output, { .strict = parsed.strict });
+        return build(ctx, parsed.inputs, *parsed.output, { .strict = parsed.strict }, parsed.emit_oasm);
       }
       if (parsed.command == "info") {
         if (parsed.inputs.size() != 1 || parsed.output.has_value() || parsed.strict) {

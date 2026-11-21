@@ -113,6 +113,8 @@ namespace other {
     ostd::vector<uint8_t> bytes;
     if (extension == ".oasm") {
       bytes = ocmd_toolchain{}.assemble_oasm_source(device, file_path);
+    } else if (extension == ".ocmd") {
+      bytes = ocmd_toolchain{}.assemble_command_source(device, file_path);
     } else if (extension == ".obin") {
       bytes = ocmd_toolchain{}.read_obin(file_path);
     } else {

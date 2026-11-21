@@ -129,4 +129,51 @@ namespace other {
     EXPECT_FALSE(run_vm_tool("vm frobnicate main.oasm").success());
   }
 
+  TEST_F(vm_tool_tests, build_takes_a_script_and_the_files_it_uses) {
+    write_file(test_root / "boot.ocmd", "use \"lib.ocmd\"\nproject load folder()\n");
+    write_file(test_root / "lib.ocmd", "fn folder() { return \"test-project\" }\n");
+
+    const cli::tool_result result = run_vm_tool("vm build boot.ocmd -o boot.obin");
+    ASSERT_TRUE(result.success()) << result.message << errors;
+    EXPECT_NE(result.message.find("linked 2 source(s)"), std::string::npos) << result.message;
+    EXPECT_FALSE(ocmd_toolchain{}.read_obin(test_root / "boot.obin").empty());
+    /// the OASM is an in-between form and is only written when asked for
+    EXPECT_FALSE(std::filesystem::exists(test_root / "boot.ocmd.oasm"));
+  }
+
+  TEST_F(vm_tool_tests, emit_oasm_writes_text_that_builds_the_same_program) {
+    write_file(test_root / "boot.ocmd", "use \"lib.ocmd\"\nproject load folder()\n");
+    write_file(test_root / "lib.ocmd", "fn folder() { return \"test-project\" }\n");
+    ASSERT_TRUE(run_vm_tool("vm build boot.ocmd -o boot.obin --emit-oasm").success());
+    ASSERT_TRUE(std::filesystem::exists(test_root / "boot.ocmd.oasm"));
+    ASSERT_TRUE(std::filesystem::exists(test_root / "lib.ocmd.oasm"));
+
+    /// the listing sorts next to the script it came from, so the link order is the same
+    ASSERT_TRUE(run_vm_tool("vm build boot.ocmd.oasm lib.ocmd.oasm -o again.obin").success());
+    EXPECT_EQ(ocmd_toolchain{}.read_obin(test_root / "boot.obin"), ocmd_toolchain{}.read_obin(test_root / "again.obin"));
+  }
+
+  TEST_F(vm_tool_tests, a_script_links_with_hand_written_oasm) {
+    write_file(test_root / "boot.ocmd", "let seven = helper()\n");
+    write_file(test_root / "helper.oasm", "$f_helper:\n  set rf, 7\n  ret\nend\n");
+    /// the script does not know helper exists, so it cannot call it yet
+    EXPECT_FALSE(run_vm_tool("vm build boot.ocmd helper.oasm -o boot.obin").success());
+
+    write_file(test_root / "boot.ocmd", "core log_u64 1 2\n");
+    EXPECT_TRUE(run_vm_tool("vm build boot.ocmd helper.oasm -o boot.obin").success());
+  }
+
+  TEST_F(vm_tool_tests, a_script_with_errors_writes_nothing) {
+    write_file(test_root / "boot.ocmd", "project load\n");
+    EXPECT_FALSE(run_vm_tool("vm build boot.ocmd -o boot.obin --emit-oasm").success());
+    EXPECT_FALSE(std::filesystem::exists(test_root / "boot.obin"));
+    EXPECT_FALSE(std::filesystem::exists(test_root / "boot.ocmd.oasm"));
+
+    write_file(test_root / "boot.ocmd", "use \"lib.ocmd\"\n");
+    write_file(test_root / "lib.ocmd", "core log \"library statement\" 2\n");
+    EXPECT_TRUE(run_vm_tool("vm build boot.ocmd -o lenient.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm build boot.ocmd -o strict.obin --strict").success());
+    EXPECT_FALSE(std::filesystem::exists(test_root / "strict.obin"));
+  }
+
 }  // namespace other

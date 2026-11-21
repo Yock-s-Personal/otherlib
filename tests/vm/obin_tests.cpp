@@ -336,4 +336,74 @@ namespace other {
     EXPECT_TRUE(built.bytes.empty());
   }
 
+  TEST_F(obin_tests, labels_in_a_row_name_the_same_instruction) {
+    /// the first of two labels used to keep instruction 0, which made this program loop forever
+    const obin_build_result built = build(R"(
+      set r1, 1
+      set r8, 0
+      mov r8, rflag
+      je first
+      set r1, 99
+    @first:
+    @second:
+      set r2, 2
+    )");
+    ASSERT_TRUE(built.success);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_bytes(&device, built.bytes);
+    EXPECT_TRUE(run_until_stopped(device));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 1);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R2), 2);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, a_label_after_the_last_instruction_ends_the_program) {
+    const obin_build_result built = build(R"(
+      set r1, 1
+      goto done
+      set r1, 99
+    @done:
+    )");
+    ASSERT_TRUE(built.success);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_bytes(&device, built.bytes);
+    EXPECT_TRUE(run_until_stopped(device));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 1);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, a_64_bit_field_has_its_own_eight_bytes) {
+    /// 'int64' and 'uint64' used to make a field of no size, so it shared the next field's bytes
+    const obin_build_result built = build(R"(
+      /entry: main
+      #numbers {
+        .big : int64 = 100000
+        .next : uint64 = 7
+      }
+      $main:
+        set r1, [numbers.big]
+        set r2, [numbers.next]
+      end
+    )");
+    ASSERT_TRUE(built.success);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_bytes(&device, built.bytes);
+    EXPECT_TRUE(run_until_stopped(device));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 100000);
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R2), 7);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, set_refuses_a_value_it_cannot_hold) {
+    EXPECT_TRUE(build("set r1, 255\n").success);
+    /// 300 used to be stored as 44
+    EXPECT_FALSE(build("set r1, 300\n").success);
+  }
+
 }  // namespace other

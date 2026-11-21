@@ -1,0 +1,12 @@
+# example.ocmd
+let greeting = "hello"
+let limit = 100000
+
+fn larger(a, b) {
+  if (a > b) { return a }
+  return b
+}
+
+core log greeting 2
+let best = larger(300, limit)
+project load "test-project" || core log "load failed" 4

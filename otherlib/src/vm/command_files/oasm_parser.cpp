@@ -285,9 +285,15 @@ namespace other {
     }
 
     uint32_t instruction_index = 0;
+    /// labels still waiting for the instruction they name; several in a row name the same one
+    size_t pending_labels = 0;
+    const auto name_pending_labels = [&section, &pending_labels](const uint32_t index) {
+      for (; pending_labels > 0; --pending_labels) {
+        section.jump_labels[section.jump_labels.size() - pending_labels].instruction_index = index;
+      }
+    };
 
     /// now read everything until END keyword
-    bool set_instr_index = false;
     while (!finished() && !detail::end_of_code_section(current())) {
       if (detail::is_next_section_marker(current())) {
         break;
@@ -302,7 +308,7 @@ namespace other {
         }
 
         section.jump_labels.emplace_back(code_section_ir::jump_label_ir{ .name = current().text });
-        set_instr_index = true;
+        ++pending_labels;
         consume();
 
         if (finished() || !check(TOKEN_TYPE_COLON)) {
@@ -310,12 +316,14 @@ namespace other {
         }
         consume();  // consume ':'
       } else if (detail::is_instruction_keyword(current())) {
-        instruction_index = parse_instruction(section, instruction_index, set_instr_index);
-        set_instr_index = false;
+        name_pending_labels(instruction_index);
+        instruction_index = parse_instruction(section, instruction_index);
       } else {
         consume();
       }
     }
+    /// a label after the last instruction names the ret that process_code_sections adds
+    name_pending_labels(instruction_index);
 
     if (check(TOKEN_TYPE_KW_END)) {
       consume();
@@ -592,7 +600,8 @@ namespace other {
         code_blk.name = std::format("code_block_{}", ir_result.code_blocks.size() - 1);
       }
 
-      if (section.instructions.empty() || section.instructions.back().opcode != canonical_opcode::RET_OP) {
+      const bool label_past_end = std::ranges::any_of(section.jump_labels, [&section](const auto& label) { return label.instruction_index >= section.instructions.size(); });
+      if (section.instructions.empty() || section.instructions.back().opcode != canonical_opcode::RET_OP || label_past_end) {
         auto& ret_instr = section.instructions.emplace_back();
         ret_instr.instruction_index = static_cast<uint16_t>(section.instructions.size() - 1);
         ret_instr.opcode = canonical_opcode::RET_OP;

@@ -3,8 +3,6 @@
  *  the backend A/B: the same engine-facing scenarios that run under jolt, executed against
  *  box3d by swapping the backend on the live physics_environment
  **/
-#include "other_test.hpp"
-
 #include "physics/physics_environment.hpp"
 #include "physics_world/physics_body.hpp"
 #include "physics_world/physics_shape.hpp"
@@ -12,6 +10,8 @@
 #include "object/physics_component.hpp"
 #include "object/physics_joint_component.hpp"
 #include "scene/scene.hpp"
+
+#include "other_test.hpp"
 
 namespace other {
 

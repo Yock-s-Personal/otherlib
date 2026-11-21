@@ -77,8 +77,7 @@ namespace other {
           bus.register_thread();  // second registration should fail
         } };
       },
-      ""
-    );
+      "");
 
     ASSERT_DEATH(
       {
@@ -86,8 +85,7 @@ namespace other {
           bus.receive_message();  // not registered yet
         } };
       },
-      ""
-    );
+      "");
 
     ASSERT_DEATH(
       {
@@ -97,8 +95,7 @@ namespace other {
           bus.send_message(std::move(send_msg));  // not registered yet
         } };
       },
-      ""
-    );
+      "");
   }
 
   TEST_F(thread_tests, channel_try_pop_is_non_blocking_and_fifo) {

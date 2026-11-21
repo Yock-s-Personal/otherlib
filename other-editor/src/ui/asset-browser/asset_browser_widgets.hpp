@@ -5,11 +5,12 @@
 #define OTHER_EDITOR_UI_ASSET_BROWSER_ASSET_BROWSER_WIDGETS_HPP
 
 #include <string>
-#include "data-structures/std_container.hpp"
 #include <vector>
 
 #include <glm/glm.hpp>
 #include <imgui/imgui.h>
+
+#include "data-structures/std_container.hpp"
 
 #include "ui/asset_picker.hpp"
 

@@ -10,7 +10,6 @@
 
 #include "core/defines.hpp"
 
-
 namespace other {
 
   enum class lobby_state : uint8_t {

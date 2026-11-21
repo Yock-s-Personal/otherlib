@@ -44,8 +44,7 @@ namespace other {
       epsilonEqual(local_mat[0][3], static_cast<T>(0), epsilon<T>()) &&
         epsilonEqual(local_mat[1][3], static_cast<T>(0), epsilon<T>()) &&
         epsilonEqual(local_mat[2][3], static_cast<T>(0), epsilon<T>()),
-      "Matrix decomposition requires no perspective component."
-    );
+      "Matrix decomposition requires no perspective component.");
     //// perspectiveMatrix is used to solve for perspective, but it also provides
     //// an easy way to test for singularity of the upper 3x3 component.
     // mat<4, 4, T, Q> PerspectiveMatrix(local_mat);

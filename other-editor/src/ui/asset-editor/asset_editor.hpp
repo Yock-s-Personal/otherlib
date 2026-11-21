@@ -10,7 +10,6 @@
 
 #include "asset/asset.hpp"
 
-
 namespace other {
 
   class driver;

@@ -19,7 +19,6 @@
 #include "forward.hpp"
 #include "table.hpp"
 
-
 namespace other {
 
   class dotnet_object;

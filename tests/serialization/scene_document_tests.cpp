@@ -16,7 +16,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class scene_document_tests : public other_test {};

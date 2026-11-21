@@ -7,6 +7,7 @@
 #include <format>
 
 #include "core/profiler.hpp"
+#include "file/path_helpers.hpp"
 
 #include "renderer/render_pipeline.hpp"
 
@@ -36,8 +37,9 @@ namespace other {
       fail("rendering.pipelines is empty, so there is nothing to draw with");
     }
 
+    /// found the way the rendering system finds them, so engine://... is a path here too
     for (const std::string& path : pipeline_paths) {
-      if (!std::filesystem::exists(path)) {
+      if (!resolve_asset_path(path).found()) {
         fail(std::format("rendering pipeline '{}' does not exist", path));
       }
     }

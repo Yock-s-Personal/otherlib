@@ -11,7 +11,6 @@
 
 #include "core/defines.hpp"
 
-
 namespace other {
 
   template <typename T>

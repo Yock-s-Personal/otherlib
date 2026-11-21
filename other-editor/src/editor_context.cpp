@@ -4,6 +4,7 @@
 #include "editor_context.hpp"
 
 #include "core/profiler.hpp"
+
 #include "editor_driver.hpp"
 
 namespace other {

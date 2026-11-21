@@ -14,7 +14,6 @@
 
 #include "message/message_serialization.hpp"
 
-
 namespace other {
 
   enum class net_message : uint16_t {

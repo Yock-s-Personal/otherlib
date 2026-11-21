@@ -10,7 +10,6 @@
 #include "vm/vm.hpp"
 #include "vm/vm_error.hpp"
 
-
 namespace other {
   namespace detail {
 

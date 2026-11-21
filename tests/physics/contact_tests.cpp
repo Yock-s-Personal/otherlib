@@ -13,7 +13,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class physics_contact_tests : public other_test {

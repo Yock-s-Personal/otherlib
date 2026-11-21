@@ -64,8 +64,7 @@ namespace other {
     FormatMessageW(
       FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
       nullptr, error_code, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-      reinterpret_cast<LPWSTR>(&error_message), 0, nullptr
-    );
+      reinterpret_cast<LPWSTR>(&error_message), 0, nullptr);
 
     std::wstring error_wstr(static_cast<wchar_t*>(error_message));
     LocalFree(error_message);

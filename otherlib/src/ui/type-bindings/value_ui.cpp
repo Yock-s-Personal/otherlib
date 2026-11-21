@@ -6,6 +6,7 @@
 #include <imgui/imgui_memory_editor.h>
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 #include "ui/ui_helpers.hpp"
 #include "ui/ui_widgets.hpp"

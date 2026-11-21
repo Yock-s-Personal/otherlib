@@ -46,8 +46,12 @@ namespace other {
       return false;
     }
 
-    const auto put_u32 = [&out](uint32_t v) { out.write(reinterpret_cast<const char*>(&v), 4); };
-    const auto put_u16 = [&out](uint16_t v) { out.write(reinterpret_cast<const char*>(&v), 2); };
+    const auto put_u32 = [&out](uint32_t v) {
+      out.write(reinterpret_cast<const char*>(&v), 4);
+    };
+    const auto put_u16 = [&out](uint16_t v) {
+      out.write(reinterpret_cast<const char*>(&v), 2);
+    };
 
     out.write("RIFF", 4);
     put_u32(36 + data_size);

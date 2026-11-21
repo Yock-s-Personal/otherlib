@@ -6,7 +6,6 @@
 #include <filesystem>
 
 #include "core/profiler.hpp"
-
 #include "serialization/reflection.hpp"
 
 #include "script/scripting_environment.hpp"

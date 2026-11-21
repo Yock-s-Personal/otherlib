@@ -25,8 +25,7 @@ OTHER_REFLECT(
   field(a, other::attr::serializable()),
   field(b, other::attr::serializable()),
   field(c, other::attr::serializable()),
-  field(not_serialized_but_reflected)
-);
+  field(not_serialized_but_reflected));
 
 namespace other {
 

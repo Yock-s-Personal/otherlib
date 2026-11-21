@@ -12,7 +12,6 @@
 #include "dotnet/dotnet_host.hpp"
 #include "dotnet/dotnet_object.hpp"
 
-
 namespace other {
 
   void dotnet_type::initialize_type_interface() {

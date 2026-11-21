@@ -57,8 +57,7 @@ namespace other {
     return glm::vec3(
       satisfy_floating_point_tolerance(glm::dot(v, i)),
       satisfy_floating_point_tolerance(glm::dot(v, j)),
-      satisfy_floating_point_tolerance(glm::dot(v, k))
-    );
+      satisfy_floating_point_tolerance(glm::dot(v, k)));
   }
 
   glm::vec3 orthonormal_basis::to_world(const glm::vec3& vec) const {

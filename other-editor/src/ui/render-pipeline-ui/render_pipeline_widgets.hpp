@@ -4,8 +4,9 @@
 #ifndef OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_WIDGETS_HPP
 #define OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_WIDGETS_HPP
 
-#include "renderer/renderer.hpp"
 #include "data-structures/std_container.hpp"
+
+#include "renderer/renderer.hpp"
 
 #include "driver/systems/asset_system.hpp"
 

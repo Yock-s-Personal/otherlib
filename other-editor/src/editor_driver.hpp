@@ -4,8 +4,9 @@
 #ifndef OTHER_EDITOR_EDITOR_DRIVER_HPP
 #define OTHER_EDITOR_EDITOR_DRIVER_HPP
 
-#include "driver/driver.hpp"
 #include "data-structures/std_container.hpp"
+
+#include "driver/driver.hpp"
 
 #include "edit_stack.hpp"
 #include "editor_context.hpp"

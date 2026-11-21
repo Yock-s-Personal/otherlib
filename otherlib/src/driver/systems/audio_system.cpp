@@ -14,7 +14,6 @@
 
 #include "audio/audio_environment.hpp"
 
-
 namespace other {
 
   namespace {

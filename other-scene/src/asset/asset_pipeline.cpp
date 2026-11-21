@@ -40,7 +40,6 @@
 #include "audio/audio_environment.hpp"
 #include "audio/audio_import.hpp"
 
-
 namespace other {
 
   namespace detail {

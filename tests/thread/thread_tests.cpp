@@ -12,7 +12,6 @@
 
 #include "message/message.hpp"
 
-
 namespace other {
 
   MATCHER(IsLaunchingOrWaiting, "") {

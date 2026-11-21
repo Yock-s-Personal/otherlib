@@ -17,7 +17,6 @@
 
 #include "driver/driver.hpp"
 
-
 namespace other {
 
   std::mutex plugin::plugin_mutex;

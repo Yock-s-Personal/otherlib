@@ -4,6 +4,7 @@
 #include "ui/console/console_input_node.hpp"
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 #include "tools/environment_console.hpp"
 

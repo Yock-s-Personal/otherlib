@@ -12,7 +12,6 @@
 #include "audio/audio_test_fixtures.hpp"
 #include "other_test.hpp"
 
-
 namespace other {
 
   namespace {

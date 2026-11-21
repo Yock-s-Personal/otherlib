@@ -2,10 +2,11 @@
  * \file plugins/tcp_side_channel.cpp
  **/
 #include "core/profiler.hpp"
-#include "driver/driver.hpp"
-#include "plugin/plugin.hpp"
 
 #include "network/packet_sink.hpp"
+
+#include "driver/driver.hpp"
+#include "plugin/plugin.hpp"
 
 using other::packet_sink;
 

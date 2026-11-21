@@ -12,7 +12,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class physics_debug_lifecycle_tests : public other_test {

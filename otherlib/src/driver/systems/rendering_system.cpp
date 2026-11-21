@@ -5,6 +5,8 @@
 
 #include <SDL3/SDL_dialog.h>
 
+#include "file/path_helpers.hpp"
+
 #include "gpu_resource/framebuffer.hpp"
 #include "renderer/gpu_structs.hpp"
 
@@ -536,16 +538,24 @@ namespace other {
     // }
 
     ostd::vector<std::string> pipeline_paths = get_driver().get_config_value<ostd::vector<std::string>>("rendering.pipelines", {});
-    if (pipeline_paths.size() > 0) {
+    if (pipeline_paths.empty()) {
       CORE_LOG_WARN("No rendering pipelines specified in configuration.");
-      for (const auto& pipeline_path : pipeline_paths) {
-        CORE_LOG_DEBUG("Adding rendering pipeline: {}", pipeline_path);
-        auto& ass = pending_rendering_pipeline_assets.emplace_back(pipeline_asset{
-          .asset_id = 0,
-        });
-        natural_t id = get_driver().begin_asset_load(filepath(pipeline_path));
-        ass.asset_id = id;
+    }
+    for (const auto& pipeline_path : pipeline_paths) {
+      /// an entry may name a mount (engine://...); one that does not is looked for from the
+      ///  working directory, as it always was
+      const asset_path resolved = resolve_asset_path(pipeline_path);
+      if (!resolved.found()) {
+        CORE_LOG_ERROR("Rendering pipeline '{}' from the configuration was not found.", pipeline_path);
+        continue;
       }
+
+      CORE_LOG_DEBUG("Adding rendering pipeline: {}", resolved.resolved.string());
+      auto& ass = pending_rendering_pipeline_assets.emplace_back(pipeline_asset{
+        .asset_id = 0,
+      });
+      natural_t id = get_driver().begin_asset_load(resolved.resolved);
+      ass.asset_id = id;
     }
   }
 

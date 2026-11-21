@@ -13,7 +13,6 @@
 
 #include "tools/scene_cli_tool.hpp"
 
-
 namespace other {
   namespace cli {
     namespace {

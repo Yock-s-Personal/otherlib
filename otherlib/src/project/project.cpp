@@ -11,6 +11,7 @@
 #include "core/job_system.hpp"
 #include "core/weak_ref.hpp"
 #include "file/filesystem.hpp"
+#include "file/path_helpers.hpp"
 #include "serialization/scene_serializer.hpp"
 
 #include "script/scripting_environment.hpp"
@@ -68,6 +69,7 @@ namespace other {
 
     load_errors.clear();
     script_project_failure.reset();
+    prebuilt_assembly.clear();
 
     /// the project root mount anchors every canonical virtual path (=> stable_id) the
     //  resolver produces; it must exist before anything under it is registered or virtualized
@@ -129,14 +131,16 @@ namespace other {
     }
 
     waiting_for_script_load = process_scripting_sections(table, kernel);
-    if (waiting_for_script_load &&
-        (project_scripts.csproject_path.empty() || !std::filesystem::exists(project_scripts.csproject_path))) {
+    /// a built assembly is loaded as it is; a csproj is built first
+    const bool prebuilt = !prebuilt_assembly.empty();
+    const filepath script_root = prebuilt ? prebuilt_assembly : project_scripts.csproject_path;
+    if (waiting_for_script_load && (script_root.empty() || !std::filesystem::exists(script_root))) {
       waiting_for_script_load = false;
       /// never resolved, so no asset plan covers it and a rebuild would have nothing to start
-      drop_script_project("C# project file does not exist", {}, false);
+      drop_script_project(prebuilt ? "script assembly does not exist" : "C# project file does not exist", {}, false);
     }
 
-    has_script_project = !project_scripts.csproject_path.empty();
+    has_script_project = !project_scripts.csproject_path.empty() || !prebuilt_assembly.empty();
 
     waiting_for_scene_load = process_scene_sections(table);
 
@@ -155,7 +159,10 @@ namespace other {
     /// one resolve over everything the project declares: the csproj (scripts) and every
     //  scene document (models/textures/hook scripts ride the scene's manifest edges)
     ostd::vector<filepath> resolve_roots = {};
-    if (waiting_for_script_load) {
+    if (waiting_for_script_load && prebuilt) {
+      CORE_LOG_INFO("Loading script assembly from '{}'", prebuilt_assembly.string());
+      resolve_roots.push_back(prebuilt_assembly);
+    } else if (waiting_for_script_load) {
       CORE_LOG_INFO("Loading .NET project from '{}'", project_scripts.csproject_path.string());
       resolve_roots.push_back(project_scripts.csproject_path);
     }
@@ -375,15 +382,19 @@ namespace other {
   }
 
   void project::drop_script_project(const std::string_view reason, const std::string_view details, bool can_retry) {
-    CORE_LOG_ERROR("[PROJECT] Dropping script project '{}': {}", project_scripts.csproject_path.string(), reason);
-    load_errors.push_back({ .subject = project_scripts.csproject_path.string(), .message = std::string{ reason } });
+    /// a built assembly has no csproj: the assembly is what failed, and nothing can rebuild it
+    const bool prebuilt = !prebuilt_assembly.empty();
+    const std::string subject = prebuilt ? prebuilt_assembly.string() : project_scripts.csproject_path.string();
+    CORE_LOG_ERROR("[PROJECT] Dropping script project '{}': {}", subject, reason);
+    load_errors.push_back({ .subject = subject, .message = std::string{ reason } });
     script_project_failure = script_failure{
       .csproj_path = project_scripts.csproject_path,
       .reason = std::string{ reason },
       .details = std::string{ details },
-      .can_retry = can_retry,
+      .can_retry = can_retry && !prebuilt,
     };
     project_scripts.csproject_path.clear();
+    prebuilt_assembly.clear();
     has_script_project = false;
   }
 
@@ -556,6 +567,25 @@ namespace other {
         waiting_for_script_load = true;
       }
     });
+
+    /// a packaged project names the assembly that was built for it. it wins over cs_project,
+    ///  so a project that has both is loaded without a build
+    const auto assembly = scripting_table->get("assembly");
+    if (assembly && assembly->is_string()) {
+      /// written like any asset path: tags are replaced and a mount is followed. with no mount
+      ///  it is a path from the working directory, as cs_project beside it is
+      const std::string written = perform_tag_replacement(assembly->as_string()->get());
+      if (written.contains(file_system::kPathSeparator)) {
+        /// kept as written when the mount or the file is not there, so the error names it
+        const asset_path mounted = resolve_asset_path(written);
+        prebuilt_assembly = mounted.found() ? mounted.resolved : filepath{ written };
+      } else {
+        prebuilt_assembly = written;
+      }
+      project_scripts.csproject_path.clear();
+      waiting_for_script_load = true;
+      CORE_LOG_DEBUG("Project script assembly set to '{}'; no C# project will be built", prebuilt_assembly.string());
+    }
 
     auto rc_path = scripting_table->get("projectrc-path");
     if (rc_path && rc_path->is_string()) {

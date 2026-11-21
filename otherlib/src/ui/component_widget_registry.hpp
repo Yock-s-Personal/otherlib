@@ -4,8 +4,9 @@
 #ifndef OTHERLIB_UI_COMPONENT_WIDGET_REGISTRY_HPP
 #define OTHERLIB_UI_COMPONENT_WIDGET_REGISTRY_HPP
 
-#include "ui/field_ui.hpp"
 #include "data-structures/std_container.hpp"
+
+#include "ui/field_ui.hpp"
 
 namespace other {
   namespace ui {

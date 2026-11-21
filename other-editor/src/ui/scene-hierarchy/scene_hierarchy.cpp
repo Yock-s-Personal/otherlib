@@ -13,7 +13,6 @@
 
 #include "imgui.h"
 
-
 namespace other {
   namespace ui {
 

@@ -16,7 +16,6 @@
 #include "model/model_source.hpp"
 #include "renderer/rendering_api.hpp"
 
-
 struct ImGuiContext;
 namespace other {
 

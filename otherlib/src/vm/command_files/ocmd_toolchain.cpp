@@ -162,7 +162,7 @@ namespace other {
   }
 
   ostd::vector<oasm_source> ocmd_toolchain::lower_command_units(const command_bus& bus, std::span<const command_unit> units, diagnostic_engine* diag,
-                                                               const command_build_options& options, ostd::vector<command_hook_record>* hooks) {
+                                                                const command_build_options& options, ostd::vector<command_hook_record>* hooks) {
     OTHER_ASSERT(diag != nullptr, "Diagnostic engine cannot be null");
     PROFILE_SECTION("ocmd_toolchain::lower_command_units");
 

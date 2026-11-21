@@ -9,7 +9,6 @@
 #include "core/profiler.hpp"
 #include "memory/arena_allocator.hpp"
 
-
 namespace other {
 
   template <typename T>

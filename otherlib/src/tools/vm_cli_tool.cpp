@@ -264,7 +264,9 @@ namespace other {
 
         /// anything that is not a source is read as a program, whatever it is called: 'build -o'
         ///  takes any name, and the listing says so if the file turns out not to be one
-        const auto is_source = [](const filepath& input) { return input.extension() == ".ocmd" || input.extension() == ".oasm"; };
+        const auto is_source = [](const filepath& input) {
+          return input.extension() == ".ocmd" || input.extension() == ".oasm";
+        };
         ostd::vector<uint8_t> bytes;
         if (!std::ranges::all_of(inputs, is_source)) {
           if (inputs.size() != 1) {

@@ -6,10 +6,10 @@
 
 #include <glm/glm.hpp>
 
-#include "gpu_resource/imgui_fwd.hpp"
 #include "math/definitions.hpp"
 #include "serialization/reflection.hpp"
 
+#include "gpu_resource/imgui_fwd.hpp"
 #include "gpu_resource/renderer_resource.hpp"
 
 namespace other {

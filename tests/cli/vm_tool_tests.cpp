@@ -4,16 +4,16 @@
  * the oecli vm tool: build/info over hermetic temp files, in-process through the same
  * registry the executable and in-environment hosts use.
  **/
-#include <gtest/gtest.h>
-
 #include <fstream>
 
-#include "other_test.hpp"
+#include <gtest/gtest.h>
 
-#include "cli/tool_registry.hpp"
 #include "tools/scene_cli_tool.hpp"
 #include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
+
+#include "cli/tool_registry.hpp"
+#include "other_test.hpp"
 
 namespace other {
 
@@ -27,8 +27,12 @@ namespace other {
 
       ctx = {};
       ctx.working_directory = test_root;
-      ctx.out = [this](std::string_view message) { output += std::format("{}\n", message); };
-      ctx.err = [this](std::string_view message) { errors += std::format("{}\n", message); };
+      ctx.out = [this](std::string_view message) {
+        output += std::format("{}\n", message);
+      };
+      ctx.err = [this](std::string_view message) {
+        errors += std::format("{}\n", message);
+      };
 
       cli::register_environment_tools(registry);
     }
@@ -284,7 +288,8 @@ namespace other {
 
     ASSERT_TRUE(run_vm_tool("vm data boot.ocmd").success()) << errors;
     for (const std::string_view expected : { ".v_limit", "int64", "100000", "string", "\"test-project\"", "read ", "address ", "$m_boot", "boot.ocmd:3:1", "core log_u64 limit 2" }) {
-      EXPECT_NE(output.find(expected), std::string::npos) << expected << "\n" << output;
+      EXPECT_NE(output.find(expected), std::string::npos) << expected << "\n"
+                                                          << output;
     }
     /// only the data: no instruction is listed
     EXPECT_EQ(output.find("syscall"), std::string::npos) << output;

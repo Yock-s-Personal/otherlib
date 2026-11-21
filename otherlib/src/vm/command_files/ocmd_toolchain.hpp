@@ -36,6 +36,8 @@ namespace other {
 
     /// why this build will not load bytes as a linked program; empty when it will
     opt<std::string> check_obin(std::span<const uint8_t> bytes) const;
+    /// writes nothing when check_obin refuses bytes, so it cannot make a file this build would not load
+    bool write_obin(const filepath& path, std::span<const uint8_t> bytes);
     /// empty when the file cannot be read or check_obin refuses it
     ostd::vector<uint8_t> read_obin(const filepath& path);
   };

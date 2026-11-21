@@ -59,7 +59,7 @@ namespace other {
     diagnostics = diag;
 
     lexer_error_sink error_sink{};
-    natural_t id = diagnostics->register_sink("lexer-error-sink", &error_sink);
+    const scoped_diagnostic_sink error_sink_scope(diagnostics, "lexer-error-sink", &error_sink);
 
     EMIT_TRACE("Tokenizing source:\n{}", source);
 
@@ -111,7 +111,6 @@ namespace other {
 
     tokens.emplace_back(TOKEN_TYPE_EOF, "", source_span{ current_source_span_start, { current_line, current_column } });
 
-    diagnostics->remove_sink(id);
     return tokens;
   }
 

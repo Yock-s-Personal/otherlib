@@ -44,7 +44,7 @@ namespace other {
     diagnostics = diag;
 
     oasm_error_sink error_sink{};
-    natural_t id = diagnostics->register_sink("oasm-error-sink", &error_sink);
+    const scoped_diagnostic_sink error_sink_scope(diagnostics, "oasm-error-sink", &error_sink);
 
     bool success = true;
     auto unknown_error = [this, &success](const std::string_view msg) {
@@ -136,8 +136,6 @@ namespace other {
       unknown_error(std::format("Unknown error during processing at token '{}'", current().text));
       return {};
     }
-
-    diagnostics->remove_sink(id);
 
     if (!failure_processing) {
       ir_result.valid = true;

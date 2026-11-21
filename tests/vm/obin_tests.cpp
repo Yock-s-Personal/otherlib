@@ -11,10 +11,14 @@
 #include "vm/builtin_command_devices.hpp"
 #include "vm/command_bus.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
+#include "vm/command_files/ocmd_linker.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
+#include "vm/default_symbol_resolver.hpp"
 #include "vm/devices/project_device.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
 #include "vm/opcode.hpp"
+#include "vm/other_device.hpp"
+#include "vm/vm.hpp"
 
 #include "other_test.hpp"
 
@@ -91,8 +95,99 @@ namespace other {
       file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
     }
 
+    /// false when the program has not stopped after a generous number of steps
+    static bool run_until_stopped(other_command_device& device) {
+      for (size_t step = 0; step < 4096 && !vm::has_flag(&device, other_command_device::STOPPED); ++step) {
+        vm::step(&device);
+      }
+      return vm::has_flag(&device, other_command_device::STOPPED);
+    }
+
     filepath sandbox;
   };
+
+  TEST_F(obin_tests, written_program_loads_and_runs) {
+    const obin_build_result built = build(kAnswerSource);
+    ASSERT_TRUE(built.success);
+
+    const filepath path = sandbox / "answer.obin";
+    write_file(path, built.bytes);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_file(&device, path);
+    EXPECT_FALSE(vm::has_flag(&device, other_command_device::STOPPED));
+    EXPECT_TRUE(run_until_stopped(device));
+    EXPECT_EQ(device.read_register_as_u64(vm_register_idx::VM_R1), 42);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, write_refuses_bytes_that_would_not_load) {
+    obin_build_result built = build(kAnswerSource);
+    ASSERT_TRUE(built.success);
+
+    const filepath good = sandbox / "nested" / "answer.obin";
+    ASSERT_TRUE(ocmd_toolchain{}.write_obin(good, built.bytes));
+    EXPECT_EQ(ocmd_toolchain{}.read_obin(good), built.bytes);
+
+    built.bytes[0] = 'X';
+    const filepath bad = sandbox / "bad.obin";
+    EXPECT_FALSE(ocmd_toolchain{}.write_obin(bad, built.bytes));
+    EXPECT_FALSE(std::filesystem::exists(bad));
+  }
+
+  TEST_F(obin_tests, refused_file_is_not_loaded) {
+    obin_build_result built = build(kAnswerSource);
+    ASSERT_TRUE(built.success);
+
+    built.bytes[0] = 'X';
+    const filepath path = sandbox / "bad.obin";
+    write_file(path, built.bytes);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_file(&device, path);
+    EXPECT_TRUE(vm::has_flag(&device, other_command_device::STOPPED));
+    EXPECT_EQ(device.program_load_cursor, other_command_device::kProgramStartAddress);
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, unknown_extension_is_not_loaded) {
+    const obin_build_result built = build(kAnswerSource);
+    ASSERT_TRUE(built.success);
+
+    const filepath path = sandbox / "answer.oexe";
+    write_file(path, built.bytes);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_file(&device, path);
+    EXPECT_TRUE(vm::has_flag(&device, other_command_device::STOPPED));
+    vm::shutdown_device(&device);
+  }
+
+  TEST_F(obin_tests, program_that_no_longer_fits_is_not_loaded) {
+    /// the stopdev guard is the only code, so the data section decides the size: as large as a program can be
+    ocmd_unit unit{ .name = "big.oasm" };
+    unit.program.valid = true;
+    unit.program.compiled_data_sections.push_back({ .name = "big", .fields = {}, .data = ostd::vector<uint8_t>(other_command_device::kMaxProgramSize - sizeof(instruction), 0) });
+
+    diagnostic_engine diag;
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ std::span<const ocmd_unit>{ &unit, 1 } }.link(make_scope<default_symbol_resolver>(), &diag);
+    const filepath path = sandbox / "big.obin";
+    write_file(path, bytes);
+
+    other_command_device device;
+    vm::initialize_device(&device);
+    vm::load_program_from_file(&device, path);
+    const uint16_t cursor_after_first = device.program_load_cursor;
+    EXPECT_NE(cursor_after_first, other_command_device::kProgramStartAddress);
+
+    /// the first load filled the device; a second is refused where it used to assert
+    vm::load_program_from_file(&device, path);
+    EXPECT_EQ(device.program_load_cursor, cursor_after_first);
+    vm::shutdown_device(&device);
+  }
 
   TEST_F(obin_tests, header_records_the_environment_and_program_size) {
     const obin_build_result built = build(kAnswerSource);

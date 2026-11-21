@@ -119,6 +119,7 @@ target_sources(otherlib
     src/tools/scene_cli_tool.cpp
     src/tools/model_cli_tool.cpp
     src/tools/material_cli_tool.cpp
+    src/tools/vm_cli_tool.cpp
 
     src/ui/script/script_property_widget.cpp
     src/ui/type-bindings/value_ui.cpp

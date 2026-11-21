@@ -109,34 +109,27 @@ namespace other {
       return;
     }
 
-    std::ifstream file;
-    if (file_path.extension() == ".oasm") {
-      file = std::ifstream(file_path);
-    } else if (file_path.extension() == ".oexe") {
-      file = std::ifstream(file_path, std::ios::binary);
-    } else if (file_path.extension() == ".ocmd") {
-      CORE_LOG_ERROR("[VM] : OCMD file loading not yet implemented: {}", file_path.string());
-      return;
-    } else {
-      CORE_LOG_ERROR("[VM] : Unsupported file type for VM program: {}", file_path.extension().string());
-      return;
-    }
-
-    if (!file.is_open()) {
-      CORE_LOG_ERROR("[VM] : Failed to open file {} for reading", file_path.string());
-      return;
-    }
-
+    const std::string extension = file_path.extension().string();
     ostd::vector<uint8_t> bytes;
-    if (file_path.extension() == ".oasm") {
+    if (extension == ".oasm") {
       bytes = ocmd_toolchain{}.assemble_oasm_source(device, file_path);
-    } else if (file_path.extension() == ".oexe") {
-      CORE_LOG_ERROR("[VM] : OEXE file loading not yet implemented: {}", file_path.string());
+    } else if (extension == ".obin") {
+      bytes = ocmd_toolchain{}.read_obin(file_path);
+    } else {
+      CORE_LOG_ERROR("[VM] : Unsupported file type for VM program: {}", extension);
       return;
     }
 
+    /// the toolchain logged the reason; either way nothing was loaded and the device stays stopped
     if (bytes.empty()) {
-      CORE_LOG_ERROR("[VM] : Failed to compile and load program from file {}", file_path.string());
+      CORE_LOG_ERROR("[VM] : Failed to load program from file {}", file_path.string());
+      return;
+    }
+
+    /// load_bytes_to_address asserts on a program that does not fit, so it is refused here
+    const size_t program_size = bytes.size() - sizeof(ocmd_file_header);
+    if (device->program_load_cursor + program_size >= other_command_device::kMemorySize) {
+      CORE_LOG_ERROR("[VM] : {} needs {} bytes at {:#06x}, past the end of device memory", file_path.string(), program_size, device->program_load_cursor);
       return;
     }
 

@@ -22,6 +22,7 @@ target_sources(other_tests
 
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/cli_tool_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/scene_tool_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cli/vm_tool_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/arena/arena_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/arena/arena_buffer_test.cpp

@@ -62,8 +62,7 @@ namespace other {
     ostd::vector<ocmd_unit> units;
     units.reserve(sources.size());
     for (const oasm_source& source : sources) {
-      /// stops at the first file that fails: a failed parse leaves its error sink
-      ///  registered on diag, so nothing may be emitted through it afterwards
+      /// stops at the first file that fails; its errors have already gone to diag
       try {
         units.push_back({ .name = source.name, .program = ocmd_compiler{}.compile(source.text, make_scope<code_generator_000>(), diag) });
       } catch (const std::exception& e) {
@@ -132,6 +131,28 @@ namespace other {
       return "its entry point is outside the code section";
     }
     return std::nullopt;
+  }
+
+  bool ocmd_toolchain::write_obin(const filepath& path, std::span<const uint8_t> bytes) {
+    PROFILE_SECTION("ocmd_toolchain::write_obin");
+    if (const opt<std::string> refusal = check_obin(bytes); refusal.has_value()) {
+      CORE_LOG_ERROR("[VM] : not writing '{}': {}", path.string(), *refusal);
+      return false;
+    }
+
+    if (path.has_parent_path()) {
+      std::error_code ec;
+      std::filesystem::create_directories(path.parent_path(), ec);
+    }
+
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
+    if (!file.is_open()) {
+      CORE_LOG_ERROR("[VM] : failed to open '{}' for writing", path.string());
+      return false;
+    }
+
+    file.write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    return file.good();
   }
 
   ostd::vector<uint8_t> ocmd_toolchain::read_obin(const filepath& path) {

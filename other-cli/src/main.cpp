@@ -44,6 +44,22 @@ namespace {
 
 }  // namespace
 
+namespace other {
+
+  struct command_line;
+  class config_table;
+  class driver;
+
+}  // namespace other
+
+/// the vm tool registers the builtin command devices, and their dispatch code links the
+///  driver in. oecli is no driver and never creates one; these only satisfy that link,
+///  as the test binary's do
+extern "C" {
+other::driver* otherlib_create_driver(const other::command_line* cmd, const other::config_table* config) { return nullptr; }
+void otherlib_destroy_driver(other::driver* instance) {}
+}
+
 int main(int argc, char* argv[]) {
   other::profiling::initialize_host_backend();
   auto& registry = other::cli::default_tool_registry();

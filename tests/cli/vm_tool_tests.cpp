@@ -300,6 +300,70 @@ namespace other {
     EXPECT_FALSE(run_vm_tool("vm data missing.obin").success());
   }
 
+  TEST_F(vm_tool_tests, emit_oasm_writes_into_an_output_folder_that_is_not_there_yet) {
+    write_file(test_root / "boot.ocmd", "let answer = 42\n");
+
+    const cli::tool_result result = run_vm_tool("vm build boot.ocmd -o fresh/boot.obin --emit-oasm");
+    EXPECT_TRUE(result.success()) << result.message;
+    EXPECT_TRUE(std::filesystem::exists(test_root / "fresh" / "boot.ocmd.oasm"));
+    EXPECT_TRUE(std::filesystem::exists(test_root / "fresh" / "boot.obin"));
+  }
+
+  TEST_F(vm_tool_tests, build_project_links_a_projects_sources_behind_a_generated_entry) {
+    write_file(test_root / "game.toml", "[vm]\nboot-file = \"boot.oasm\"\n");
+    write_file(test_root / "boot.oasm", "$pre_load:\n  ret\nend\n");
+    std::filesystem::create_directories(test_root / "assets" / "vm");
+    write_file(test_root / "assets" / "vm" / "ready.ocmd", "on post_load {\n  core log \"ready\" 2\n}\n");
+
+    const cli::tool_result result = run_vm_tool("vm build --project game.toml -o out/boot.obin --emit-oasm");
+    ASSERT_TRUE(result.success()) << result.message;
+    EXPECT_NE(result.message.find("linked 2 project source(s)"), std::string::npos) << result.message;
+    EXPECT_NE(output.find("hook pre_load: 'pre_load' in 'boot.oasm'"), std::string::npos) << output;
+    EXPECT_NE(output.find("hook post_load: 'h_assets_vm_ready_post_load' in 'assets/vm/ready.ocmd'"), std::string::npos) << output;
+    EXPECT_FALSE(ocmd_toolchain{}.read_obin(test_root / "out" / "boot.obin").empty());
+
+    /// the entry that was generated, for a person to read; it loads the project by the path that was typed
+    std::ifstream listing(test_root / "out" / "__boot.oasm");
+    ASSERT_TRUE(listing.is_open());
+    const std::string text{ std::istreambuf_iterator<char>{ listing }, std::istreambuf_iterator<char>{} };
+    EXPECT_NE(text.find("/entry: __boot_main"), std::string::npos);
+    EXPECT_NE(text.find("\"game.toml\""), std::string::npos);
+
+    /// and the program reads back as one: the entry calls the hooks by name
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view out/boot.obin").success());
+    EXPECT_NE(output.find("call pre_load"), std::string::npos) << output;
+    EXPECT_NE(output.find("call h_assets_vm_ready_post_load"), std::string::npos) << output;
+  }
+
+  TEST_F(vm_tool_tests, build_project_takes_the_projects_folder_too) {
+    std::filesystem::create_directories(test_root / "game");
+    write_file(test_root / "game" / "game.toml", "");
+
+    ASSERT_TRUE(run_vm_tool("vm build --project game -o by-folder.obin --emit-oasm").success());
+    std::ifstream listing(test_root / "__boot.oasm");
+    ASSERT_TRUE(listing.is_open());
+    const std::string text{ std::istreambuf_iterator<char>{ listing }, std::istreambuf_iterator<char>{} };
+    EXPECT_NE(text.find("\"game/game.toml\""), std::string::npos) << text;
+
+    ASSERT_TRUE(run_vm_tool("vm build --project game/game.toml -o by-file.obin").success());
+    EXPECT_EQ(ocmd_toolchain{}.read_obin(test_root / "by-folder.obin"), ocmd_toolchain{}.read_obin(test_root / "by-file.obin"));
+  }
+
+  TEST_F(vm_tool_tests, build_project_refuses_what_is_not_a_project) {
+    std::filesystem::create_directories(test_root / "empty");
+    EXPECT_FALSE(run_vm_tool("vm build --project empty -o boot.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm build --project missing.toml -o boot.obin").success());
+    EXPECT_FALSE(std::filesystem::exists(test_root / "boot.obin"));
+
+    /// the project decides the sources, and only 'build' takes one
+    write_file(test_root / "game.toml", "");
+    write_file(test_root / "main.oasm", kMain);
+    EXPECT_FALSE(run_vm_tool("vm build main.oasm --project game.toml -o boot.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm view --project game.toml").success());
+    EXPECT_FALSE(run_vm_tool("vm build --project").success());
+  }
+
   TEST_F(vm_tool_tests, view_refuses_what_it_cannot_show) {
     write_file(test_root / "main.oasm", kMain);
     write_file(test_root / "not-a-program.obin", "this is only text, though it is longer than a program's header");

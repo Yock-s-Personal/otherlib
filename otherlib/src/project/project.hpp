@@ -79,6 +79,10 @@ namespace other {
     project(project_system* proj_system);
     ~project();
 
+    /// the project file a path stands for: the path itself when it is a file, or the .toml or
+    ///  .oproj a folder holds under the folder's own name. empty when there is no such file
+    static opt<filepath> find_project_file(const filepath& path);
+
     void load_from_file(driver_kernel* kernel, const filepath& path);
     void generate_at(driver_kernel* kernel, const filepath& directory);
 

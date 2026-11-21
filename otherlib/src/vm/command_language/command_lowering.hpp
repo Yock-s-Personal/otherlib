@@ -28,6 +28,7 @@ namespace other {
     bool engine_event = false;
     /// the OASM block that holds the handler
     std::string block;
+    std::string unit;
   };
 
   struct command_lowering_options {
@@ -35,6 +36,9 @@ namespace other {
     ///  are not run, which is a warning, or an error when strict is set
     bool entry_unit = true;
     bool strict = false;
+
+    /// what the generated names carry. empty means the file's own name, as unit_stem gives it
+    std::string stem = "";
   };
 
   struct command_lowering_result {
@@ -58,6 +62,12 @@ namespace other {
 
     /// the file name's stem, with anything OASM cannot hold in a name turned into '_'
     static std::string unit_stem(std::string_view unit_name);
+
+    /// the same for the whole name, folders included: 'assets/vm/a/util.ocmd' gives 'assets_vm_a_util'
+    static std::string unit_path_stem(std::string_view unit_name);
+    /// a data field holding text, as a line of OASM. the assembler's strings cannot hold their
+    ///  own quote, a line break or an escape; a text with one of those is written as bytes
+    static std::string text_field(std::string_view name, const std::string& text);
 
    private:
     struct variable {

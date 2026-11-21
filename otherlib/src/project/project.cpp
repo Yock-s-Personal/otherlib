@@ -34,6 +34,27 @@ namespace other {
   project::~project() {
   }
 
+  opt<filepath> project::find_project_file(const filepath& path) {
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(path, ec)) {
+      return path;
+    }
+    if (!std::filesystem::is_directory(path, ec)) {
+      return std::nullopt;
+    }
+
+    /// 'my-game/' ends in an empty part; the folder's name is one step up
+    const filepath folder = path.has_filename() ? path : path.parent_path();
+    for (const std::string_view extension : { ".toml", ".oproj" }) {
+      filepath candidate = folder / folder.filename();
+      candidate += extension;
+      if (std::filesystem::is_regular_file(candidate, ec)) {
+        return candidate;
+      }
+    }
+    return std::nullopt;
+  }
+
   void project::load_from_file(driver_kernel* kernel, const filepath& path) {
     OTHER_ASSERT(kernel != nullptr, "Driver kernel is null in process_project_file.");
 

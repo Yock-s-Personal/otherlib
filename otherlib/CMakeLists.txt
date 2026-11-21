@@ -116,6 +116,8 @@ target_sources(otherlib
     src/vm/vm_type.cpp
     src/vm/other_device.cpp
     src/vm/decompiler.cpp
+    src/vm/hooks.cpp
+    src/vm/project_program.cpp
     src/vm/vm.cpp
 
     src/tools/build_tool.cpp

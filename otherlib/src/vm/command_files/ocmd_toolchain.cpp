@@ -158,16 +158,25 @@ namespace other {
   }
 
   ostd::vector<oasm_source> ocmd_toolchain::lower_command_units(const command_bus& bus, std::span<const command_unit> units, diagnostic_engine* diag, ocmd_link_options options) {
+    return lower_command_units(bus, units, diag, { .has_entry_unit = true, .strict = options.strict }, nullptr);
+  }
+
+  ostd::vector<oasm_source> ocmd_toolchain::lower_command_units(const command_bus& bus, std::span<const command_unit> units, diagnostic_engine* diag,
+                                                               const command_build_options& options, ostd::vector<command_hook_record>* hooks) {
     OTHER_ASSERT(diag != nullptr, "Diagnostic engine cannot be null");
     PROFILE_SECTION("ocmd_toolchain::lower_command_units");
+
+    const auto stem_of = [&options](const command_unit& unit) -> std::string {
+      return options.name_by_path ? command_lowering::unit_path_stem(unit.name) : command_lowering::unit_stem(unit.name);
+    };
 
     ostd::vector<oasm_source> sources;
     sources.reserve(units.size());
     bool success = true;
     for (size_t i = 0; i < units.size(); ++i) {
-      /// generated names carry the file's stem, so two files with one stem would define the same symbols
-      const std::string stem = command_lowering::unit_stem(units[i].name);
-      if (std::ranges::any_of(units.first(i), [&stem](const command_unit& earlier) { return command_lowering::unit_stem(earlier.name) == stem; })) {
+      /// generated names carry the unit's stem, so two units with one stem would define the same symbols
+      const std::string stem = stem_of(units[i]);
+      if (std::ranges::any_of(units.first(i), [&](const command_unit& earlier) { return stem_of(earlier) == stem; })) {
         CORE_LOG_ERROR("[VM] : two files in this build are named '{}'; each .ocmd file in a build needs its own name", stem);
         success = false;
         continue;
@@ -186,11 +195,15 @@ namespace other {
 
       command_error_sink sink{ units[i].name };
       const scoped_diagnostic_sink sink_scope(diag, "command-error-sink", &sink);
-      command_lowering_result lowered = command_lowering{ bus, units[i].name, imported, { .entry_unit = i == 0, .strict = options.strict } }.lower(units[i].file, diag);
+      const command_lowering_options lowering_options = { .entry_unit = options.has_entry_unit && i == 0, .strict = options.strict, .stem = stem };
+      command_lowering_result lowered = command_lowering{ bus, units[i].name, imported, lowering_options }.lower(units[i].file, diag);
       if (!lowered.success) {
         CORE_LOG_ERROR("[VM] : '{}' has errors and was not built", units[i].name);
         success = false;
         continue;
+      }
+      if (hooks != nullptr) {
+        hooks->append_range(std::move(lowered.hooks));
       }
       sources.push_back({ .name = units[i].name, .text = std::move(lowered.oasm), .origins = std::move(lowered.origins) });
     }
@@ -201,15 +214,9 @@ namespace other {
     return sources;
   }
 
-  obin_build_result ocmd_toolchain::build_obin(const command_bus& bus, std::span<const oasm_source> sources, diagnostic_engine* diag, ocmd_link_options options) {
+  ostd::vector<ocmd_unit> ocmd_toolchain::compile_units(std::span<const oasm_source> sources, diagnostic_engine* diag) {
     OTHER_ASSERT(diag != nullptr, "Diagnostic engine cannot be null");
-    PROFILE_SECTION("ocmd_toolchain::build_obin");
-
-    obin_build_result result;
-    if (sources.empty()) {
-      CORE_LOG_ERROR("[VM] : nothing to build, no sources were given");
-      return result;
-    }
+    PROFILE_SECTION("ocmd_toolchain::compile_units");
 
     ostd::vector<ocmd_unit> units;
     units.reserve(sources.size());
@@ -227,15 +234,22 @@ namespace other {
         }
       } catch (const std::exception& e) {
         CORE_LOG_ERROR("[VM] : failed to compile '{}': {}", source.name, e.what());
-        return result;
+        return {};
       } catch (...) {
         CORE_LOG_ERROR("[VM] : failed to compile '{}': unknown exception", source.name);
-        return result;
+        return {};
       }
     }
+    return units;
+  }
 
+  obin_build_result ocmd_toolchain::link_units(const command_bus& bus, std::span<const ocmd_unit> units, diagnostic_engine* diag, ocmd_link_options options) {
+    OTHER_ASSERT(diag != nullptr, "Diagnostic engine cannot be null");
+    PROFILE_SECTION("ocmd_toolchain::link_units");
+
+    obin_build_result result;
     try {
-      result.bytes = ocmd_linker{ std::span<const ocmd_unit>{ units }, options }.link(bus.create_default_symbol_resolver(), diag);
+      result.bytes = ocmd_linker{ units, options }.link(bus.create_default_symbol_resolver(), diag);
       result.success = !result.bytes.empty();
     } catch (const std::exception& e) {
       CORE_LOG_ERROR("[VM] : {}", e.what());
@@ -245,6 +259,21 @@ namespace other {
       result.bytes = {};
     }
     return result;
+  }
+
+  obin_build_result ocmd_toolchain::build_obin(const command_bus& bus, std::span<const oasm_source> sources, diagnostic_engine* diag, ocmd_link_options options) {
+    OTHER_ASSERT(diag != nullptr, "Diagnostic engine cannot be null");
+    PROFILE_SECTION("ocmd_toolchain::build_obin");
+
+    if (sources.empty()) {
+      CORE_LOG_ERROR("[VM] : nothing to build, no sources were given");
+      return {};
+    }
+    const ostd::vector<ocmd_unit> units = compile_units(sources, diag);
+    if (units.empty()) {
+      return {};
+    }
+    return link_units(bus, units, diag, options);
   }
 
   opt<std::string> ocmd_toolchain::check_obin(std::span<const uint8_t> bytes) const {

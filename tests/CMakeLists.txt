@@ -90,6 +90,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_parser_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_lowering_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_pipeline_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/project_program_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/vm_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/console_log_layout_tests.cpp

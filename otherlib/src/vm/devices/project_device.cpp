@@ -57,23 +57,21 @@ namespace other {
           return;
         }
 
-        filepath path = dir;
-        if (!std::filesystem::exists(path)) {
-          path = std::filesystem::absolute(path);
-          if (!std::filesystem::exists(path)) {
-            device->write_flag_register(vm_error::VM_BAD_ARGUMENT);
-            device->write_return_register(0);
-            return;
-          }
+        /// a path that names no project starts no load and fires no event, so a program waiting
+        ///  on project.loaded would wait forever; the flag is how it finds out
+        const opt<filepath> project_file = project::find_project_file(dir);
+        if (!project_file.has_value()) {
+          device->write_flag_register(vm_error::VM_BAD_ARGUMENT);
+          device->write_return_register(0);
+          return;
         }
 
-        // At this point, path is a valid directory
         auto& kernel = device->host_driver->get_kernel();
         auto& projects = kernel.get_core_system<project_system>();
 
         project_event_data event_data{
           .type = "load",
-          .project_path = path.string(),
+          .project_path = project_file->string(),
         };
         projects.handle_project_event(&kernel, event_data);
       } break;

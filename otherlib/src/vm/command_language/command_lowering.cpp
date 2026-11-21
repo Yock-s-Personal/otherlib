@@ -11,6 +11,7 @@
 #include "vm/command_bus.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
 #include "vm/diagnostics/ocmd_errors.hpp"
+#include "vm/hooks.hpp"
 
 namespace other {
   namespace {
@@ -22,8 +23,6 @@ namespace other {
     constexpr size_t kMaxArguments = 8;
     /// a text value is its length above this bit and its address below it
     constexpr uint64_t kTextLengthShift = 32;
-
-    constexpr std::string_view kVmHooks[] = { "pre_load", "post_load" };
 
     std::string reg(const size_t index) {
       return std::format("r{:x}", index);
@@ -50,7 +49,7 @@ namespace other {
     }
 
     /// an OASM string cannot hold its own quote, a line break, or an escape; those go out as bytes
-    std::string text_field(const std::string_view name, const std::string& text) {
+    std::string data_field_for_text(const std::string_view name, const std::string& text) {
       const bool plain = !text.empty() && std::ranges::all_of(text, [](const char c) { return c >= ' ' && c <= '~'; });
       if (plain && !text.contains('"')) {
         return std::format("  .{} : string = \"{}\"", name, text);
@@ -95,7 +94,7 @@ namespace other {
   }  // namespace
 
   command_lowering::command_lowering(const command_bus& bus, const std::string_view unit_name, std::span<const command_function_signature> imported, command_lowering_options options)
-      : bus(bus), unit(unit_name), stem(unit_stem(unit_name)), data_block(std::format("d_{}", stem)), options(options) {
+      : bus(bus), unit(unit_name), stem(options.stem.empty() ? unit_stem(unit_name) : options.stem), data_block(std::format("d_{}", stem)), options(options) {
     for (const command_function_signature& signature : imported) {
       functions[signature.name] = signature.param_count;
     }
@@ -103,6 +102,14 @@ namespace other {
 
   std::string command_lowering::unit_stem(const std::string_view unit_name) {
     return sanitize(filepath{ unit_name }.stem().string());
+  }
+
+  std::string command_lowering::unit_path_stem(std::string_view unit_name) {
+    return sanitize(filepath{ unit_name }.replace_extension().generic_string());
+  }
+
+  std::string command_lowering::text_field(std::string_view name, const std::string& text) {
+    return data_field_for_text(name, text);
   }
 
   command_lowering_result command_lowering::lower(const command_file& file, diagnostic_engine* diag) {
@@ -298,9 +305,14 @@ namespace other {
   }
 
   void command_lowering::lower_hook(const command_hook& hook, ostd::vector<command_hook_record>& records) {
-    if (!hook.engine_event && std::ranges::find(kVmHooks, hook.name) == std::end(kVmHooks)) {
-      fail(SEMA_UNKNOWN_NAME, hook.span, std::format("'{}' is not a VM hook. the hooks are pre_load and post_load; an engine event is written in quotes", hook.name));
+    if (!hook.engine_event && !get_hook_id(hook.name).has_value()) {
+      std::string names;
+      for (const auto& h : vm_hooks()) {
+        names += std::format("{}{}", names.empty() ? "" : ", ", h.name);
+      }
+      fail(SEMA_UNKNOWN_NAME, hook.span, std::format("'{}' is not a VM hook. the hooks are: {}; an engine event is written in quotes", hook.name, names));
     }
+
     const std::string block = std::format("h_{}_{}", stem, sanitize(hook.name));
     if (std::ranges::find(records, block, &command_hook_record::block) != records.end()) {
       fail(SEMA_DUPLICATE_NAME, hook.span, std::format("this file already has a handler for '{}'", hook.name));
@@ -315,11 +327,13 @@ namespace other {
     emit("ret");
     add_line("end");
     add_line("");
-    records.push_back({ .name = hook.name, .engine_event = hook.engine_event, .block = block });
+    records.push_back({ .name = hook.name, .engine_event = hook.engine_event, .block = block, .unit = unit });
   }
 
   void command_lowering::lower_file_statements(const command_file& file) {
-    const auto runs_code = [](const command_stmt& stmt) { return stmt.kind != CMD_STMT_LET || !is_literal(stmt.exprs.front()); };
+    const auto runs_code = [](const command_stmt& stmt) {
+      return stmt.kind != CMD_STMT_LET || !is_literal(stmt.exprs.front());
+    };
     if (!options.entry_unit) {
       const auto first = std::ranges::find_if(file.statements, runs_code);
       if (first != file.statements.end()) {

@@ -13,6 +13,7 @@
 
 #include "tools/material_cli_tool.hpp"
 #include "tools/model_cli_tool.hpp"
+#include "tools/vm_cli_tool.hpp"
 
 namespace other {
   namespace cli {
@@ -211,6 +212,9 @@ namespace other {
       }
       if (registry.find_tool("material") == nullptr) {
         registry.add_tool(std::make_unique<material_tool>());
+      }
+      if (registry.find_tool("vm") == nullptr) {
+        registry.add_tool(std::make_unique<vm_tool>());
       }
     }
 

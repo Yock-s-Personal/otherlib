@@ -38,11 +38,43 @@ namespace other {
     diagnostics->emit(d);                                       \
   }
 
+  namespace {
+
+    /// written out case by case: the debug section's numbering must not follow data_type's order
+    debug_field_type to_debug_field_type(const data_type type) {
+      switch (type) {
+        case OCMD_DATA_TYPE_I8: return DEBUG_FIELD_I8;
+        case OCMD_DATA_TYPE_U8: return DEBUG_FIELD_U8;
+        case OCMD_DATA_TYPE_I16: return DEBUG_FIELD_I16;
+        case OCMD_DATA_TYPE_U16: return DEBUG_FIELD_U16;
+        case OCMD_DATA_TYPE_I32: return DEBUG_FIELD_I32;
+        case OCMD_DATA_TYPE_U32: return DEBUG_FIELD_U32;
+        case OCMD_DATA_TYPE_I64: return DEBUG_FIELD_I64;
+        case OCMD_DATA_TYPE_U64: return DEBUG_FIELD_U64;
+        case OCMD_DATA_TYPE_F32: return DEBUG_FIELD_F32;
+        case OCMD_DATA_TYPE_F64: return DEBUG_FIELD_F64;
+        case OCMD_DATA_TYPE_STRING: return DEBUG_FIELD_STRING;
+        case OCMD_DATA_TYPE_ADDRESS: return DEBUG_FIELD_ADDRESS;
+        case OCMD_DATA_TYPE_BLOB: return DEBUG_FIELD_BLOB;
+        case OCMD_DATA_TYPE_USER_DEFINED: return DEBUG_FIELD_USER_DEFINED;
+        default: return DEBUG_FIELD_UNKNOWN;
+      }
+    }
+
+  }  // namespace
+
+  ocmd_linker::ocmd_linker(std::span<const ocmd_unit> units, ocmd_link_options options)
+      : options(options), units(units.begin(), units.end()) {
+  }
+
   ostd::vector<uint8_t> ocmd_linker::link(scope<symbol_resolver> resolver, diagnostic_engine* diag) {
     OTHER_ASSERT(resolver != nullptr, "Symbol resolver scope cannot be null");
     OTHER_ASSERT(diag != nullptr, "Diagnostic engine cannot be null");
     PROFILE_SECTION("ocmd_linker::link");
     diagnostics = diag;
+    errors.clear();
+
+    merge_units(resolver);
 
     /// resolve compiler gen symbol addresses by estimating start of section based on how man goto instructions we will have to add
     register_symbols(resolver);
@@ -81,6 +113,7 @@ namespace other {
       // rewrite_instructions(resolver);
       // write_generated_code(resolver, linked_binary, compiler_generated_binary);
       write_code(resolver, linked_binary);
+      guard_address = get_current_linking_address(linked_binary);
       // add a stopdev at the end of code section to prevent accidental execution of data if entry point is not set correctly
       linked_binary.append_range(opcode_to_bytes(opcode_stop_device()));
       end_of_code_section = get_current_linking_address(linked_binary);
@@ -88,6 +121,13 @@ namespace other {
 
     // Data Section
     write_data_sections(resolver, linked_binary);
+
+    /// before any address is read back: past this size the 16-bit addresses above have wrapped
+    if (linked_binary.size() > other_command_device::kMaxProgramSize) {
+      report(LINK_PROGRAM_TOO_LARGE, std::format("the linked program is {} bytes and the device holds {}", linked_binary.size(), other_command_device::kMaxProgramSize));
+      throw_if_failed();
+    }
+
     end_of_data_section = get_current_linking_address(linked_binary);
     OTHER_ASSERT(end_of_data_section >= end_of_code_section, "Data section end must be after code section end");
 
@@ -103,13 +143,10 @@ namespace other {
     };
 
     {
-      std::span code_view{ linked_binary.data(), end_of_code_section };
-      uint16_t instruction_count = static_cast<uint16_t>(code_view.size() / sizeof(instruction));
-
       header.prog_header.has_code_flag = static_cast<uint8_t>(!code.compiled_blocks.empty()),
       header.prog_header.code_section_offset = 0x0000;  // no data table written yet
       header.prog_header.data_section_offset = end_of_code_section;
-      header.prog_header.num_instructions = instruction_count;
+      header.prog_header.program_size = end_of_data_section;
 
       // resolve entry point
       std::string entry_point_symbol;
@@ -119,7 +156,7 @@ namespace other {
         code.definitions.erase(itr);
         EMIT_TRACE("[LINK] User defined entry point found: '{}'", entry_point_symbol);
       } else {
-        entry_point_symbol = "__natural_entry";
+        entry_point_symbol = kNaturalEntryName;
         EMIT_TRACE("[LINK] No user defined entry point found, using default entry point");
       }
 
@@ -141,16 +178,106 @@ namespace other {
     uint16_t data_size = end_of_data_section - end_of_code_section;
     EMIT_TRACE("[FINAL LINKED BINARY]");
     EMIT_TRACE(" - Entry Point: {:#04x}", header.prog_header.entry_point_address);
-    EMIT_TRACE(" - Code Section: offset={:#04x}, size={} bytes, instructions={}", header.prog_header.code_section_offset, end_of_code_section, header.prog_header.num_instructions);
+    EMIT_TRACE(" - Code Section: offset={:#04x}, size={} bytes, instructions={}", header.prog_header.code_section_offset, end_of_code_section, end_of_code_section / sizeof(instruction));
     EMIT_TRACE(" - Data Section: offset={:#04x}, size={} bytes", header.prog_header.data_section_offset, data_size);
 
+    /// after the program and outside program_size, so the loader never copies it into the device
+    ostd::vector<uint8_t> debug_section;
+    if (options.debug_info) {
+      debug_section = collect_debug_info().encode();
+      header.prog_header.has_debug_flag = 1;
+    }
+
     ostd::vector<uint8_t> final_binary;
-    final_binary.reserve(sizeof(ocmd_file_header) + linked_binary.size());
+    final_binary.reserve(sizeof(ocmd_file_header) + linked_binary.size() + debug_section.size());
 
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header);
     final_binary.insert(final_binary.end(), header_bytes, header_bytes + sizeof(ocmd_file_header));
     final_binary.insert(final_binary.end(), linked_binary.begin(), linked_binary.end());
+    final_binary.insert(final_binary.end(), debug_section.begin(), debug_section.end());
     return final_binary;
+  }
+
+  obin_debug_info ocmd_linker::collect_debug_info() const {
+    PROFILE_SECTION("ocmd_linker::collect_debug_info");
+    obin_debug_info info;
+
+    /// units first and in link order, so a unit's index here is its index in units
+    for (const ocmd_unit& unit : units) {
+      info.symbols.push_back({ .kind = DEBUG_SYMBOL_UNIT, .name = unit.name });
+    }
+
+    for (size_t i = 0; i < code.compiled_blocks.size(); ++i) {
+      const compiled_code_block& block = code.compiled_blocks[i];
+      /// a file with no loose code still has an empty natural entry; it names no instruction
+      if (block.artifact.machine_instructions.empty()) {
+        continue;
+      }
+      const uint32_t block_symbol = static_cast<uint32_t>(info.symbols.size());
+      info.symbols.push_back({
+        .kind = DEBUG_SYMBOL_BLOCK,
+        .name = block.name,
+        .address = block_addresses[i],
+        .size = static_cast<uint32_t>(block.artifact.machine_instructions.size() * sizeof(instruction)),
+        .parent = static_cast<uint32_t>(block_units[i]),
+      });
+      for (const auto& label : block.artifact.jump_labels) {
+        info.symbols.push_back({
+          .kind = DEBUG_SYMBOL_LABEL,
+          .name = label.symbol_name,
+          .address = block_addresses[i] + static_cast<uint32_t>(label.opcode_index * sizeof(instruction)),
+          .parent = block_symbol,
+        });
+      }
+
+      /// one entry where the source position changes, not one for each instruction. an artifact
+      ///  built without a source has no origins, and its code is entered as having no line
+      for (size_t j = 0; j < block.artifact.machine_instructions.size(); ++j) {
+        const source_location origin = j < block.artifact.origins.size() ? block.artifact.origins[j] : source_location{};
+        const debug_line_entry entry = {
+          .address = block_addresses[i] + static_cast<uint32_t>(j * sizeof(instruction)),
+          .unit = origin.line != 0 ? static_cast<uint32_t>(block_units[i]) : debug_symbol::kNoParent,
+          .line = static_cast<uint32_t>(origin.line),
+          .column = static_cast<uint32_t>(origin.column),
+        };
+        const bool same_place = !info.lines.empty() && info.lines.back().unit == entry.unit && info.lines.back().line == entry.line && info.lines.back().column == entry.column;
+        if (!same_place) {
+          info.lines.push_back(entry);
+        }
+      }
+    }
+
+    /// the stop that closes the code was written by no one; nothing before it may claim it
+    if (!info.lines.empty() && info.lines.back().line != 0) {
+      info.lines.push_back({ .address = guard_address });
+    }
+    /// a program with no line anywhere has no table at all
+    if (std::ranges::none_of(info.lines, [](const debug_line_entry& line) { return line.line != 0; })) {
+      info.lines.clear();
+    }
+
+    for (size_t i = 0; i < code.compiled_data_sections.size(); ++i) {
+      const compiled_data_section& section = code.compiled_data_sections[i];
+      const uint32_t section_symbol = static_cast<uint32_t>(info.symbols.size());
+      info.symbols.push_back({
+        .kind = DEBUG_SYMBOL_DATA,
+        .name = section.name,
+        .address = data_addresses[i],
+        .size = static_cast<uint32_t>(section.data.size()),
+        .parent = static_cast<uint32_t>(data_units[i]),
+      });
+      for (const auto& field : section.fields) {
+        info.symbols.push_back({
+          .kind = DEBUG_SYMBOL_FIELD,
+          .name = field.name,
+          .address = data_addresses[i] + field.offset,
+          .size = field.size,
+          .parent = section_symbol,
+          .type = to_debug_field_type(field.type),
+        });
+      }
+    }
+    return info;
   }
 
   uint16_t ocmd_linker::calculate_code_section_offset(size_t index) const {
@@ -163,6 +290,103 @@ namespace other {
 
   uint16_t ocmd_linker::globablize_offset(uint16_t offset) const {
     return sizeof(ocmd_file_header) + offset;
+  }
+
+  void ocmd_linker::merge_units(scope<symbol_resolver>& resolver) {
+    PROFILE_SECTION("ocmd_linker::merge_units");
+    if (units.empty()) {
+      throw ocmd_linking_error("nothing to link");
+    }
+
+    /// name order, so the same sources give the same bytes however they were found
+    std::ranges::sort(units, {}, &ocmd_unit::name);
+
+    code = {};
+    block_units.clear();
+    data_units.clear();
+
+    /// a lone unit is a script: it keeps its natural entry and may run from the top of the
+    ///  file. linked with others, the program must name its entry and the natural entries are left out
+    const bool standalone = units.size() == 1;
+
+    const auto host_defines = [&resolver](const std::string_view name) -> bool {
+      return resolver->resolve_symbol(name).final_address != kUnresolvedAddress;
+    };
+
+    /// blocks and data sections share one table: both are referenced by bare name
+    ostd::unordered_map<std::string, size_t> defined;
+    opt<size_t> entry_unit;
+
+    for (size_t unit_index = 0; unit_index < units.size(); ++unit_index) {
+      const ocmd_unit& unit = units[unit_index];
+      if (!unit.program.valid) {
+        throw ocmd_linking_error(std::format("'{}' did not compile, so it cannot be linked", unit.name));
+      }
+      if (unit_index > 0 && units[unit_index - 1].name == unit.name) {
+        report(LINK_DUPLICATE_SYMBOL, std::format("two compilation units are named '{}'", unit.name));
+      }
+
+      for (const compiled_code_block& block : unit.program.compiled_blocks) {
+        /// every unit has this block; it only holds code when the file has instructions outside a block
+        if (block.name == kNaturalEntryName) {
+          if (standalone) {
+            code.compiled_blocks.push_back(block);
+            block_units.push_back(unit_index);
+          } else if (!block.artifact.machine_instructions.empty()) {
+            warn(LINK_LOOSE_CODE, std::format("'{}' has instructions outside a block; they are left out when it is linked with other files", unit.name));
+          }
+          continue;
+        }
+
+        if (host_defines(block.name)) {
+          report(LINK_DUPLICATE_SYMBOL, std::format("block '{}' in '{}' has the name of a symbol the host defines", block.name, unit.name));
+          continue;
+        }
+        if (const auto [itr, inserted] = defined.emplace(block.name, unit_index); !inserted) {
+          report(LINK_DUPLICATE_SYMBOL, std::format("block '{}' in '{}' is already defined in '{}'", block.name, unit.name, units[itr->second].name));
+          continue;
+        }
+        code.compiled_blocks.push_back(block);
+        block_units.push_back(unit_index);
+      }
+
+      for (const compiled_data_section& section : unit.program.compiled_data_sections) {
+        bool clashes_with_host = host_defines(section.name);
+        for (const auto& field : section.fields) {
+          clashes_with_host = clashes_with_host || host_defines(std::format("{}.{}", section.name, field.name));
+        }
+        if (clashes_with_host) {
+          report(LINK_DUPLICATE_SYMBOL, std::format("data section '{}' in '{}' has the name of a symbol the host defines", section.name, unit.name));
+          continue;
+        }
+        if (const auto [itr, inserted] = defined.emplace(section.name, unit_index); !inserted) {
+          report(LINK_DUPLICATE_SYMBOL, std::format("data section '{}' in '{}' is already defined in '{}'", section.name, unit.name, units[itr->second].name));
+          continue;
+        }
+        code.compiled_data_sections.push_back(section);
+        data_units.push_back(unit_index);
+      }
+
+      for (const compiler_definition& definition : unit.program.definitions) {
+        if (definition.name == "entry") {
+          if (entry_unit.has_value()) {
+            report(LINK_MULTIPLE_ENTRY_POINTS, std::format("'/entry:' is set in '{}' and again in '{}'", units[*entry_unit].name, unit.name));
+            continue;
+          }
+          entry_unit = unit_index;
+        }
+        code.definitions.push_back(definition);
+      }
+    }
+
+    if (!standalone && !entry_unit.has_value()) {
+      report(LINK_NO_ENTRY_POINT, std::format("{} files are linked and none sets '/entry:'; only a single file can run from its top", units.size()));
+    }
+
+    code.compiler_version = units.front().program.compiler_version;
+    code.valid = true;
+
+    throw_if_failed();
   }
 
   void ocmd_linker::register_symbols(scope<symbol_resolver>& resolver) {
@@ -181,6 +405,7 @@ namespace other {
 
   void ocmd_linker::write_code(scope<symbol_resolver>& resolver, ostd::vector<uint8_t>& binary) {
     PROFILE_SECTION("ocmd_linker::write_code");
+    block_addresses.clear();
     for (const auto& code_block : code.compiled_blocks) {
       auto bytes_view =
         code_block.artifact.machine_instructions |
@@ -188,17 +413,10 @@ namespace other {
         std::views::join |
         std::ranges::to<ostd::vector<uint8_t>>();
       uint16_t code_block_offset = get_current_linking_address(binary);
+      block_addresses.push_back(code_block_offset);
       resolver->attach_code_label(code_block.name, code_block_offset);
       EMIT_TRACE("[LINK] Attaching code label '{}' @ {:#04x}", code_block.name, code_block_offset);
       EMIT_TRACE("[CODE] Writing Range: [{:#04x}, {:#04x})", code_block_offset, code_block_offset + bytes_view.size());
-
-      for (const auto& jump_lbl : code_block.artifact.jump_labels) {
-        uint16_t jump_local_offset = jump_lbl.opcode_index * sizeof(instruction);
-        uint16_t program_address = code_block_offset + jump_local_offset;
-
-        resolver->attach_code_label(jump_lbl.symbol_name, program_address);
-        EMIT_TRACE("[LINK] Attaching jump label '{}' @ {:#04x}", jump_lbl.symbol_name, program_address);
-      }
 
       binary.append_range(bytes_view);
     }
@@ -210,9 +428,11 @@ namespace other {
 
   void ocmd_linker::write_data_sections(scope<symbol_resolver>& resolver, ostd::vector<uint8_t>& binary) {
     PROFILE_SECTION("ocmd_linker::write_data_sections");
+    data_addresses.clear();
     for (const auto& data_section : code.compiled_data_sections) {
       // don't normalize here because using acutal size of output binary here
       uint16_t data_section_start_address = get_current_linking_address(binary);
+      data_addresses.push_back(data_section_start_address);
       resolver->attach_data_symbol(data_section.name, data_section_start_address);
       EMIT_TRACE("[LINK] Attaching data symbol '{}' @ {:#04x}", data_section.name, data_section_start_address);
 
@@ -238,35 +458,60 @@ namespace other {
     PROFILE_SECTION("ocmd_linker::do_final_linking");
     for (uint32_t code_block_index = 0; code_block_index < code.compiled_blocks.size(); ++code_block_index) {
       auto& code_block = code.compiled_blocks[code_block_index];
-      uint16_t code_block_start_address = calculate_code_section_offset(code_block_index);
+      const uint16_t code_block_start_address = block_addresses[code_block_index];
+      const std::string& unit_name = units[block_units[code_block_index]].name;
 
-      // remove those we can, global linker later might remove more
-      for (auto fixup_itr = code_block.artifact.unresolved_labels.begin();
-           fixup_itr != code_block.artifact.unresolved_labels.end();) {
-        EMIT_TRACE("[LINK] Resolving symbol '{}' for block '{}'", fixup_itr->symbol_name, code_block.name);
+      /// a label belongs to its block, so two blocks can each have a 'loop'
+      ostd::unordered_map<std::string, uint16_t> labels;
+      for (const auto& jump_lbl : code_block.artifact.jump_labels) {
+        const uint16_t program_address = code_block_start_address + static_cast<uint16_t>(jump_lbl.opcode_index * sizeof(instruction));
+        if (!labels.emplace(jump_lbl.symbol_name, program_address).second) {
+          report(LINK_DUPLICATE_SYMBOL, std::format("label '{}' is defined twice in block '{}' of '{}'", jump_lbl.symbol_name, code_block.name, unit_name));
+        }
+        EMIT_TRACE("[LINK] Jump label '{}' of block '{}' @ {:#04x}", jump_lbl.symbol_name, code_block.name, program_address);
+      }
 
-        // if the fixup isnt present address will be 0xFFFF still and could be resolved in a separate linking pass
-        auto fixup = resolver->resolve_symbol(fixup_itr->symbol_name);
+      for (const auto& fixup : code_block.artifact.unresolved_labels) {
+        EMIT_TRACE("[LINK] Resolving symbol '{}' for block '{}'", fixup.symbol_name, code_block.name);
 
-        uint16_t code_section_offset = (fixup_itr->opcode_index * sizeof(instruction));
-        uint16_t binary_address = code_block_start_address + code_section_offset;
+        uint16_t target = kUnresolvedAddress;
+        if (const auto label = labels.find(fixup.symbol_name); label != labels.end()) {
+          target = label->second;
+        } else {
+          target = resolver->resolve_symbol(fixup.symbol_name).final_address;
+        }
 
-        EMIT_TRACE("[LINK] Patching '{}' @ {:#04x} w/ {:#04x}", fixup_itr->symbol_name, binary_address, fixup.final_address);
+        if (target == kUnresolvedAddress) {
+          if (!is_predetermined(fixup.symbol_name)) {
+            report(LINK_UNRESOLVED_SYMBOL, std::format("unresolved symbol '{}' in block '{}' of '{}'", fixup.symbol_name, code_block.name, unit_name));
+            continue;
+          }
+
+          /// the linker left this one out of the program; the reference lands on the stop that closes the code
+          warn(LINK_UNRESOLVED_SYMBOL, std::format("'{}' is not part of this program; block '{}' of '{}' stops the device if it goes there", fixup.symbol_name, code_block.name, unit_name));
+          target = guard_address;
+        }
+
+        const uint16_t binary_address = code_block_start_address + static_cast<uint16_t>(fixup.opcode_index * sizeof(instruction));
+
+        EMIT_TRACE("[LINK] Patching '{}' @ {:#04x} w/ {:#04x}", fixup.symbol_name, binary_address, target);
         uint8_t* instr_pointer = binary.data() + binary_address;
         instruction& instr = *reinterpret_cast<instruction*>(instr_pointer);
-        instr.lower = fixup.final_address;
+        instr.lower = target;
 
         EMIT_TRACE("[LINK]         patched opcode {:#010x}", instr.opcode);
-        fixup_itr = code_block.artifact.unresolved_labels.erase(fixup_itr);
       }
+      code_block.artifact.unresolved_labels.clear();
     }
+
+    throw_if_failed();
 
     std::stringstream ss;
     size_t total_num_instructions = std::ranges::fold_left(code.compiled_blocks, 0, [](size_t acc, const compiled_code_block& block) {
       return acc + block.artifact.machine_instructions.size();
     });
     for (uint16_t i = 0; i < total_num_instructions * sizeof(instruction); i += sizeof(instruction)) {
-      instruction instr = *reinterpret_cast<const instruction*>(binary.data() + i + sizeof(ocmd_file_header));
+      instruction instr = *reinterpret_cast<const instruction*>(binary.data() + i);
       ss << std::format("{:#06x}: {:#010x}\n", i, instr.opcode);
     }
     EMIT_TRACE("[FINAL LINKED CODE]\n{}", ss.str());
@@ -353,6 +598,42 @@ namespace other {
         std::ranges::copy(after_gen_view, std::back_inserter(code_block.artifact.machine_instructions));
       }
     }
+  }
+
+  bool ocmd_linker::is_predetermined(const std::string_view name) {
+    return std::ranges::contains(kPredeterminedSymbols, name);
+  }
+
+  void ocmd_linker::report(vm_error_code error, std::string message) {
+    diagnostic d = {
+      .severity = VM_DIAGNOSTIC_ERROR,
+      .error_code = error,
+      .phase = VM_PHASE_LINKER,
+      .final_message = message,
+    };
+    diagnostics->emit(d);
+    errors.push_back(std::move(message));
+  }
+
+  void ocmd_linker::warn(vm_error_code error, std::string message) {
+    if (options.strict) {
+      report(error, std::move(message));
+      return;
+    }
+    EMIT_WARNING("{}", message);
+  }
+
+  void ocmd_linker::throw_if_failed() const {
+    if (errors.empty()) {
+      return;
+    }
+
+    /// each error also went to the diagnostic engine; the exception carries them for callers with no sink
+    std::string what = std::format("link failed with {} error(s)", errors.size());
+    for (const std::string& error : errors) {
+      what += std::format("\n  {}", error);
+    }
+    throw ocmd_linking_error(what);
   }
 
 #undef TRACE_ARGS

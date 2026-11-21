@@ -4,11 +4,7 @@
 #include "driver/systems/vm_system.hpp"
 
 #include "driver/driver.hpp"
-#include "vm/devices/asset_device.hpp"
-#include "vm/devices/core_command_device.hpp"
-#include "vm/devices/event_device.hpp"
-#include "vm/devices/project_device.hpp"
-#include "vm/devices/scene_device.hpp"
+#include "vm/builtin_command_devices.hpp"
 #include "vm/vm.hpp"
 
 namespace other {
@@ -20,11 +16,7 @@ namespace other {
     vm::load_control_table(&core_device, OTHER_CONTROL_TABLE_V000);
 
     OTHER_ASSERT(core_device.bus != nullptr, "Core device bus is null!");
-    core_device.bus->register_device(make_scope<core_command_device>());
-    core_device.bus->register_device(make_scope<event_device>());
-    core_device.bus->register_device(make_scope<asset_device>());
-    core_device.bus->register_device(make_scope<scene_device>());
-    core_device.bus->register_device(make_scope<project_device>());
+    register_builtin_command_devices(*core_device.bus);
 
     const bool vm_debug_mode_on = get_driver().get_config_value<bool>("driver.vm-debug-mode", false);
     vm::set_debug_mode(vm_debug_mode_on);

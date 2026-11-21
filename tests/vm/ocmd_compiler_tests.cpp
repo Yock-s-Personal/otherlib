@@ -652,4 +652,16 @@ namespace other {
     EXPECT_THROW(ocmd_compiler{ ir }.compile(make_scope<code_generator_000>(), &diag), ocmd_toolchain_error);
   }
 
+  TEST_F(vm_tests, ocmd_compiler_entry_outside_the_file_is_an_error) {
+    const std::string_view source = R"(
+    /entry: elsewhere
+    $main:
+      ret
+    end
+    )";
+
+    diagnostic_engine diag;
+    EXPECT_THROW(detail::compile_source(source, &diag), ocmd_toolchain_error);
+  }
+
 }  // namespace other

@@ -23,6 +23,11 @@
 #include "other_test.hpp"
 
 namespace other {
+
+  /// for the tests that measure what a link lays out by the bytes it returns: without the
+  ///  debug section a linked file is its header and its program and nothing else
+  constexpr inline ocmd_link_options kProgramOnly = { .debug_info = false };
+
   namespace detail {
 
     struct expected_argument {

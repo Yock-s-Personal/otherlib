@@ -95,6 +95,10 @@ target_sources(otherlib
     src/vm/command_files/ocmd_compiler.cpp
     src/vm/command_files/ocmd_linker.cpp
     src/vm/command_files/ocmd_toolchain.cpp
+    src/vm/command_files/ocmd_debug_info.cpp
+    src/vm/command_language/command_lexer.cpp
+    src/vm/command_language/command_parser.cpp
+    src/vm/command_language/command_lowering.cpp
     src/vm/devices/core_command_device.cpp
     src/vm/devices/event_device.cpp
     src/vm/devices/asset_device.cpp
@@ -107,10 +111,13 @@ target_sources(otherlib
     src/vm/instruction.cpp
     src/vm/opcode.cpp
     src/vm/command_bus.cpp
+    src/vm/builtin_command_devices.cpp
     src/vm/control_table.cpp
     src/vm/vm_type.cpp
     src/vm/other_device.cpp
     src/vm/decompiler.cpp
+    src/vm/hooks.cpp
+    src/vm/project_program.cpp
     src/vm/vm.cpp
 
     src/tools/build_tool.cpp
@@ -118,6 +125,7 @@ target_sources(otherlib
     src/tools/scene_cli_tool.cpp
     src/tools/model_cli_tool.cpp
     src/tools/material_cli_tool.cpp
+    src/tools/vm_cli_tool.cpp
 
     src/ui/script/script_property_widget.cpp
     src/ui/type-bindings/value_ui.cpp

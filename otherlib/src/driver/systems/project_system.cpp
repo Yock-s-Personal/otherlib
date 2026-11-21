@@ -347,35 +347,15 @@ namespace other {
     CORE_LOG_DEBUG("Received project event '{}' for project '{}' at path '{}'", data.type, data.project_name, data.project_path);
 
     std::string type = data.type;
-    filepath project_path = data.project_path;
     if (type == "load") {
-      if (!std::filesystem::exists(project_path)) {
-        CORE_LOG_ERROR("Project file '{}' does not exist for project load event.", project_path.string());
+      /// \todo refactor this to something more robust to check lots of possible project files
+      const opt<filepath> project_file = project::find_project_file(data.project_path);
+      if (!project_file.has_value()) {
+        CORE_LOG_ERROR("Project path '{}' is not a project file, nor a directory with a same-named .toml or .oproj file, for project load event.", data.project_path);
         return;
       }
 
-      if (std::filesystem::is_directory(project_path)) {
-        if (project_path.string().ends_with(std::filesystem::path::preferred_separator)) {
-          project_path = project_path.parent_path();
-        }
-
-        /// \todo refactor this to something more robust to check lots of possible project files
-        // check if there is a same-named .toml/.oproj file in the directory and use that as the project file, if not error out
-        filepath expected_toml_project_file = project_path / (project_path.filename().string() + ".toml");
-        filepath expected_oproj_project_file = project_path / (project_path.filename().string() + ".oproj");
-        if (std::filesystem::exists(expected_toml_project_file) && std::filesystem::is_regular_file(expected_toml_project_file)) {
-          project_path = expected_toml_project_file;
-        } else if (std::filesystem::exists(expected_oproj_project_file) && std::filesystem::is_regular_file(expected_oproj_project_file)) {
-          project_path = expected_oproj_project_file;
-        } else {
-          CORE_LOG_ERROR("Project path '{}' is a directory but no same-named .toml or .oproj file found in the directory for project load event.", project_path.string());
-          return;
-        }
-      } else if (std::filesystem::is_regular_file(project_path)) {
-        // project_path is already a regular file, no further action needed
-      }
-
-      load_project(kernel, project_path);
+      load_project(kernel, *project_file);
     } else if (type == "save") {
       // handle_save_project(kernel, data);
     }

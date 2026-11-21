@@ -51,6 +51,7 @@ namespace other {
     /// for device-only use
     constexpr static uint16_t kMaxDeviceAddress = kMemorySize;
     constexpr static uint16_t kProgramStartAddress = 0x0010;
+    constexpr static uint16_t kMaxProgramSize = kMemorySize - kProgramStartAddress - 1;
 
     uint16_t program_load_cursor = kProgramStartAddress;
     uint16_t pc = 0;

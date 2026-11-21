@@ -2,16 +2,17 @@
  * \file vm/vm.cpp
  **/
 #include "vm/vm.hpp"
-#include "data-structures/std_container.hpp"
 
 #include <chrono>
 
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
+#include "data-structures/std_container.hpp"
 #include "memory/arena_allocator.hpp"
 #include "thread/thread_safety.hpp"
 
 #include "vm/command_bus.hpp"
+#include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
 #include "vm/control_table.hpp"
@@ -109,34 +110,29 @@ namespace other {
       return;
     }
 
-    std::ifstream file;
-    if (file_path.extension() == ".oasm") {
-      file = std::ifstream(file_path);
-    } else if (file_path.extension() == ".oexe") {
-      file = std::ifstream(file_path, std::ios::binary);
-    } else if (file_path.extension() == ".ocmd") {
-      CORE_LOG_ERROR("[VM] : OCMD file loading not yet implemented: {}", file_path.string());
-      return;
-    } else {
-      CORE_LOG_ERROR("[VM] : Unsupported file type for VM program: {}", file_path.extension().string());
-      return;
-    }
-
-    if (!file.is_open()) {
-      CORE_LOG_ERROR("[VM] : Failed to open file {} for reading", file_path.string());
-      return;
-    }
-
+    const std::string extension = file_path.extension().string();
     ostd::vector<uint8_t> bytes;
-    if (file_path.extension() == ".oasm") {
+    if (extension == ".oasm") {
       bytes = ocmd_toolchain{}.assemble_oasm_source(device, file_path);
-    } else if (file_path.extension() == ".oexe") {
-      CORE_LOG_ERROR("[VM] : OEXE file loading not yet implemented: {}", file_path.string());
+    } else if (extension == ".ocmd") {
+      bytes = ocmd_toolchain{}.assemble_command_source(device, file_path);
+    } else if (extension == ".obin") {
+      bytes = ocmd_toolchain{}.read_obin(file_path);
+    } else {
+      CORE_LOG_ERROR("[VM] : Unsupported file type for VM program: {}", extension);
       return;
     }
 
+    /// the toolchain logged the reason; either way nothing was loaded and the device stays stopped
     if (bytes.empty()) {
-      CORE_LOG_ERROR("[VM] : Failed to compile and load program from file {}", file_path.string());
+      CORE_LOG_ERROR("[VM] : Failed to load program from file {}", file_path.string());
+      return;
+    }
+
+    /// load_bytes_to_address asserts on a program that does not fit, so it is refused here
+    const size_t program_size = obin_program_bytes(bytes).size();
+    if (device->program_load_cursor + program_size >= other_command_device::kMemorySize) {
+      CORE_LOG_ERROR("[VM] : {} needs {} bytes at {:#06x}, past the end of device memory", file_path.string(), program_size, device->program_load_cursor);
       return;
     }
 
@@ -156,7 +152,8 @@ namespace other {
       return;
     }
 
-    std::span bytes_no_header = bytes.subspan(sizeof(ocmd_file_header));
+    /// a debug section may follow the program in bytes; it stays out of the device
+    const std::span<const uint8_t> bytes_no_header = obin_program_bytes(bytes);
 
     uint16_t code_size = header.prog_header.data_section_offset - header.prog_header.code_section_offset;
     uint16_t data_size = bytes_no_header.size() - header.prog_header.data_section_offset;
@@ -170,10 +167,10 @@ namespace other {
     CORE_LOG_DEBUG("[VM] Loading program at address: {:#06x}", device->program_load_cursor);
     CORE_LOG_DEBUG("     - entry point address: {:#06x}", header.prog_header.entry_point_address + device->program_load_cursor);
     CORE_LOG_DEBUG("     - data section address: {:#06x}", header.prog_header.data_section_offset + device->program_load_cursor);
-    CORE_LOG_DEBUG("     - number of instructions: {}", header.prog_header.num_instructions);
+    CORE_LOG_DEBUG("     - number of instructions: {}", code_size / other_command_device::kOpCodeSize);
     CORE_LOG_DEBUG("     - data section size: {}", device->current_program_metadata.data_size);
 
-    auto program_bytes = bytes.subspan(sizeof(ocmd_file_header));
+    const std::span<const uint8_t> program_bytes = bytes_no_header;
     size_t program_size = std::ranges::size(program_bytes);
     const uint8_t* program = program_bytes.data();
     load_bytes_to_address(device, device->program_load_cursor, program, program_size);

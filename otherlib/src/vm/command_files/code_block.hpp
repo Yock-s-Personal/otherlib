@@ -49,6 +49,8 @@ namespace other {
 
     canonical_opcode opcode = canonical_opcode::INVALID_OP;
     ostd::vector<argument> arguments = {};
+    /// the line and column of its keyword in the source; line 0 when it was not written by hand
+    source_location origin = {};
   };
 
   struct jump_label {

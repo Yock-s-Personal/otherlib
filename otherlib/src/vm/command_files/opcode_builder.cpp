@@ -31,7 +31,7 @@ namespace other {
       }
     }
 
-    emit(canon_instr);
+    emit(canon_instr, instr.origin);
   }
 
   void opcode_builder::add_jump_label(const std::string& name, uint16_t section_address) {
@@ -56,15 +56,18 @@ namespace other {
   lowering_artifact opcode_builder::finalize(ocmd_code_generator& generator) const {
     PROFILE_SECTION("opcode_builder::finalize");
     lowering_artifact artifact{};
-    for (const auto& instr : emitted_instructions) {
-      generator.encode(instr, artifact);
+    for (size_t i = 0; i < emitted_instructions.size(); ++i) {
+      generator.encode(emitted_instructions[i], artifact);
+      /// one instruction may encode to none or to several; each of them came from the same place
+      artifact.origins.resize(artifact.machine_instructions.size(), emitted_origins[i]);
     }
     artifact.jump_labels = jump_labels;
     return artifact;
   }
 
-  void opcode_builder::emit(const canonical_instruction& instr) {
+  void opcode_builder::emit(const canonical_instruction& instr, const source_location& origin) {
     emitted_instructions.push_back(instr);
+    emitted_origins.push_back(origin);
   }
 
 }  // namespace other

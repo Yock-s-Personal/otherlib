@@ -112,6 +112,10 @@ namespace other {
     /// set rx, [n]/[label]
     else if (is_immediate || (is_address_or_label && !is_indirect)) {
       if (is_immediate) {
+        /// the instruction has 8 bits for the value; anything larger used to lose its top bits
+        if (instr.param[1].val > 0xFF) {
+          throw ocmd_lowering_error(std::format("set takes a value up to 255, got {}; load a larger one from a data field", instr.param[1].val));
+        }
         emit_instruction(opcode_set_x_immediate(instr.param[0].reg, static_cast<uint8_t>(instr.param[1].val)), artifact);
       } else if (is_label && !is_indirect) {
         add_symbol_fixup(artifact.machine_instructions.size(), instr.param[1].symbol, artifact);

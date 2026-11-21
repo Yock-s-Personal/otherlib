@@ -8,7 +8,6 @@
 #include <glm/gtx/quaternion.hpp>
 
 #include "core/profiler.hpp"
-
 #include "math/definitions.hpp"
 
 #include "scripting/lua_bindings/bind_glm_matrices.hpp"
@@ -38,8 +37,7 @@ namespace other {
         [](const glm::quat& a, const glm::quat& b) { return a * b; },
         [](const glm::quat& q, const glm::vec3& v) { return glm::rotate(q, v); },
         [](const glm::quat& q, float s) { return q * s; },
-        [](float s, const glm::quat& q) { return s * q; }
-      ),
+        [](float s, const glm::quat& q) { return s * q; }),
       sol::meta_function::division, [](const glm::quat& q, float s) { return q / s; },
       "x", &glm::quat::x,
       "y", &glm::quat::y,
@@ -52,8 +50,7 @@ namespace other {
       "conjugate", [](const glm::quat& self) { return glm::conjugate(self); },
       "inverse", [](const glm::quat& self) { return glm::inverse(self); },
       "slerp", [](const glm::quat& self, const glm::quat& other, float t) { return glm::slerp(self, other, t); },
-      "rotate", [](const glm::quat& self, const glm::vec3& v) { return glm::rotate(self, v); }
-    );
+      "rotate", [](const glm::quat& self, const glm::vec3& v) { return glm::rotate(self, v); });
 
     auto* type_db = subsystem<type_database>::get();
     OTHER_ASSERT(type_db != nullptr, "Type database subsystem is not initialized.");

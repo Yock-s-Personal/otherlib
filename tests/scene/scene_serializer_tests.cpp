@@ -22,7 +22,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class scene_serializer_tests : public other_test {

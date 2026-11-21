@@ -9,6 +9,7 @@
 #include <string>
 
 #include "core/profiler.hpp"
+
 #include "dotnet/native_string.hpp"
 
 namespace other {

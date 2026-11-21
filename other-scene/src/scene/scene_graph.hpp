@@ -9,7 +9,6 @@
 
 #include "scene/scene.hpp"
 
-
 namespace other {
 
   class scene;

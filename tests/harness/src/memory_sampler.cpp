@@ -9,7 +9,6 @@
 #ifdef OTHER_ENVIRONMENT_WINDOWS
   #define PSAPI_VERSION 2
   #include <Windows.h>
-
   #include <psapi.h>
 #endif
 

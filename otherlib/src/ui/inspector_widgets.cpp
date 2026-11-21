@@ -14,7 +14,6 @@
 #include "asset/asset_handler.hpp"
 #include "imgui.h"
 
-
 namespace other {
   namespace ui {
     namespace inspector {

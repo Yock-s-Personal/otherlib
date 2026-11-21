@@ -568,7 +568,9 @@ namespace other {
     }
 
     /// a uint8_t would be formatted as a character
-    const auto number = [](const uint8_t value) -> uint32_t { return value; };
+    const auto number = [](const uint8_t value) -> uint32_t {
+      return value;
+    };
 
     disassembly result;
     std::string& text = result.text;
@@ -607,8 +609,7 @@ namespace other {
       }
       for (const debug_symbol& symbol : symbols) {
         if (symbol.address == address && symbol.kind == DEBUG_SYMBOL_BLOCK) {
-          headings += from_assembly ? std::format("${}:    ; {}:{}\n", symbol.name, symbols[symbol.parent].name, from->line)
-                                    : std::format("${}:    ; {}\n", symbol.name, symbols[symbol.parent].name);
+          headings += from_assembly ? std::format("${}:    ; {}:{}\n", symbol.name, symbols[symbol.parent].name, from->line) : std::format("${}:    ; {}\n", symbol.name, symbols[symbol.parent].name);
         }
       }
       for (const debug_symbol& symbol : symbols) {

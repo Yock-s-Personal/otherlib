@@ -19,7 +19,6 @@
 
 #include "scripting/execution_node.hpp"
 
-
 namespace other {
 
   struct execution_graph {

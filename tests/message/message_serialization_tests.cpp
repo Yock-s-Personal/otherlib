@@ -4,7 +4,6 @@
 #include <gtest/gtest.h>
 
 #include "message/message.hpp"
-
 #include "other_test.hpp"
 
 namespace other {

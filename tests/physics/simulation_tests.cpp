@@ -11,7 +11,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class physics_simulation_tests : public other_test {

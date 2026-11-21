@@ -37,8 +37,10 @@ namespace other {
       filepath working_directory = "";
       environment_paths env = {};
 
-      std::function<void(std::string_view)> out = [](std::string_view) {};
-      std::function<void(std::string_view)> err = [](std::string_view) {};
+      std::function<void(std::string_view)> out = [](std::string_view) {
+      };
+      std::function<void(std::string_view)> err = [](std::string_view) {
+      };
 
       template <typename... Args>
       void print(std::format_string<Args...> fmt, Args&&... args) const {

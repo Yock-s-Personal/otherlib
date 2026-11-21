@@ -4,6 +4,7 @@
 #include "tools/tool.hpp"
 
 #include "core/profiler.hpp"
+
 #include "script/scripting_environment.hpp"
 
 namespace other {

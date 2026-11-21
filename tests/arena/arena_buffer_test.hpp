@@ -12,7 +12,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class arena_buffer_test : public other_test {

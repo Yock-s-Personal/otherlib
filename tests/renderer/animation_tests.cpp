@@ -20,7 +20,6 @@
 
 #include "other_test.hpp"
 
-
 namespace other {
 
   class animation_tests : public other_test {

@@ -5,9 +5,9 @@
 
 #include "core/profiler.hpp"
 
+#include "model/model_source.hpp"
 #include "renderer/renderer.hpp"
 
-#include "model/model_source.hpp"
 #include "object/grid_component.hpp"
 #include "object/render_component.hpp"
 #include "scene/scene.hpp"

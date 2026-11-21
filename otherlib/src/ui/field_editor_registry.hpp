@@ -5,8 +5,8 @@
 #define OTHERLIB_UI_FIELD_EDITOR_REGISTRY_HPP
 
 #include <functional>
-#include "data-structures/std_container.hpp"
 
+#include "data-structures/std_container.hpp"
 #include "serialization/reflection.hpp"
 
 #include "ui/field_ui.hpp"

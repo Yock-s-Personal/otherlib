@@ -26,7 +26,7 @@ namespace other {
   };
 
   struct load_error {
-    /// scene name or csproj path
+    /// scene name, csproj path or assembly path
     std::string subject;
     std::string message;
   };
@@ -172,6 +172,10 @@ namespace other {
 
     ostd::vector<load_error> load_errors;
     opt<script_failure> script_project_failure;
+
+    /// [scripting] assembly: a built assembly that is loaded as it is. while it is set nothing
+    ///  is built and the project has no csproj
+    filepath prebuilt_assembly;
 
     void clear_script_failure();
 

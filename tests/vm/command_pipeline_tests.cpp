@@ -269,8 +269,7 @@ end
           return text;
         }
         case CMD_STMT_IF:
-          return stmt.else_body.empty() ? std::format("(if {} (then{}))", to_text(stmt.exprs.front()), to_text(stmt.body))
-                                        : std::format("(if {} (then{}) (else{}))", to_text(stmt.exprs.front()), to_text(stmt.body), to_text(stmt.else_body));
+          return stmt.else_body.empty() ? std::format("(if {} (then{}))", to_text(stmt.exprs.front()), to_text(stmt.body)) : std::format("(if {} (then{}) (else{}))", to_text(stmt.exprs.front()), to_text(stmt.body), to_text(stmt.else_body));
         case CMD_STMT_WHILE: return std::format("(while {}{})", to_text(stmt.exprs.front()), to_text(stmt.body));
         case CMD_STMT_RETURN: return stmt.exprs.empty() ? "(return)" : std::format("(return {})", to_text(stmt.exprs.front()));
         case CMD_STMT_BREAK: return "(break)";

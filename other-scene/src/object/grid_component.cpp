@@ -38,7 +38,7 @@ namespace other {
       case GRID_PLANE_XY: return { { 1.f, 0.f, 0.f }, { 0.f, 1.f, 0.f }, { 0.f, 0.f, 1.f } };
       case GRID_PLANE_YZ: return { { 0.f, 1.f, 0.f }, { 0.f, 0.f, 1.f }, { 1.f, 0.f, 0.f } };
       case GRID_PLANE_XZ:
-      default:            return { { 1.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 1.f, 0.f } };
+      default: return { { 1.f, 0.f, 0.f }, { 0.f, 0.f, 1.f }, { 0.f, 1.f, 0.f } };
     }
   }
 
@@ -96,9 +96,15 @@ namespace other {
     PROFILE_SECTION("emit_grid_lines");
 
     const auto [u, v, n] = grid_basis_for_plane(grid.plane);
-    const auto tp = [&](const glm::vec3& p) { return glm::vec3(world * glm::vec4(grid.origin + p, 1.f)); };
-    const auto is_major = [&](uint32_t i) { return grid.major_line_every > 0 && i % grid.major_line_every == 0; };
-    const auto line_col = [&](uint32_t i) { return is_major(i) ? grid.major_line_color : grid.line_color; };
+    const auto tp = [&](const glm::vec3& p) {
+      return glm::vec3(world * glm::vec4(grid.origin + p, 1.f));
+    };
+    const auto is_major = [&](uint32_t i) {
+      return grid.major_line_every > 0 && i % grid.major_line_every == 0;
+    };
+    const auto line_col = [&](uint32_t i) {
+      return is_major(i) ? grid.major_line_color : grid.line_color;
+    };
 
     if (grid.coordinate_system == GRID_COORDINATES_CARTESIAN) {
       const uint32_t extent = std::min(grid.extent, kMaxCartesianExtent);
@@ -121,7 +127,9 @@ namespace other {
     const float outer_radius = static_cast<float>(rings) * grid.cell_size;
     constexpr float tau = 2.f * glm::pi<float>();
 
-    const auto ring_point = [&](float radius, float theta) { return u * (radius * glm::cos(theta)) + v * (radius * glm::sin(theta)); };
+    const auto ring_point = [&](float radius, float theta) {
+      return u * (radius * glm::cos(theta)) + v * (radius * glm::sin(theta));
+    };
     const auto ring_circle = [&](float radius, const glm::vec3& lift, const glm::vec4& color) {
       for (uint32_t seg = 0; seg < kRingSegments; ++seg) {
         const float t0 = static_cast<float>(seg) / kRingSegments * tau;
@@ -206,15 +214,21 @@ namespace other {
     PROFILE_SECTION("emit_grid_shell_lines");
 
     const auto [u, v, n] = grid_basis_for_plane(grid.plane);
-    const auto tp = [&](const glm::vec3& p) { return glm::vec3(world * glm::vec4(grid.origin + p, 1.f)); };
+    const auto tp = [&](const glm::vec3& p) {
+      return glm::vec3(world * glm::vec4(grid.origin + p, 1.f));
+    };
 
     const uint32_t rings = std::min(grid.extent, kMaxRingExtent);
     const float outer_radius = static_cast<float>(rings) * grid.cell_size;
     const float half_height = static_cast<float>(layers) * grid.layer_spacing;
     constexpr float tau = 2.f * glm::pi<float>();
 
-    const auto is_major = [&](uint32_t i) { return grid.major_line_every > 0 && i % grid.major_line_every == 0; };
-    const auto line_col = [&](uint32_t i) { return is_major(i) ? grid.major_line_color : grid.line_color; };
+    const auto is_major = [&](uint32_t i) {
+      return grid.major_line_every > 0 && i % grid.major_line_every == 0;
+    };
+    const auto line_col = [&](uint32_t i) {
+      return is_major(i) ? grid.major_line_color : grid.line_color;
+    };
 
     /// verticals at each ring/sector intersection tie the stacked layers into one lattice, thinning
     ///   to the major cadence and finally the boundary ring once they outgrow the budget

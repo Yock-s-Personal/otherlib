@@ -8,9 +8,9 @@
 
 #include "core/defines.hpp"
 
-#include "glm/fwd.hpp"
-
 #include "model/animation_limits.hpp"
+
+#include "glm/fwd.hpp"
 
 namespace other {
   namespace gpu {

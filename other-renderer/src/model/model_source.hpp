@@ -12,7 +12,6 @@
 
 #include "model.hpp"
 
-
 namespace other {
 
   /// cpu-side model data plus the gpu handles for it; construction does no gpu work, so this is

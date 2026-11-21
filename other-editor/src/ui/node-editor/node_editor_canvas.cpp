@@ -9,6 +9,7 @@
 #include <imgui/imgui_internal.h>
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 #include "ui/node-editor/node_editor_display.hpp"
 #include "ui/ui_helpers.hpp"

@@ -5,9 +5,9 @@
 #define OTHER_EDITOR_UI_NODE_EDITOR_NODE_EDITOR_CANVAS_HPP
 
 #include <glm/glm.hpp>
-#include "data-structures/std_container.hpp"
 
 #include "core/defines.hpp"
+#include "data-structures/std_container.hpp"
 
 #include "ui/ui_interactable.hpp"
 

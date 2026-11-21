@@ -13,7 +13,6 @@
 #include "data-structures/std_container.hpp"
 #include "serialization//reflection.hpp"
 
-
 namespace other {
 
   class arena_buffer {

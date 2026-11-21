@@ -7,6 +7,7 @@
 #include <imgui/imgui_internal.h>
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 #include "ui/unicode.hpp"
 

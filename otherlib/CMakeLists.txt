@@ -40,6 +40,8 @@ target_sources(otherlib
     # src/object/...
 
     src/project/project.cpp
+    src/project/script_assembly.cpp
+    src/project/pipeline_collector.cpp
 
     src/render/default_pass_executor_resolver.cpp
 

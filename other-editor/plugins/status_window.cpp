@@ -5,7 +5,6 @@
 #include "plugin/plugin.hpp"
 #include "ui/ui_window.hpp"
 
-
 class OTHER_CLASS status_window : public other::ui_window {
  public:
   status_window(other::event_system* event_sys)

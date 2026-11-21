@@ -4,7 +4,6 @@
 #ifndef OTHERLIB_VM_DIAGNOSTICS_SOURCE_MAP_HPP
 #define OTHERLIB_VM_DIAGNOSTICS_SOURCE_MAP_HPP
 
-
 namespace other {
 
   class source_map {

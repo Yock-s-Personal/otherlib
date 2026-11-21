@@ -150,7 +150,7 @@ namespace other {
       std::filesystem::rename(exe, stale, ec);
       if (ec) {
         ctx.print("warning: could not move the running '{}' aside ({}); the {} cannot overwrite it while it runs",
-          exe.filename().string(), ec.message(), verb);
+                  exe.filename().string(), ec.message(), verb);
         return;
       }
 
@@ -158,7 +158,7 @@ namespace other {
       if (ec) {
         /// a missing output only means the next build or install of it runs from scratch
         ctx.print("warning: could not restore '{}' after moving it aside ({}); the {} will recreate it from scratch",
-          exe.filename().string(), ec.message(), verb);
+                  exe.filename().string(), ec.message(), verb);
         return;
       }
       ctx.print("moved the running '{}' aside so the {} can overwrite it", exe.filename().string(), verb);

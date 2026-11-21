@@ -12,12 +12,11 @@
 
 #include "core/profiler.hpp"
 
-#include "theme/colors.hpp"
-#include "ui/ui_helpers.hpp"
-
 #include "driver/driver.hpp"
 #include "driver/systems/project_system.hpp"
+#include "theme/colors.hpp"
 #include "ui/inspector_widgets.hpp"
+#include "ui/ui_helpers.hpp"
 
 namespace other {
   namespace ui {

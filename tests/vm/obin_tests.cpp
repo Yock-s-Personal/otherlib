@@ -439,7 +439,8 @@ namespace other {
     /// with the debug section a build writes by default, the listing has the source's own names
     for (const std::string_view expected : { "entry:", "$main:", "source.oasm", "set r1, [numbers.answer]", "; starts as 42", "set r2, numbers.text", "; \"hello\"",
                                              "cmplt r1, r2, rflag", "jne done", "@done:", "rshift r1, r2", "syscall project.load", "#numbers", ".answer", ".text" }) {
-      EXPECT_TRUE(listing.text.contains(expected)) << expected << "\n" << listing.text;
+      EXPECT_TRUE(listing.text.contains(expected)) << expected << "\n"
+                                                   << listing.text;
     }
 
     /// without one it falls back to addresses and labels made up from them
@@ -448,7 +449,8 @@ namespace other {
     const disassembly bare_listing = decompiler::disassemble(bare.bytes, &bus);
     ASSERT_TRUE(bare_listing.error.empty()) << bare_listing.error;
     for (const std::string_view expected : { "entry:", "set r1, [0x", "; starts as 42", "; \"hello\"", "jne l_", "no debug section" }) {
-      EXPECT_TRUE(bare_listing.text.contains(expected)) << expected << "\n" << bare_listing.text;
+      EXPECT_TRUE(bare_listing.text.contains(expected)) << expected << "\n"
+                                                        << bare_listing.text;
     }
     EXPECT_FALSE(bare_listing.text.contains("numbers"));
 
@@ -709,11 +711,13 @@ namespace other {
     /// the type each field was declared with, and its bytes read as that type
     for (const std::string_view expected : { "#numbers", "source.oasm", ".limit", "int64", "100000", ".small", "int32", " 12\n", " -3\n", "float", "1.5", "address", "0x0040",
                                              "blob", "61 0a 62", "string", "\"hello\"", "\"say \\\"hi\\\"\"" }) {
-      EXPECT_TRUE(listing.text.contains(expected)) << expected << "\n" << listing.text;
+      EXPECT_TRUE(listing.text.contains(expected)) << expected << "\n"
+                                                   << listing.text;
     }
     /// how the code uses each one, in which block, and on which line of the source
     for (const std::string_view expected : { "read ", "written ", "address ", "$main", "source.oasm:14:9", "source.oasm:15:9", "source.oasm:16:9", "not used by the code" }) {
-      EXPECT_TRUE(listing.text.contains(expected)) << expected << "\n" << listing.text;
+      EXPECT_TRUE(listing.text.contains(expected)) << expected << "\n"
+                                                   << listing.text;
     }
 
     /// without the debug section the fields are found from the addresses the code names
@@ -722,7 +726,8 @@ namespace other {
     const disassembly bare_listing = decompiler::list_data(bare.bytes);
     ASSERT_TRUE(bare_listing.error.empty()) << bare_listing.error;
     for (const std::string_view expected : { "no debug section", "data_", " 42\n", "\"hello\"", "read ", "address " }) {
-      EXPECT_TRUE(bare_listing.text.contains(expected)) << expected << "\n" << bare_listing.text;
+      EXPECT_TRUE(bare_listing.text.contains(expected)) << expected << "\n"
+                                                        << bare_listing.text;
     }
     EXPECT_FALSE(bare_listing.text.contains("numbers"));
 

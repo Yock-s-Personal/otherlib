@@ -13,10 +13,10 @@
 #ifdef OTHER_INCLUDE_PROFILING
 
   #define PROFILE_GPU_CONTEXT() ::other::profiling::emit_gpu_context_create()
-  #define PROFILE_GPU_SECTION(name)                                                                       \
+  #define PROFILE_GPU_SECTION(name)                                                                           \
     static constexpr ::other::profiling::source_location OTHER_PROFILER_CONCAT(_other_gpu_srcloc_, __LINE__){ \
-      name, __FUNCTION__, __FILE__, (uint32_t)__LINE__, 0                                                 \
-    };                                                                                                    \
+      name, __FUNCTION__, __FILE__, (uint32_t)__LINE__, 0                                                     \
+    };                                                                                                        \
     ::other::profiling::scoped_gpu_zone _other_gpu_profile_zone { &OTHER_PROFILER_CONCAT(_other_gpu_srcloc_, __LINE__) }
   #define PROFILE_GPU_COLLECT() ::other::profiling::emit_gpu_collect()
 

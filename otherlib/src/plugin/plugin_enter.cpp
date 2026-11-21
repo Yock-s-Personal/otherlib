@@ -18,7 +18,6 @@
 
 #include "plugin/plugin.hpp"
 
-
 namespace other {
 
   void plugin::on_enter(const std::string_view pl_name, other_plugin_argv* argv) {

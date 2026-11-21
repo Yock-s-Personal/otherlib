@@ -6,9 +6,8 @@
 #include "core/logger.hpp"
 #include "event/event_system.hpp"
 
-#include "scripting/dotnet_bindings/driver_bindings.hpp"
-
 #include "driver/driver.hpp"
+#include "scripting/dotnet_bindings/driver_bindings.hpp"
 
 namespace other {
   namespace bindings {

@@ -471,18 +471,17 @@ namespace other {
 
   TEST_F(material_manifest_tests, scene_material_texture_chain_resolves_in_layers) {
     const filepath scene = proj_root / "scenes" / "chain.oscn";
-    write_file(scene, std::format(
-                        "[scene]\n"
-                        "schema-version = 1\n"
-                        "name = \"chain\"\n"
-                        "\n"
-                        "[[objects]]\n"
-                        "id = 1\n"
-                        "name = \"Hull\"\n"
-                        "\n"
-                        "[objects.components.render]\n"
-                        "material_asset_id = \"{}\"\n",
-                        omat_path().generic_string()));
+    write_file(scene, std::format("[scene]\n"
+                                  "schema-version = 1\n"
+                                  "name = \"chain\"\n"
+                                  "\n"
+                                  "[[objects]]\n"
+                                  "id = 1\n"
+                                  "name = \"Hull\"\n"
+                                  "\n"
+                                  "[objects.components.render]\n"
+                                  "material_asset_id = \"{}\"\n",
+                                  omat_path().generic_string()));
 
     asset_resolver resolver;
     const std::array roots{ scene };

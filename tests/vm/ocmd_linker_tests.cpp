@@ -527,12 +527,14 @@ namespace other {
       $main:
         set r1, [numbers.answer]
       end
-      )", &diag),
+      )",
+                   &diag),
       compile_unit("b.oasm", R"(
       #numbers {
         .answer : int32 = 42
       }
-      )", &diag),
+      )",
+                   &diag),
     };
     ASSERT_TRUE(units[0].program.valid);
     ASSERT_TRUE(units[1].program.valid);
@@ -598,13 +600,15 @@ namespace other {
       $first:
         ret
       end
-      )", &diag),
+      )",
+                   &diag),
       compile_unit("b.oasm", R"(
       /entry: second
       $second:
         ret
       end
-      )", &diag),
+      )",
+                   &diag),
     };
 
     const std::string error = link_error(units, &diag);
@@ -638,7 +642,8 @@ namespace other {
         set r1, 7
         ret
       end
-      )", &diag),
+      )",
+                   &diag),
     };
     ASSERT_TRUE(units[0].program.valid);
     ASSERT_TRUE(units[1].program.valid);
@@ -674,7 +679,8 @@ namespace other {
         call __natural_entry
         set r1, 2
       end
-      )", &diag),
+      )",
+                   &diag),
       compile_unit("b.oasm", kHelper, &diag),
     };
     ASSERT_TRUE(units[0].program.valid);
@@ -714,7 +720,8 @@ namespace other {
       $main:
         call nowhere
       end
-      )", &diag),
+      )",
+                   &diag),
       compile_unit("b.oasm", kHelper, &diag),
     };
 

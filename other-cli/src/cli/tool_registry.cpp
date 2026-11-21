@@ -127,8 +127,12 @@ namespace other {
       tool_context ctx;
       ctx.working_directory = std::filesystem::current_path();
       ctx.env = locate_environment();
-      ctx.out = [](std::string_view message) { std::println("{}", message); };
-      ctx.err = [](std::string_view message) { std::println(stderr, "{}", message); };
+      ctx.out = [](std::string_view message) {
+        std::println("{}", message);
+      };
+      ctx.err = [](std::string_view message) {
+        std::println(stderr, "{}", message);
+      };
       return run(ctx, command_line);
     }
 

@@ -4,10 +4,10 @@
 #ifndef OTHER_EDITOR_UI_ASSET_BROWSER_ASSET_BROWSER_GRID_NODE_HPP
 #define OTHER_EDITOR_UI_ASSET_BROWSER_ASSET_BROWSER_GRID_NODE_HPP
 
-#include "ui/asset-browser/asset_browser_widgets.hpp"
 #include "data-structures/std_container.hpp"
-#include "ui/ui_node.hpp"
 
+#include "ui/asset-browser/asset_browser_widgets.hpp"
+#include "ui/ui_node.hpp"
 
 namespace other {
 

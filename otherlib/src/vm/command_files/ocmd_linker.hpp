@@ -8,6 +8,7 @@
 
 #include "core/scope.hpp"
 
+#include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
 #include "vm/command_files/ocmd_program.hpp"
 #include "vm/command_files/symbol_resolver.hpp"
@@ -45,9 +46,13 @@ namespace other {
     ocmd_link_options options;
     ostd::vector<ocmd_unit> units;
     ostd::vector<size_t> block_units;
+    /// for each data section, the unit it came from; filled by merge_units like block_units
+    ostd::vector<size_t> data_units;
 
     /// for each block of code, its address in the linked program; filled by write_code
     ostd::vector<uint16_t> block_addresses;
+    /// for each data section, its address in the linked program; filled by write_data_sections
+    ostd::vector<uint16_t> data_addresses;
 
     /// address of the stopdev that closes the code section; filled by link
     uint16_t guard_address = 0;
@@ -78,6 +83,8 @@ namespace other {
     void write_data_sections(scope<symbol_resolver>& resolver, ostd::vector<uint8_t>& binary);
 
     void do_final_linking(scope<symbol_resolver>& resolver, ostd::vector<uint8_t>& binary);
+    /// every name the link knows, with where it ended up; read after the program is laid out
+    obin_debug_info collect_debug_info() const;
 
     ostd::vector<uint8_t> create_compiler_generated_symbols(scope<symbol_resolver>& resolver);
     void rewrite_instructions(scope<symbol_resolver>& resolver);

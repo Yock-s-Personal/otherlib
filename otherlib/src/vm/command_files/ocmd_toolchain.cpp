@@ -192,7 +192,7 @@ namespace other {
         success = false;
         continue;
       }
-      sources.push_back({ .name = units[i].name, .text = std::move(lowered.oasm) });
+      sources.push_back({ .name = units[i].name, .text = std::move(lowered.oasm), .origins = std::move(lowered.origins) });
     }
 
     if (!success) {
@@ -217,6 +217,14 @@ namespace other {
       /// stops at the first file that fails; its errors have already gone to diag
       try {
         units.push_back({ .name = source.name, .program = ocmd_compiler{}.compile(source.text, make_scope<code_generator_000>(), diag) });
+        /// the compiler counted lines in generated text; what a person reads is the file it came from
+        if (!source.origins.empty()) {
+          for (compiled_code_block& block : units.back().program.compiled_blocks) {
+            for (source_location& origin : block.artifact.origins) {
+              origin = origin.line >= 1 && origin.line <= source.origins.size() ? source.origins[origin.line - 1] : source_location{};
+            }
+          }
+        }
       } catch (const std::exception& e) {
         CORE_LOG_ERROR("[VM] : failed to compile '{}': {}", source.name, e.what());
         return result;
@@ -265,13 +273,18 @@ namespace other {
                          static_cast<uint32_t>(header.environment_version_patch), OTHER_ENVIRONMENT_VERSION_STRING);
     }
 
-    const size_t program_size = bytes.size() - sizeof(ocmd_file_header);
-    const size_t stated_size = header.prog_header.program_size;
+    /// with a debug section the file is longer than the program; without one it is exactly the program
+    const bool has_debug_section = header.prog_header.has_debug_flag != 0;
+    const size_t bytes_after_header = bytes.size() - sizeof(ocmd_file_header);
+    const size_t program_size = header.prog_header.program_size;
     const size_t code_start = header.prog_header.code_section_offset;
     const size_t data_start = header.prog_header.data_section_offset;
     const size_t entry_point = header.prog_header.entry_point_address;
-    if (stated_size != program_size) {
-      return std::format("its header counts {} program bytes and the file holds {}", stated_size, program_size);
+    if (has_debug_section ? program_size > bytes_after_header : program_size != bytes_after_header) {
+      return std::format("its header counts {} program bytes and the file holds {}", program_size, bytes_after_header);
+    }
+    if (has_debug_section && !obin_debug_info::decode(obin_debug_bytes(bytes)).has_value()) {
+      return "its debug section is cut short or was written by tools this build does not match";
     }
     if (program_size > other_command_device::kMaxProgramSize) {
       return std::format("its {} program bytes are more than the {} the device holds", program_size, other_command_device::kMaxProgramSize);

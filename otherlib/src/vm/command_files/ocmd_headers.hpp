@@ -19,7 +19,8 @@ namespace other {
     uint16_t entry_point_address = 0;  // must be inside code section
     uint16_t program_size = 0;         // bytes that follow the file header
     uint8_t has_code_flag = 0;
-    uint8_t reserved[7] = {};
+    uint8_t has_debug_flag = 0;  // a debug section follows the program bytes
+    uint8_t reserved[6] = {};
   };
   static_assert(sizeof(program_header) == 16, "Program header size must be 16 bytes");
 

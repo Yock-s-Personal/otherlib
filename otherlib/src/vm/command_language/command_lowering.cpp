@@ -134,7 +134,7 @@ namespace other {
 
     result.success = !failed;
     if (result.success) {
-      result.oasm = assemble();
+      result.oasm = assemble(result.origins);
     }
     return result;
   }
@@ -163,6 +163,7 @@ namespace other {
     scopes.resize(1);
     loops.clear();
     live_temps = 0;
+    current_origin = {};
     in_function = false;
     current_function.clear();
   }
@@ -272,7 +273,9 @@ namespace other {
     current_function = function.name;
     calls[function.name];
 
-    code.push_back(std::format("$f_{}:", function.name));
+    add_line(std::format("$f_{}:", function.name));
+    /// the lines that take the arguments and the closing return belong to the line with 'fn' on it
+    const origin_scope origin(*this, function.span.start);
     scopes.emplace_back();
     for (size_t i = 0; i < function.params.size(); ++i) {
       if (scopes.back().contains(function.params[i])) {
@@ -290,8 +293,8 @@ namespace other {
     emit("set rf, 0");
     emit("set rflag, 0");
     emit("ret");
-    code.push_back("end");
-    code.push_back("");
+    add_line("end");
+    add_line("");
   }
 
   void command_lowering::lower_hook(const command_hook& hook, ostd::vector<command_hook_record>& records) {
@@ -304,13 +307,14 @@ namespace other {
     }
     in_function = true;
 
-    code.push_back(std::format("${}:", block));
+    add_line(std::format("${}:", block));
+    const origin_scope origin(*this, hook.span.start);
     lower_block(hook.body);
     emit("set rf, 0");
     emit("set rflag, 0");
     emit("ret");
-    code.push_back("end");
-    code.push_back("");
+    add_line("end");
+    add_line("");
     records.push_back({ .name = hook.name, .engine_event = hook.engine_event, .block = block });
   }
 
@@ -325,12 +329,12 @@ namespace other {
       return;
     }
 
-    code.push_back(std::format("$m_{}:", stem));
+    add_line(std::format("$m_{}:", stem));
     for (const command_stmt& stmt : file.statements) {
       guarded([&] { lower_statement(stmt); });
     }
     emit("stopdev");
-    code.push_back("end");
+    add_line("end");
   }
 
   /// a function's variables are fields, one copy each, so a second live call would overwrite the first
@@ -356,7 +360,7 @@ namespace other {
     }
   }
 
-  std::string command_lowering::assemble() const {
+  std::string command_lowering::assemble(ostd::vector<source_location>& origins) const {
     std::string text = std::format("; generated from {}\n", unit);
     if (options.entry_unit) {
       text += std::format("/entry: m_{}\n", stem);
@@ -377,8 +381,11 @@ namespace other {
       text += "}\n\n";
     }
 
-    for (const std::string& line : code) {
-      text += std::format("{}\n", line);
+    /// everything written so far is the heading and the data, which stand for no statement
+    origins.assign(static_cast<size_t>(std::ranges::count(text, '\n')), source_location{});
+    for (size_t i = 0; i < code.size(); ++i) {
+      text += std::format("{}\n", code[i]);
+      origins.push_back(code_origins[i]);
     }
     return text;
   }
@@ -392,6 +399,7 @@ namespace other {
   }
 
   void command_lowering::lower_statement(const command_stmt& stmt) {
+    const origin_scope origin(*this, stmt.span.start);
     switch (stmt.kind) {
       case CMD_STMT_LET: lower_let(stmt); break;
 
@@ -733,6 +741,8 @@ namespace other {
   }
 
   opt<uint8_t> command_lowering::lower_call(const command_expr& call, bool want_result) {
+    /// a call gets its own column, so two commands on one line can be told apart
+    const origin_scope origin(*this, call.span.start);
     const call_target target = resolve(call);
     ostd::vector<machine_argument> arguments = match_arguments(call, target);
 

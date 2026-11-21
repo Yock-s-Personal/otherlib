@@ -12,6 +12,7 @@
 #include "thread/thread_safety.hpp"
 
 #include "vm/command_bus.hpp"
+#include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
 #include "vm/control_table.hpp"
@@ -129,7 +130,7 @@ namespace other {
     }
 
     /// load_bytes_to_address asserts on a program that does not fit, so it is refused here
-    const size_t program_size = bytes.size() - sizeof(ocmd_file_header);
+    const size_t program_size = obin_program_bytes(bytes).size();
     if (device->program_load_cursor + program_size >= other_command_device::kMemorySize) {
       CORE_LOG_ERROR("[VM] : {} needs {} bytes at {:#06x}, past the end of device memory", file_path.string(), program_size, device->program_load_cursor);
       return;
@@ -151,7 +152,8 @@ namespace other {
       return;
     }
 
-    std::span bytes_no_header = bytes.subspan(sizeof(ocmd_file_header));
+    /// a debug section may follow the program in bytes; it stays out of the device
+    const std::span<const uint8_t> bytes_no_header = obin_program_bytes(bytes);
 
     uint16_t code_size = header.prog_header.data_section_offset - header.prog_header.code_section_offset;
     uint16_t data_size = bytes_no_header.size() - header.prog_header.data_section_offset;
@@ -168,7 +170,7 @@ namespace other {
     CORE_LOG_DEBUG("     - number of instructions: {}", code_size / other_command_device::kOpCodeSize);
     CORE_LOG_DEBUG("     - data section size: {}", device->current_program_metadata.data_size);
 
-    auto program_bytes = bytes.subspan(sizeof(ocmd_file_header));
+    const std::span<const uint8_t> program_bytes = bytes_no_header;
     size_t program_size = std::ranges::size(program_bytes);
     const uint8_t* program = program_bytes.data();
     load_bytes_to_address(device, device->program_load_cursor, program, program_size);

@@ -12,8 +12,10 @@
 #include "tools/scene_cli_tool.hpp"
 #include "vm/builtin_command_devices.hpp"
 #include "vm/command_bus.hpp"
+#include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
+#include "vm/decompiler.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
 #include "vm/vm.hpp"
 
@@ -26,13 +28,18 @@ namespace other {
         "\n"
         "commands:\n"
         "  build <a.ocmd|a.oasm> [...] -o <out.obin>   compile each source and link them into one program\n"
+        "  view <program>                              print a linked program's instructions and data\n"
+        "  view <a.ocmd|a.oasm> [...]                  build the sources in memory and print the result\n"
+        "  data <program>                              print each data field: its type, its value, where it is used\n"
+        "  data <a.ocmd|a.oasm> [...]                  build the sources in memory and print their data\n"
         "  info <program.obin>                         print a linked program's header\n"
         "\n"
         "the first .ocmd input is the entry file; the files it uses are found and built with it\n"
         "\n"
         "options:\n"
         "  -o, --out <path>   output path (build only)\n"
-        "      --strict       treat warnings as errors and write nothing (build only)\n"
+        "      --strict       treat warnings as errors and write nothing (build and view)\n"
+        "      --no-debug     leave the debug section out of the program (build), or show it without names (view, data)\n"
         "      --emit-oasm    also write the OASM made from each .ocmd file, beside the output (build only)";
 
       struct parsed_arguments {
@@ -41,6 +48,7 @@ namespace other {
         opt<filepath> output = std::nullopt;
         bool strict = false;
         bool emit_oasm = false;
+        bool no_debug = false;
         opt<std::string> error = std::nullopt;
       };
 
@@ -65,6 +73,8 @@ namespace other {
             parsed.strict = true;
           } else if (arg == "--emit-oasm") {
             parsed.emit_oasm = true;
+          } else if (arg == "--no-debug") {
+            parsed.no_debug = true;
           } else if (!arg.empty() && arg.front() == '-') {
             parsed.error = std::format("unknown option '{}'", arg);
             return parsed;
@@ -83,8 +93,26 @@ namespace other {
         return path.is_absolute() ? path : ctx.working_directory / path;
       }
 
-      tool_result build(tool_context& ctx, std::span<const filepath> inputs, const filepath& output, const ocmd_link_options options, const bool emit_oasm) {
-        PROFILE_SECTION("vm_tool::build");
+      struct linked_program {
+        ostd::vector<uint8_t> bytes;
+        size_t source_count = 0;
+        /// set when an input could not be read or the program did not build
+        opt<std::string> error = std::nullopt;
+      };
+
+      /// inside a running environment the live bus also holds the devices its plugins added
+      const command_bus& tool_bus(command_bus& local_bus) {
+        if (const other_command_device* live = vm::get_initialized_device(); live != nullptr && live->bus != nullptr) {
+          return *live->bus;
+        }
+        register_builtin_command_devices(local_bus);
+        return local_bus;
+      }
+
+      /// reads the sources, lowers the .ocmd ones and links everything in memory. listing_folder,
+      ///  when set, is where the OASM made from each .ocmd file is written
+      linked_program link_sources(tool_context& ctx, std::span<const filepath> inputs, const command_bus& bus, const ocmd_link_options options, const opt<filepath>& listing_folder) {
+        PROFILE_SECTION("vm_tool::link_sources");
         diagnostic_engine diagnostics;
         ocmd_toolchain toolchain;
 
@@ -96,7 +124,7 @@ namespace other {
           if (extension == ".ocmd") {
             ostd::vector<command_unit> read = toolchain.read_command_units(from_working_directory(ctx, input), input.generic_string(), &diagnostics);
             if (read.empty()) {
-              return tool_result::error(std::format("could not read '{}'; the errors are listed above", input.string()));
+              return { .error = std::format("could not read '{}'; the errors are listed above", input.string()) };
             }
             /// two inputs may use the same file
             for (command_unit& unit : read) {
@@ -107,12 +135,12 @@ namespace other {
             continue;
           }
           if (extension != ".oasm") {
-            return tool_result::error(std::format("'build' expects .ocmd or .oasm inputs, got '{}'\n{}", input.string(), kUsage));
+            return { .error = std::format("expected .ocmd or .oasm sources, got '{}'\n{}", input.string(), kUsage) };
           }
 
           std::ifstream file(from_working_directory(ctx, input));
           if (!file.is_open()) {
-            return tool_result::error(std::format("input file '{}' does not exist or cannot be read", input.string()));
+            return { .error = std::format("input file '{}' does not exist or cannot be read", input.string()) };
           }
           std::ostringstream text;
           text << file.rdbuf();
@@ -121,27 +149,17 @@ namespace other {
           sources.push_back({ .name = input.generic_string(), .text = text.str() });
         }
 
-        /// inside a running environment the live bus also holds the devices its plugins added
-        command_bus local_bus;
-        const command_bus* bus = &local_bus;
-        if (const other_command_device* live = vm::get_initialized_device(); live != nullptr && live->bus != nullptr) {
-          bus = live->bus;
-        } else {
-          register_builtin_command_devices(local_bus);
-        }
-
-        const filepath destination = from_working_directory(ctx, output);
         if (!units.empty()) {
-          ostd::vector<oasm_source> lowered = toolchain.lower_command_units(*bus, units, &diagnostics, options);
+          ostd::vector<oasm_source> lowered = toolchain.lower_command_units(bus, units, &diagnostics, options);
           if (lowered.empty()) {
-            return tool_result::error("build failed; the errors are listed above");
+            return { .error = "build failed; the errors are listed above" };
           }
           /// named after the script with .oasm added, so it cannot land on a hand-written .oasm
-          for (size_t i = 0; emit_oasm && i < lowered.size(); ++i) {
-            const filepath listing = destination.parent_path() / std::format("{}.oasm", filepath{ lowered[i].name }.filename().string());
+          for (size_t i = 0; listing_folder.has_value() && i < lowered.size(); ++i) {
+            const filepath listing = *listing_folder / std::format("{}.oasm", filepath{ lowered[i].name }.filename().string());
             std::ofstream out(listing, std::ios::binary | std::ios::trunc);
             if (!out.is_open()) {
-              return tool_result::error(std::format("failed to write '{}'", listing.string()));
+              return { .error = std::format("failed to write '{}'", listing.string()) };
             }
             out << lowered[i].text;
             ctx.print("wrote '{}'", listing.string());
@@ -149,15 +167,101 @@ namespace other {
           sources.append_range(std::move(lowered));
         }
 
-        const obin_build_result result = toolchain.build_obin(*bus, sources, &diagnostics, options);
+        obin_build_result result = toolchain.build_obin(bus, sources, &diagnostics, options);
         if (!result.success) {
-          return tool_result::error("build failed; the errors are listed above");
+          return { .error = "build failed; the errors are listed above" };
+        }
+        return { .bytes = std::move(result.bytes), .source_count = sources.size() };
+      }
+
+      tool_result build(tool_context& ctx, std::span<const filepath> inputs, const filepath& output, const ocmd_link_options options, const bool emit_oasm) {
+        PROFILE_SECTION("vm_tool::build");
+        command_bus local_bus;
+        const command_bus& bus = tool_bus(local_bus);
+
+        const filepath destination = from_working_directory(ctx, output);
+        const linked_program linked = link_sources(ctx, inputs, bus, options, emit_oasm ? opt<filepath>{ destination.parent_path() } : std::nullopt);
+        if (linked.error.has_value()) {
+          return tool_result::error(*linked.error);
         }
 
-        if (!toolchain.write_obin(destination, result.bytes)) {
+        if (!ocmd_toolchain{}.write_obin(destination, linked.bytes)) {
           return tool_result::error(std::format("failed to write '{}'", destination.string()));
         }
-        return tool_result::ok(std::format("linked {} source(s) into '{}' ({} bytes)", sources.size(), destination.string(), result.bytes.size()));
+        return tool_result::ok(std::format("linked {} source(s) into '{}' ({} bytes)", linked.source_count, destination.string(), linked.bytes.size()));
+      }
+
+      /// a program as text: 'view' is its instructions and data, 'data' is its data alone with
+      ///  where each field is used. given sources instead of a program, it builds them in
+      ///  memory first, so nothing is written
+      tool_result view(tool_context& ctx, const std::string_view command, std::span<const filepath> inputs, const ocmd_link_options options) {
+        PROFILE_SECTION("vm_tool::view");
+        command_bus local_bus;
+        const command_bus& bus = tool_bus(local_bus);
+
+        /// anything that is not a source is read as a program, whatever it is called: 'build -o'
+        ///  takes any name, and the listing says so if the file turns out not to be one
+        const auto is_source = [](const filepath& input) { return input.extension() == ".ocmd" || input.extension() == ".oasm"; };
+        ostd::vector<uint8_t> bytes;
+        if (!std::ranges::all_of(inputs, is_source)) {
+          if (inputs.size() != 1) {
+            return tool_result::error(std::format("'{}' takes one program, or the sources of one program\n{}", command, kUsage));
+          }
+          std::ifstream file(from_working_directory(ctx, inputs.front()), std::ios::binary);
+          if (!file.is_open()) {
+            return tool_result::error(std::format("input file '{}' does not exist or cannot be read", inputs.front().string()));
+          }
+          bytes.assign(std::istreambuf_iterator<char>{ file }, std::istreambuf_iterator<char>{});
+          /// asked to show it without its names: drop the section and the flag that announces it
+          if (!options.debug_info && !obin_debug_bytes(bytes).empty()) {
+            ocmd_file_header header;
+            std::memcpy(&header, bytes.data(), sizeof(header));
+            header.prog_header.has_debug_flag = 0;
+            bytes.resize(sizeof(header) + obin_program_bytes(bytes).size());
+            std::memcpy(bytes.data(), &header, sizeof(header));
+          }
+        } else {
+          linked_program linked = link_sources(ctx, inputs, bus, options, std::nullopt);
+          if (linked.error.has_value()) {
+            return tool_result::error(*linked.error);
+          }
+          bytes = std::move(linked.bytes);
+        }
+
+        /// the names in a debug section are the paths the sources were given by, so they are
+        ///  looked for from the working directory. a file that is not there is simply not shown
+        ostd::unordered_map<std::string, ostd::vector<std::string>> files;
+        const source_line_reader read_line = [&ctx, &files](const std::string_view unit, const uint32_t line) -> opt<std::string> {
+          const auto [entry, is_new] = files.try_emplace(std::string{ unit });
+          if (is_new) {
+            std::ifstream file(from_working_directory(ctx, filepath{ unit }));
+            for (std::string text; std::getline(file, text);) {
+              if (!text.empty() && text.back() == '\r') {
+                text.pop_back();
+              }
+              entry->second.push_back(text);
+            }
+          }
+          if (line == 0 || line > entry->second.size()) {
+            return std::nullopt;
+          }
+          const std::string& text = entry->second[line - 1];
+          const size_t first = text.find_first_not_of(" \t");
+          return first == std::string::npos ? std::string{} : text.substr(first);
+        };
+
+        const disassembly listing = command == "data" ? decompiler::list_data(bytes, read_line) : decompiler::disassemble(bytes, &bus, read_line);
+        if (!listing.error.empty()) {
+          return tool_result::error(std::format("'{}' cannot be shown: {}", inputs.front().string(), listing.error));
+        }
+        /// one print per line, as the consoles this runs in expect; the text ends in a line break
+        std::string_view text = listing.text;
+        while (!text.empty()) {
+          const size_t line_end = text.find('\n');
+          ctx.print("{}", text.substr(0, line_end));
+          text.remove_prefix(line_end == std::string_view::npos ? text.size() : line_end + 1);
+        }
+        return tool_result::ok();
       }
 
       tool_result info(tool_context& ctx, const filepath& input) {
@@ -175,7 +279,8 @@ namespace other {
         ocmd_file_header header;
         std::memcpy(&header, bytes.data(), sizeof(header));
         const size_t code_size = header.prog_header.data_section_offset;
-        const size_t program_size = bytes.size() - sizeof(ocmd_file_header);
+        const size_t program_size = obin_program_bytes(bytes).size();
+        const size_t debug_size = obin_debug_bytes(bytes).size();
         const size_t entry_point = header.prog_header.entry_point_address;
 
         ctx.print("program '{}'", input.filename().string());
@@ -185,6 +290,11 @@ namespace other {
                   static_cast<uint32_t>(header.environment_version_patch));
         ctx.print("  size: {} bytes ({} code, {} data)", program_size, std::min(code_size, program_size), program_size - std::min(code_size, program_size));
         ctx.print("  entry point: {:#06x}", entry_point);
+        if (debug_size > 0) {
+          ctx.print("  debug section: {} bytes, not loaded into the device", debug_size);
+        } else {
+          ctx.print("  debug section: none");
+        }
 
         if (const opt<std::string> refusal = ocmd_toolchain{}.check_obin(bytes); refusal.has_value()) {
           return tool_result::error(std::format("this build will not load it: {}", *refusal));
@@ -211,10 +321,16 @@ namespace other {
         if (!parsed.output.has_value()) {
           return tool_result::error(std::format("'build' needs -o/--out\n{}", kUsage));
         }
-        return build(ctx, parsed.inputs, *parsed.output, { .strict = parsed.strict }, parsed.emit_oasm);
+        return build(ctx, parsed.inputs, *parsed.output, { .strict = parsed.strict, .debug_info = !parsed.no_debug }, parsed.emit_oasm);
+      }
+      if (parsed.command == "view" || parsed.command == "data") {
+        if (parsed.output.has_value() || parsed.emit_oasm) {
+          return tool_result::error(std::format("'{}' writes nothing, so it takes neither -o nor --emit-oasm\n{}", parsed.command, kUsage));
+        }
+        return view(ctx, parsed.command, parsed.inputs, { .strict = parsed.strict, .debug_info = !parsed.no_debug });
       }
       if (parsed.command == "info") {
-        if (parsed.inputs.size() != 1 || parsed.output.has_value() || parsed.strict) {
+        if (parsed.inputs.size() != 1 || parsed.output.has_value() || parsed.strict || parsed.no_debug) {
           return tool_result::error(std::format("'info' takes one input and no options\n{}", kUsage));
         }
         return info(ctx, from_working_directory(ctx, parsed.inputs.front()));

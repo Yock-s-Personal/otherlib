@@ -12,6 +12,7 @@
 
 #include "cli/tool_registry.hpp"
 #include "tools/scene_cli_tool.hpp"
+#include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
 
 namespace other {
@@ -150,7 +151,12 @@ namespace other {
 
     /// the listing sorts next to the script it came from, so the link order is the same
     ASSERT_TRUE(run_vm_tool("vm build boot.ocmd.oasm lib.ocmd.oasm -o again.obin").success());
-    EXPECT_EQ(ocmd_toolchain{}.read_obin(test_root / "boot.obin"), ocmd_toolchain{}.read_obin(test_root / "again.obin"));
+    /// the programs are the same; the debug sections differ, because each names its own source files
+    const ostd::vector<uint8_t> first = ocmd_toolchain{}.read_obin(test_root / "boot.obin");
+    const ostd::vector<uint8_t> again = ocmd_toolchain{}.read_obin(test_root / "again.obin");
+    ASSERT_FALSE(first.empty());
+    EXPECT_TRUE(std::ranges::equal(obin_program_bytes(first), obin_program_bytes(again)));
+    EXPECT_NE(first, again);
   }
 
   TEST_F(vm_tool_tests, a_script_links_with_hand_written_oasm) {
@@ -174,6 +180,136 @@ namespace other {
     EXPECT_TRUE(run_vm_tool("vm build boot.ocmd -o lenient.obin").success());
     EXPECT_FALSE(run_vm_tool("vm build boot.ocmd -o strict.obin --strict").success());
     EXPECT_FALSE(std::filesystem::exists(test_root / "strict.obin"));
+  }
+
+  TEST_F(vm_tool_tests, view_prints_a_program_in_the_assemblers_words) {
+    write_file(test_root / "main.oasm", kMain);
+    write_file(test_root / "helper.oasm", kHelper);
+    ASSERT_TRUE(run_vm_tool("vm build main.oasm helper.oasm -o boot.obin").success());
+    output.clear();
+
+    const cli::tool_result result = run_vm_tool("vm view boot.obin");
+    ASSERT_TRUE(result.success()) << result.message << errors;
+    EXPECT_NE(output.find("entry:"), std::string::npos) << output;
+    EXPECT_NE(output.find("set r1, 7"), std::string::npos) << output;
+    /// the names come from the debug section a build writes unless told not to
+    EXPECT_NE(output.find("$helper:"), std::string::npos) << output;
+    EXPECT_NE(output.find("call helper"), std::string::npos) << output;
+    EXPECT_NE(output.find("helper.oasm"), std::string::npos) << output;
+
+    /// asked to ignore it, view names a block by its address, as it does for a file without one
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view boot.obin --no-debug").success());
+    EXPECT_NE(output.find("call f_"), std::string::npos) << output;
+    EXPECT_EQ(output.find("$helper:"), std::string::npos) << output;
+
+    /// a program is known by what is in it, not by its name
+    ASSERT_TRUE(run_vm_tool("vm build main.oasm helper.oasm -o boot").success());
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view boot").success());
+    EXPECT_NE(output.find("set r1, 7"), std::string::npos) << output;
+  }
+
+  TEST_F(vm_tool_tests, no_debug_leaves_the_section_out_of_the_file) {
+    write_file(test_root / "main.oasm", kMain);
+    write_file(test_root / "helper.oasm", kHelper);
+    ASSERT_TRUE(run_vm_tool("vm build main.oasm helper.oasm -o with.obin").success());
+    ASSERT_TRUE(run_vm_tool("vm build main.oasm helper.oasm -o without.obin --no-debug").success());
+
+    const ostd::vector<uint8_t> with = ocmd_toolchain{}.read_obin(test_root / "with.obin");
+    const ostd::vector<uint8_t> without = ocmd_toolchain{}.read_obin(test_root / "without.obin");
+    ASSERT_FALSE(with.empty());
+    ASSERT_FALSE(without.empty());
+    EXPECT_GT(with.size(), without.size());
+    EXPECT_TRUE(obin_debug_bytes(without).empty());
+    EXPECT_FALSE(obin_debug_bytes(with).empty());
+    /// what the device runs is the same either way
+    EXPECT_TRUE(std::ranges::equal(obin_program_bytes(with), obin_program_bytes(without)));
+
+    ASSERT_TRUE(run_vm_tool("vm info with.obin").success());
+    EXPECT_NE(output.find("not loaded into the device"), std::string::npos) << output;
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm info without.obin").success());
+    EXPECT_NE(output.find("debug section: none"), std::string::npos) << output;
+
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view without.obin").success());
+    EXPECT_NE(output.find("no debug section"), std::string::npos) << output;
+  }
+
+  TEST_F(vm_tool_tests, view_builds_sources_without_writing_anything) {
+    write_file(test_root / "boot.ocmd", "let limit = 100000\nproject load \"test-project\"\ncore log_u64 limit 2\n");
+
+    const cli::tool_result result = run_vm_tool("vm view boot.ocmd");
+    ASSERT_TRUE(result.success()) << result.message << errors;
+    EXPECT_NE(output.find("syscall project.load"), std::string::npos) << output;
+    EXPECT_NE(output.find("; \"test-project\""), std::string::npos) << output;
+    EXPECT_NE(output.find("; starts as 100000"), std::string::npos) << output;
+
+    /// the script is still the only file in the folder
+    EXPECT_EQ(std::distance(std::filesystem::directory_iterator{ test_root }, std::filesystem::directory_iterator{}), 1);
+  }
+
+  TEST_F(vm_tool_tests, view_puts_each_script_line_above_its_instructions) {
+    write_file(test_root / "boot.ocmd", "let limit = 100000\nproject load \"test-project\"\n  core log_u64 limit 2\n");
+
+    ASSERT_TRUE(run_vm_tool("vm view boot.ocmd").success()) << errors;
+    EXPECT_NE(output.find("boot.ocmd:2:1"), std::string::npos) << output;
+    EXPECT_NE(output.find("project load \"test-project\""), std::string::npos) << output;
+    /// the column is where the statement starts, and the text is shown without its indent
+    EXPECT_NE(output.find("boot.ocmd:3:3"), std::string::npos) << output;
+    EXPECT_NE(output.find(" core log_u64 limit 2"), std::string::npos) << output;
+
+    /// the program carries the line numbers; the text is read from the script when it is there
+    ASSERT_TRUE(run_vm_tool("vm build boot.ocmd -o boot.obin").success());
+    std::filesystem::remove(test_root / "boot.ocmd");
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view boot.obin").success());
+    EXPECT_NE(output.find("boot.ocmd:2:1"), std::string::npos) << output;
+    EXPECT_EQ(output.find("project load \"test-project\""), std::string::npos) << output;
+
+    /// hand-written assembly is what the listing already shows, so its lines are not repeated
+    write_file(test_root / "main.oasm", kMain);
+    write_file(test_root / "helper.oasm", kHelper);
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view main.oasm helper.oasm").success());
+    EXPECT_EQ(output.find("; main.oasm:3:3"), std::string::npos) << output;
+    /// a block says which line of its file it starts on instead
+    EXPECT_NE(output.find("$main:    ; main.oasm:3"), std::string::npos) << output;
+    EXPECT_NE(output.find("$helper:    ; helper.oasm:2"), std::string::npos) << output;
+  }
+
+  TEST_F(vm_tool_tests, data_lists_each_field_with_its_type_and_its_uses) {
+    write_file(test_root / "boot.ocmd", "let limit = 100000\nproject load \"test-project\"\ncore log_u64 limit 2\n");
+
+    ASSERT_TRUE(run_vm_tool("vm data boot.ocmd").success()) << errors;
+    for (const std::string_view expected : { ".v_limit", "int64", "100000", "string", "\"test-project\"", "read ", "address ", "$m_boot", "boot.ocmd:3:1", "core log_u64 limit 2" }) {
+      EXPECT_NE(output.find(expected), std::string::npos) << expected << "\n" << output;
+    }
+    /// only the data: no instruction is listed
+    EXPECT_EQ(output.find("syscall"), std::string::npos) << output;
+
+    /// a program file works as well as its sources, with or without a debug section
+    ASSERT_TRUE(run_vm_tool("vm build boot.ocmd -o boot.obin --no-debug").success());
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm data boot.obin").success());
+    EXPECT_NE(output.find("no debug section"), std::string::npos) << output;
+    EXPECT_NE(output.find("\"test-project\""), std::string::npos) << output;
+
+    EXPECT_FALSE(run_vm_tool("vm data boot.ocmd -o out.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm data missing.obin").success());
+  }
+
+  TEST_F(vm_tool_tests, view_refuses_what_it_cannot_show) {
+    write_file(test_root / "main.oasm", kMain);
+    write_file(test_root / "not-a-program.obin", "this is only text, though it is longer than a program's header");
+
+    EXPECT_FALSE(run_vm_tool("vm view not-a-program.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm view missing.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm view main.oasm -o out.obin").success());
+    EXPECT_FALSE(run_vm_tool("vm view main.oasm not-a-program.obin").success());
+    /// main calls a helper that is not among the sources
+    EXPECT_FALSE(run_vm_tool("vm view main.oasm").success());
   }
 
 }  // namespace other

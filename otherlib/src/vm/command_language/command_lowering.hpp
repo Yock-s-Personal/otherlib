@@ -40,6 +40,9 @@ namespace other {
   struct command_lowering_result {
     /// one OASM unit; empty unless success
     std::string oasm;
+    /// for each line of oasm, in order, the place in the .ocmd file it was made from; line 0
+    ///  for a line that stands for no statement, such as a block's name or a data field
+    ostd::vector<source_location> origins;
     ostd::vector<command_hook_record> hooks;
     bool success = false;
   };
@@ -73,6 +76,23 @@ namespace other {
       uint8_t reg = 0;
       /// known to hold 0 or 1
       bool boolean = false;
+    };
+
+    /// sets current_origin for a scope and puts back what it was, so the lines a statement
+    ///  writes after one nested inside it are counted as its own again
+    class origin_scope {
+     public:
+      origin_scope(command_lowering& lowering, const source_location& origin)
+          : lowering(lowering), outer(lowering.current_origin) {
+        lowering.current_origin = origin;
+      }
+      ~origin_scope() { lowering.current_origin = outer; }
+      origin_scope(const origin_scope&) = delete;
+      origin_scope& operator=(const origin_scope&) = delete;
+
+     private:
+      command_lowering& lowering;
+      source_location outer;
     };
 
     struct loop_labels {
@@ -110,10 +130,15 @@ namespace other {
 
     template <typename... Args>
     void emit(std::format_string<Args...> format, Args&&... args) {
-      code.push_back(std::format("  {}", std::format(format, std::forward<Args>(args)...)));
+      add_line(std::format("  {}", std::format(format, std::forward<Args>(args)...)), current_origin);
     }
     std::string new_label() { return std::format("l_{}", next_label++); }
-    void place_label(const std::string& label) { code.push_back(std::format("@{}:", label)); }
+    void place_label(const std::string& label) { add_line(std::format("@{}:", label), current_origin); }
+    /// every line of code goes through here, so code and code_origins stay the same length
+    void add_line(std::string line, const source_location& origin = {}) {
+      code.push_back(std::move(line));
+      code_origins.push_back(origin);
+    }
     std::string new_field(std::string_view prefix, std::string_view name = "");
     uint8_t take_temp(const source_span& span);
     void release_temp() { --live_temps; }
@@ -130,7 +155,8 @@ namespace other {
     void lower_hook(const command_hook& hook, ostd::vector<command_hook_record>& records);
     void lower_file_statements(const command_file& file);
     void check_recursion(const command_file& file);
-    std::string assemble() const;
+    /// the unit's text, and for each of its lines where it came from
+    std::string assemble(ostd::vector<source_location>& origins) const;
 
     void lower_block(std::span<const command_stmt> statements);
     void lower_statement(const command_stmt& stmt);
@@ -157,6 +183,9 @@ namespace other {
 
     ostd::vector<std::string> data;
     ostd::vector<std::string> code;
+    ostd::vector<source_location> code_origins;
+    /// what the lines being written are for: the statement, or the call inside it
+    source_location current_origin = {};
     ostd::vector<pooled_text> texts;
     ostd::vector<ostd::unordered_map<std::string, variable>> scopes;
     ostd::unordered_map<std::string, size_t> functions;

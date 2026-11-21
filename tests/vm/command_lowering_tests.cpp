@@ -6,6 +6,8 @@
 
 #include "vm/builtin_command_devices.hpp"
 #include "vm/command_bus.hpp"
+#include "vm/command_files/ocmd_debug_info.hpp"
+#include "vm/command_files/ocmd_headers.hpp"
 #include "vm/command_files/ocmd_toolchain.hpp"
 #include "vm/command_language/command_lowering.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
@@ -305,6 +307,55 @@ namespace other {
     EXPECT_TRUE(vm::has_flag(&device, other_command_device::STOPPED));
     EXPECT_EQ(device.program_load_cursor, other_command_device::kProgramStartAddress);
     vm::shutdown_device(&device);
+  }
+
+  TEST_F(command_lowering_tests, the_lines_of_a_script_reach_the_program) {
+    /// line 5 has a call inside a command, so it has two places of its own: columns 1 and 14
+    constexpr std::string_view kScript = "let limit = 100000\nfn twice(n) {\n  return n * 2\n}\ncore log_u64 twice(limit) 2\n";
+
+    command_bus bus;
+    register_builtin_command_devices(bus);
+    diagnostic_engine diag;
+    ocmd_toolchain toolchain;
+    opt<command_file> file = toolchain.parse_command_source("test.ocmd", kScript, &diag);
+    ASSERT_TRUE(file.has_value());
+
+    /// the lowering says where each line of the assembly it writes came from
+    const command_lowering_result lowered = command_lowering{ bus, "test.ocmd", {} }.lower(*file, &diag);
+    ASSERT_TRUE(lowered.success);
+    EXPECT_EQ(lowered.origins.size(), static_cast<size_t>(std::ranges::count(lowered.oasm, '\n')));
+    EXPECT_EQ(lowered.origins.front().line, 0);
+
+    const command_unit unit = { .name = "test.ocmd", .file = std::move(*file) };
+    const ostd::vector<oasm_source> sources = toolchain.lower_command_units(bus, std::span{ &unit, 1 }, &diag);
+    ASSERT_EQ(sources.size(), 1);
+    const obin_build_result built = toolchain.build_obin(bus, sources, &diag);
+    ASSERT_TRUE(built.success);
+
+    const opt<obin_debug_info> debug = obin_debug_info::decode(obin_debug_bytes(built.bytes));
+    ASSERT_TRUE(debug.has_value());
+    ASSERT_FALSE(debug->lines.empty());
+
+    /// what the program records is the script's lines, not those of the assembly in between
+    const auto has = [&debug](const uint32_t line, const uint32_t column) -> bool {
+      return std::ranges::any_of(debug->lines, [&](const debug_line_entry& entry) { return entry.line == line && entry.column == column; });
+    };
+    EXPECT_TRUE(has(2, 1));
+    EXPECT_TRUE(has(3, 3));
+    EXPECT_TRUE(has(5, 14));
+    EXPECT_TRUE(has(5, 1));
+    for (const debug_line_entry& entry : debug->lines) {
+      EXPECT_LE(entry.line, 5);
+      if (entry.line != 0) {
+        EXPECT_EQ(debug->symbols[entry.unit].name, "test.ocmd");
+      }
+    }
+
+    ocmd_file_header header;
+    std::memcpy(&header, built.bytes.data(), sizeof(header));
+    const debug_line_entry* entry_line = debug->line_at(header.prog_header.entry_point_address);
+    ASSERT_NE(entry_line, nullptr);
+    EXPECT_EQ(entry_line->line, 5);
   }
 
 }  // namespace other

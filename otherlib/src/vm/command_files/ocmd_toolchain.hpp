@@ -20,6 +20,9 @@ namespace other {
     /// names the source in errors and decides its place in the linked program
     std::string name;
     std::string text;
+    /// for text that was generated: for each of its lines, in order, the place it was made
+    ///  from in the file called name. empty when text is that file, and its own lines count
+    ostd::vector<source_location> origins = {};
   };
 
   struct obin_build_result {

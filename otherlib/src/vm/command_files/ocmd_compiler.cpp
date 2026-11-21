@@ -163,6 +163,7 @@ namespace other {
             .name = obj_ir.name,
             .offset = static_cast<uint32_t>(current_offset),
             .size = static_cast<uint32_t>(obj_ir.data.size()),
+            .type = obj_ir.type,
           };
 
           size_t data_size = obj_ir.data.size();

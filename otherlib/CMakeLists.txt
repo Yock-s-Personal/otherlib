@@ -95,6 +95,7 @@ target_sources(otherlib
     src/vm/command_files/ocmd_compiler.cpp
     src/vm/command_files/ocmd_linker.cpp
     src/vm/command_files/ocmd_toolchain.cpp
+    src/vm/command_files/ocmd_debug_info.cpp
     src/vm/command_language/command_lexer.cpp
     src/vm/command_language/command_parser.cpp
     src/vm/command_language/command_lowering.cpp

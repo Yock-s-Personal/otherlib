@@ -352,11 +352,21 @@ namespace other {
       EMIT_TRACE("Handling block comment");
       consume();
 
+      /// a line break inside the comment still starts a new line: every position after the
+      ///  comment is counted from it
+      const auto skip = [this] {
+        if (check('\n')) {
+          newline(true);
+        } else {
+          consume();
+        }
+      };
+
       bool found_close = check(';') && check_next('/');
-      consume();
+      skip();
 
       while (!found_close && !finished()) {
-        consume();
+        skip();
         found_close = check(';') && check_next('/');
       }
 

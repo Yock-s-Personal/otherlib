@@ -99,7 +99,7 @@ namespace other {
       ASSERT_TRUE(program.valid)
         << std::format("Compilation failed for source:\n{}", program1_src);
 
-      bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+      bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
       diag.remove_sink(ts_id);
     }
 

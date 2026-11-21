@@ -38,6 +38,31 @@ namespace other {
     diagnostics->emit(d);                                       \
   }
 
+  namespace {
+
+    /// written out case by case: the debug section's numbering must not follow data_type's order
+    debug_field_type to_debug_field_type(const data_type type) {
+      switch (type) {
+        case OCMD_DATA_TYPE_I8: return DEBUG_FIELD_I8;
+        case OCMD_DATA_TYPE_U8: return DEBUG_FIELD_U8;
+        case OCMD_DATA_TYPE_I16: return DEBUG_FIELD_I16;
+        case OCMD_DATA_TYPE_U16: return DEBUG_FIELD_U16;
+        case OCMD_DATA_TYPE_I32: return DEBUG_FIELD_I32;
+        case OCMD_DATA_TYPE_U32: return DEBUG_FIELD_U32;
+        case OCMD_DATA_TYPE_I64: return DEBUG_FIELD_I64;
+        case OCMD_DATA_TYPE_U64: return DEBUG_FIELD_U64;
+        case OCMD_DATA_TYPE_F32: return DEBUG_FIELD_F32;
+        case OCMD_DATA_TYPE_F64: return DEBUG_FIELD_F64;
+        case OCMD_DATA_TYPE_STRING: return DEBUG_FIELD_STRING;
+        case OCMD_DATA_TYPE_ADDRESS: return DEBUG_FIELD_ADDRESS;
+        case OCMD_DATA_TYPE_BLOB: return DEBUG_FIELD_BLOB;
+        case OCMD_DATA_TYPE_USER_DEFINED: return DEBUG_FIELD_USER_DEFINED;
+        default: return DEBUG_FIELD_UNKNOWN;
+      }
+    }
+
+  }  // namespace
+
   ocmd_linker::ocmd_linker(std::span<const ocmd_unit> units, ocmd_link_options options)
       : options(options), units(units.begin(), units.end()) {
   }
@@ -156,13 +181,103 @@ namespace other {
     EMIT_TRACE(" - Code Section: offset={:#04x}, size={} bytes, instructions={}", header.prog_header.code_section_offset, end_of_code_section, end_of_code_section / sizeof(instruction));
     EMIT_TRACE(" - Data Section: offset={:#04x}, size={} bytes", header.prog_header.data_section_offset, data_size);
 
+    /// after the program and outside program_size, so the loader never copies it into the device
+    ostd::vector<uint8_t> debug_section;
+    if (options.debug_info) {
+      debug_section = collect_debug_info().encode();
+      header.prog_header.has_debug_flag = 1;
+    }
+
     ostd::vector<uint8_t> final_binary;
-    final_binary.reserve(sizeof(ocmd_file_header) + linked_binary.size());
+    final_binary.reserve(sizeof(ocmd_file_header) + linked_binary.size() + debug_section.size());
 
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header);
     final_binary.insert(final_binary.end(), header_bytes, header_bytes + sizeof(ocmd_file_header));
     final_binary.insert(final_binary.end(), linked_binary.begin(), linked_binary.end());
+    final_binary.insert(final_binary.end(), debug_section.begin(), debug_section.end());
     return final_binary;
+  }
+
+  obin_debug_info ocmd_linker::collect_debug_info() const {
+    PROFILE_SECTION("ocmd_linker::collect_debug_info");
+    obin_debug_info info;
+
+    /// units first and in link order, so a unit's index here is its index in units
+    for (const ocmd_unit& unit : units) {
+      info.symbols.push_back({ .kind = DEBUG_SYMBOL_UNIT, .name = unit.name });
+    }
+
+    for (size_t i = 0; i < code.compiled_blocks.size(); ++i) {
+      const compiled_code_block& block = code.compiled_blocks[i];
+      /// a file with no loose code still has an empty natural entry; it names no instruction
+      if (block.artifact.machine_instructions.empty()) {
+        continue;
+      }
+      const uint32_t block_symbol = static_cast<uint32_t>(info.symbols.size());
+      info.symbols.push_back({
+        .kind = DEBUG_SYMBOL_BLOCK,
+        .name = block.name,
+        .address = block_addresses[i],
+        .size = static_cast<uint32_t>(block.artifact.machine_instructions.size() * sizeof(instruction)),
+        .parent = static_cast<uint32_t>(block_units[i]),
+      });
+      for (const auto& label : block.artifact.jump_labels) {
+        info.symbols.push_back({
+          .kind = DEBUG_SYMBOL_LABEL,
+          .name = label.symbol_name,
+          .address = block_addresses[i] + static_cast<uint32_t>(label.opcode_index * sizeof(instruction)),
+          .parent = block_symbol,
+        });
+      }
+
+      /// one entry where the source position changes, not one for each instruction. an artifact
+      ///  built without a source has no origins, and its code is entered as having no line
+      for (size_t j = 0; j < block.artifact.machine_instructions.size(); ++j) {
+        const source_location origin = j < block.artifact.origins.size() ? block.artifact.origins[j] : source_location{};
+        const debug_line_entry entry = {
+          .address = block_addresses[i] + static_cast<uint32_t>(j * sizeof(instruction)),
+          .unit = origin.line != 0 ? static_cast<uint32_t>(block_units[i]) : debug_symbol::kNoParent,
+          .line = static_cast<uint32_t>(origin.line),
+          .column = static_cast<uint32_t>(origin.column),
+        };
+        const bool same_place = !info.lines.empty() && info.lines.back().unit == entry.unit && info.lines.back().line == entry.line && info.lines.back().column == entry.column;
+        if (!same_place) {
+          info.lines.push_back(entry);
+        }
+      }
+    }
+
+    /// the stop that closes the code was written by no one; nothing before it may claim it
+    if (!info.lines.empty() && info.lines.back().line != 0) {
+      info.lines.push_back({ .address = guard_address });
+    }
+    /// a program with no line anywhere has no table at all
+    if (std::ranges::none_of(info.lines, [](const debug_line_entry& line) { return line.line != 0; })) {
+      info.lines.clear();
+    }
+
+    for (size_t i = 0; i < code.compiled_data_sections.size(); ++i) {
+      const compiled_data_section& section = code.compiled_data_sections[i];
+      const uint32_t section_symbol = static_cast<uint32_t>(info.symbols.size());
+      info.symbols.push_back({
+        .kind = DEBUG_SYMBOL_DATA,
+        .name = section.name,
+        .address = data_addresses[i],
+        .size = static_cast<uint32_t>(section.data.size()),
+        .parent = static_cast<uint32_t>(data_units[i]),
+      });
+      for (const auto& field : section.fields) {
+        info.symbols.push_back({
+          .kind = DEBUG_SYMBOL_FIELD,
+          .name = field.name,
+          .address = data_addresses[i] + field.offset,
+          .size = field.size,
+          .parent = section_symbol,
+          .type = to_debug_field_type(field.type),
+        });
+      }
+    }
+    return info;
   }
 
   uint16_t ocmd_linker::calculate_code_section_offset(size_t index) const {
@@ -188,6 +303,7 @@ namespace other {
 
     code = {};
     block_units.clear();
+    data_units.clear();
 
     /// a lone unit is a script: it keeps its natural entry and may run from the top of the
     ///  file. linked with others, the program must name its entry and the natural entries are left out
@@ -248,6 +364,7 @@ namespace other {
           continue;
         }
         code.compiled_data_sections.push_back(section);
+        data_units.push_back(unit_index);
       }
 
       for (const compiler_definition& definition : unit.program.definitions) {
@@ -311,9 +428,11 @@ namespace other {
 
   void ocmd_linker::write_data_sections(scope<symbol_resolver>& resolver, ostd::vector<uint8_t>& binary) {
     PROFILE_SECTION("ocmd_linker::write_data_sections");
+    data_addresses.clear();
     for (const auto& data_section : code.compiled_data_sections) {
       // don't normalize here because using acutal size of output binary here
       uint16_t data_section_start_address = get_current_linking_address(binary);
+      data_addresses.push_back(data_section_start_address);
       resolver->attach_data_symbol(data_section.name, data_section_start_address);
       EMIT_TRACE("[LINK] Attaching data symbol '{}' @ {:#04x}", data_section.name, data_section_start_address);
 

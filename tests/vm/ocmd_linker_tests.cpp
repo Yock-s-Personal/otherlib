@@ -63,7 +63,7 @@ namespace other {
     ASSERT_EQ(program.compiled_blocks.size(), 2);
     ASSERT_EQ(program.compiled_data_sections.size(), 1);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
     std::span bytes_no_header = std::span(bytes).subspan(sizeof(ocmd_file_header));
     const ocmd_file_header& header = detail::read_linked_header(std::span(bytes));
     detail::expect_linked_layout_matches_program(program, header, bytes_no_header);
@@ -92,7 +92,7 @@ namespace other {
     ASSERT_EQ(program.compiled_blocks.size(), 3);
     ASSERT_TRUE(program.compiled_data_sections.empty());
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
     std::span bytes_no_header = std::span(bytes).subspan(sizeof(ocmd_file_header));
 
     for (size_t i = 0; i < bytes_no_header.size(); i += sizeof(instruction)) {
@@ -182,7 +182,7 @@ namespace other {
     ASSERT_EQ(program.compiled_blocks.size(), 3);
     ASSERT_EQ(program.compiled_data_sections.size(), 1);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
     std::span bytes_no_header = std::span(bytes).subspan(sizeof(ocmd_file_header));
 
     const ocmd_file_header& header = detail::read_linked_header(std::span(bytes));
@@ -270,7 +270,7 @@ namespace other {
     ASSERT_EQ(program.compiled_blocks.size(), 3);
     ASSERT_EQ(program.compiled_data_sections.size(), 2);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
 
     constexpr size_t expected_code_size = 4 * sizeof(instruction) + sizeof(instruction);  // 4 instructions in total across both code blocks, then stopdev
     constexpr size_t expected_data_size = 2 * sizeof(natural_t);                          // 2 64 bit data objects (address and blob)
@@ -383,7 +383,7 @@ namespace other {
     auto resolver = make_scope<default_symbol_resolver>();
     resolver->attach_code_label("host.api", 0x4321);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(std::move(resolver), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(std::move(resolver), &diag);
     std::span bytes_no_header = std::span(bytes).subspan(sizeof(ocmd_file_header));
     const ocmd_file_header& header = detail::read_linked_header(std::span(bytes));
     detail::expect_linked_layout_matches_program(program, header, bytes_no_header);
@@ -453,7 +453,7 @@ namespace other {
       ASSERT_EQ(program.compiled_blocks.size(), generated.code_blocks.size() + 1);
 
       auto resolver = make_scope<default_symbol_resolver>();
-      const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(std::move(resolver), &diag);
+      const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(std::move(resolver), &diag);
       std::span bytes_no_header = std::span(bytes).subspan(sizeof(ocmd_file_header));
       const ocmd_file_header& header = detail::read_linked_header(std::span(bytes));
       detail::expect_linked_layout_matches_program(program, header, bytes_no_header);
@@ -616,7 +616,7 @@ namespace other {
     const auto program = detail::compile_source("set r1, 5\nset r2, 6\n", &diag);
     ASSERT_TRUE(program.valid);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
 
     other_command_device device;
     vm::initialize_device(&device);
@@ -749,7 +749,7 @@ namespace other {
     const auto program = detail::compile_source(source, &diag);
     ASSERT_TRUE(program.valid);
 
-    const ostd::vector<uint8_t> bytes = ocmd_linker{ program }.link(make_scope<default_symbol_resolver>(), &diag);
+    const ostd::vector<uint8_t> bytes = ocmd_linker{ program, kProgramOnly }.link(make_scope<default_symbol_resolver>(), &diag);
 
     other_command_device device;
     vm::initialize_device(&device);

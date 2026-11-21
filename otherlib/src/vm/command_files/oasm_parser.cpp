@@ -346,6 +346,7 @@ namespace other {
       .instruction_index = instruction_index++,
       .opcode = category_and_type,
     });
+    instr.span = curr_token.source_view;
     if (set_instr_index) {
       section.jump_labels.back().instruction_index = instr.instruction_index;
       EMIT_TRACE(" - jump label '{}' instruction index {}", section.jump_labels.back().name, instr.instruction_index);
@@ -610,6 +611,7 @@ namespace other {
       for (auto& instr_ir : section.instructions) {
         auto& instr = code_blk.instructions.emplace_back();
         instr.opcode = instr_ir.opcode;
+        instr.origin = instr_ir.span.start;
 
         for (const auto& arg_tok : instr_ir.arguments) {
           if (arg_tok.type == TOKEN_TYPE_INVALID) {

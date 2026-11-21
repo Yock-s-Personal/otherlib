@@ -79,9 +79,17 @@ namespace other {
     const script_assembly_result built = build_script_assembly({ .csproj = csproj, .configuration = "Release", .destination = destination });
     EXPECT_FALSE(built.success);
     ASSERT_FALSE(built.errors.empty());
-    /// the compiler's line as it wrote it: the file and position first, then the error
-    EXPECT_TRUE(built.errors.front().starts_with((sandbox / "game" / "Thing.cs").string())) << built.errors.front();
-    EXPECT_TRUE(built.errors.front().contains("error CS0103")) << built.errors.front();
+    /// the compiler's line as it wrote it: the file and position first, then the error, with
+    ///  msbuild's node number taken off the front. the folders in front of the file's name are
+    ///  not compared: a temp folder can be spelt two ways (RUNNER~1 for runneradmin on a build
+    ///  machine), and msbuild prints the long one whichever it was given
+    const std::string& first = built.errors.front();
+    const size_t file_at = first.find("Thing.cs(1,");
+    ASSERT_NE(file_at, std::string::npos) << first;
+    EXPECT_FALSE(first.starts_with(' ')) << first;
+    EXPECT_FALSE(first.substr(0, file_at).contains('>')) << first;
+    EXPECT_TRUE(first.substr(0, file_at).ends_with("game\\")) << first;
+    EXPECT_TRUE(first.contains("error CS0103")) << first;
     EXPECT_FALSE(std::filesystem::exists(destination / "Game.dll"));
   }
 

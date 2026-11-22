@@ -44,6 +44,7 @@ target_sources(other_core
 		src/file/virtual_file.cpp
 		src/file/remote_file.cpp
 		src/file/glob.cpp
+		src/file/settled_changes.cpp
 		src/file/directory.cpp
 		src/file/filesystem.cpp
 

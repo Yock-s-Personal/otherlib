@@ -108,6 +108,22 @@ namespace other {
       } else {
         inspector::property_display("Start scene", "none", colors::kFriendlyErrorRed);
       }
+
+      /// the file changed on disk and the open project could not take all of it
+      const opt<project::file_notice>& notice = current.get_file_notice();
+      if (!notice.has_value()) {
+        return;
+      }
+      const scoped_color notice_color{ ImGuiCol_Text, colors::rgba_to_imvec4(colors::kFriendlyErrorRed) };
+      if (!notice->error.empty()) {
+        ImGui::TextWrapped("The project file changed on disk and was not read: %s", notice->error.c_str());
+        return;
+      }
+      std::string parts;
+      for (const std::string& part : notice->needs_reopen) {
+        parts += std::format("{}{}", parts.empty() ? "" : ", ", part);
+      }
+      ImGui::TextWrapped("The project file changed on disk. Open the project again to apply: %s.", parts.c_str());
     }
 
     void project_overview::render_scripts(project_system& projects, const project& current) {

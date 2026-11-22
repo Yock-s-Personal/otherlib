@@ -4,6 +4,7 @@
 #ifndef OTHER_CLI_CLI_PROCESS_HPP
 #define OTHER_CLI_CLI_PROCESS_HPP
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -20,11 +21,16 @@ namespace other {
       bool wait_for_exit = false;
       /// detached children get their own console window so their logs outlive the cli
       bool new_console = true;
+      /// with wait_for_exit: asked several times a second while waiting. true ends the child
+      ///  and every process it started, and the wait with them
+      std::function<bool()> should_stop = nullptr;
     };
 
     struct process_result {
       bool started = false;
       int32_t exit_code = 0;  // meaningful only when wait_for_exit was set
+      /// ended because should_stop said so
+      bool stopped = false;
       std::string error = "";
     };
 

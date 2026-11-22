@@ -18,10 +18,10 @@ namespace other {
 
     void generate_dotnet_project(const filepath& csproj_path);
 
-    void start_project_build(const filepath& csproj_path);
-    bool project_build_in_progress() const;
-    void cleanup_build();
-    int32_t get_build_result() const;
+    /// runs 'dotnet build' on a csproj in the engine's own configuration and waits for it:
+    ///  the build's exit code, or -1 when it never started (the build log says why). no
+    ///  managed code: it runs on a worker thread, and managed code is main thread only
+    static int32_t build_project(const filepath& csproj_path);
 
     const filepath& get_dotnet_project_path() const { return dotnet_project_path; }
 

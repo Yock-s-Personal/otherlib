@@ -278,6 +278,7 @@ namespace OtherCsBindings
     [UnmanagedCallersOnly]
     private static Int32 LoadManagedAssembly(Int32 context_id, NativeString file_path)
     {
+      AssemblyLoadContext? alc = null;
       try
       {
         string path = file_path.ToString()!;
@@ -314,7 +315,7 @@ namespace OtherCsBindings
 
         /// dedicated collectible context so this assembly can be unloaded/hot-reloaded alone;
         ///  cross-assembly resolution goes through the Resolving handler across all contexts
-        var alc = new AssemblyLoadContext($"{group_alc.Name}:{Path.GetFileNameWithoutExtension(path)}", true);
+        alc = new AssemblyLoadContext($"{group_alc.Name}:{Path.GetFileNameWithoutExtension(path)}", true);
         alc.Resolving += ResolveAssembly;
 
         Assembly? asm = null;
@@ -350,6 +351,9 @@ namespace OtherCsBindings
       }
       catch (Exception e)
       {
+        /// a file that is not an assembly (cut short, still being written) ends up here
+        last_load_status = load_errors.TryGetValue(e.GetType(), out var status) ? status : AssemblyLoadStatus.Failed;
+        alc?.Unload();
         Host.HandleException(e);
         return -1;
       }

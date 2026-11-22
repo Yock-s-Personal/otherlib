@@ -10,6 +10,7 @@ namespace other {
 
   void register_main_thread();
   void disable_thread_check();
+  void enable_thread_check();
   bool is_on_main_thread();
 
 }  // namespace other

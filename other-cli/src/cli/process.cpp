@@ -105,6 +105,12 @@ namespace other {
       if (!launch.wait_for_exit && launch.new_console) {
         creation_flags |= CREATE_NEW_CONSOLE;
       }
+      /// a child that may be stopped is held until it is in a job, so that whatever it starts
+      ///  is in the job too and ends with it
+      const bool stoppable = launch.wait_for_exit && launch.should_stop != nullptr;
+      if (stoppable) {
+        creation_flags |= CREATE_SUSPENDED;
+      }
 
       /// CreateProcessW may scribble on the command line buffer, hence the mutable copy
       const BOOL created = CreateProcessW(
@@ -122,6 +128,28 @@ namespace other {
       }
 
       result.started = true;
+      if (stoppable) {
+        constexpr DWORD kStopCheckMilliseconds = 100;
+        const HANDLE job = CreateJobObjectW(nullptr, nullptr);
+        const bool in_job = job != nullptr && AssignProcessToJobObject(job, process_info.hProcess) != FALSE;
+        ResumeThread(process_info.hThread);
+        while (WaitForSingleObject(process_info.hProcess, kStopCheckMilliseconds) == WAIT_TIMEOUT) {
+          if (!launch.should_stop()) {
+            continue;
+          }
+          /// outside a job only the child itself can be ended
+          if (in_job) {
+            TerminateJobObject(job, 1);
+          } else {
+            TerminateProcess(process_info.hProcess, 1);
+          }
+          WaitForSingleObject(process_info.hProcess, INFINITE);
+          result.stopped = true;
+        }
+        if (job != nullptr) {
+          CloseHandle(job);
+        }
+      }
       if (launch.wait_for_exit) {
         WaitForSingleObject(process_info.hProcess, INFINITE);
         DWORD exit_code = 0;

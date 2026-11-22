@@ -858,6 +858,86 @@ namespace other {
     refused("keep = [ 3 ]", "[package] keep holds something that is not a pattern in quotes");
   }
 
+  TEST_F(project_compiler_tests, a_preview_lists_what_a_compile_would_leave_out_and_writes_nothing) {
+    write_content();
+    command_bus bus;
+    register_builtin_command_devices(bus);
+    compile_preview preview = preview_project_compile(bus, project_folder);
+    EXPECT_TRUE(preview.problems.empty()) << (preview.problems.empty() ? "" : preview.problems.front());
+
+    /// the same files, and the same size, as the compile's report has afterwards
+    const compile_report report = compile(settings());
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    EXPECT_EQ(preview.left_out.size(), 5);
+    EXPECT_EQ(preview.left_out, report.left_out);
+    EXPECT_EQ(preview.left_out_bytes, report.left_out_bytes);
+
+    /// a preview by itself makes nothing, and follows [package] keep as a compile does
+    std::filesystem::remove_all(output);
+    write("game/game.toml", std::format("{}\n[package]\nkeep = [ \"assets/audio/**\" ]\n", kProject));
+    preview = preview_project_compile(bus, project_folder);
+    EXPECT_EQ(preview.left_out.size(), 4);
+    EXPECT_FALSE(std::ranges::contains(preview.left_out, std::string{ "assets/audio/voice/line-1.wav" }));
+    EXPECT_TRUE(nothing_was_written());
+    EXPECT_FALSE(std::filesystem::exists(project_folder / "boot.obin"));
+  }
+
+  TEST_F(project_compiler_tests, a_preview_says_what_stops_the_listing_and_lists_nothing_then) {
+    write_content();
+    command_bus bus;
+    register_builtin_command_devices(bus);
+
+    write("game/game.toml", std::format("{}\n[package]\nkeep = [ \"assets/**.png\" ]\n", kProject));
+    compile_preview preview = preview_project_compile(bus, project_folder);
+    EXPECT_TRUE(any_holds(preview.problems, "[package] keep has the pattern 'assets/**.png'"));
+    EXPECT_TRUE(preview.left_out.empty());
+
+    write("game/game.toml", kProject);
+    write("game/assets/scenes/second.oscn", "[scene\nthis is not a scene");
+    preview = preview_project_compile(bus, project_folder);
+    EXPECT_TRUE(any_holds(preview.problems, "scene 'Second' ('game/assets/scenes/second.oscn') cannot be read"));
+    EXPECT_TRUE(preview.left_out.empty());
+    /// and it still says what it read before that
+    EXPECT_EQ(preview.scenes.size(), 2);
+  }
+
+  TEST_F(project_compiler_tests, a_compile_says_where_it_is_and_ends_at_its_last_stage) {
+    compile_progress progress;
+    compile_settings watched = settings();
+    watched.progress = &progress;
+    const compile_report report = compile(watched);
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    EXPECT_FALSE(report.cancelled);
+    EXPECT_EQ(progress.stage.load(), compile_stage::FINISH);
+
+    /// every stage has words for a person, and no two have the same
+    ostd::vector<std::string_view> labels;
+    for (uint32_t stage = 0; stage < static_cast<uint32_t>(compile_stage::NUM_STAGES); ++stage) {
+      const std::string_view label = compile_stage_label(static_cast<compile_stage>(stage));
+      EXPECT_FALSE(label.empty());
+      EXPECT_FALSE(std::ranges::contains(labels, label)) << label;
+      labels.push_back(label);
+    }
+  }
+
+  TEST_F(project_compiler_tests, a_cancelled_compile_makes_nothing_and_leaves_the_last_package_alone) {
+    ASSERT_TRUE(compile(settings()).success);
+    const filepath package = output / "Sandbox Game";
+    const auto made_at = std::filesystem::last_write_time(package / "Sandbox Game.toml");
+
+    compile_progress progress;
+    progress.cancel_requested = true;
+    compile_settings watched = settings();
+    watched.progress = &progress;
+    const compile_report report = compile(watched);
+    EXPECT_FALSE(report.success);
+    EXPECT_TRUE(report.cancelled);
+    /// being told to stop is not an error
+    EXPECT_TRUE(report.errors.empty());
+    EXPECT_EQ(std::filesystem::last_write_time(package / "Sandbox Game.toml"), made_at);
+    EXPECT_FALSE(std::filesystem::exists(output / ".staging"));
+  }
+
   /// the same project, compiled through a session on a real job system
   class compile_session_tests : public project_compiler_tests {
    protected:
@@ -941,6 +1021,31 @@ namespace other {
     EXPECT_FALSE(session.last_report()->success);
     EXPECT_TRUE(any_holds(session.last_report()->errors, "the public name 'What?' cannot be used"));
     EXPECT_TRUE(nothing_was_written());
+  }
+
+  TEST_F(compile_session_tests, a_running_compile_can_be_cancelled_and_the_next_one_is_not) {
+    compile_session session;
+    ASSERT_TRUE(session.start(*jobs, bus, settings()));
+    EXPECT_FALSE(session.cancelling());
+    session.cancel();
+    EXPECT_TRUE(session.cancelling());
+    session.wait();
+    EXPECT_FALSE(session.cancelling());
+    ASSERT_TRUE(session.last_report().has_value());
+    EXPECT_TRUE(session.last_report()->cancelled);
+    EXPECT_FALSE(session.last_report()->success);
+    EXPECT_FALSE(std::filesystem::exists(output / "Sandbox Game"));
+    EXPECT_FALSE(std::filesystem::exists(output / ".staging"));
+
+    /// a cancel belongs to the compile it was asked of
+    ASSERT_TRUE(session.start(*jobs, bus, settings()));
+    EXPECT_GE(session.fraction(), 0.f);
+    EXPECT_LT(session.fraction(), 1.f);
+    EXPECT_FALSE(session.stage_label().empty());
+    session.wait();
+    ASSERT_TRUE(session.last_report().has_value());
+    EXPECT_TRUE(session.last_report()->success);
+    EXPECT_FALSE(session.last_report()->cancelled);
   }
 
   TEST_F(compile_session_tests, a_session_that_goes_away_waits_for_its_compile) {

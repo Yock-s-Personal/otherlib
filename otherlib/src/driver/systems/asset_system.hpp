@@ -5,6 +5,7 @@
 #define OTHERLIB_DRIVER_SYSTEMS_ASSET_SYSTEM_HPP
 
 #include "core/scope.hpp"
+#include "file/settled_changes.hpp"
 
 #include "renderer/pipeline_definition.hpp"
 
@@ -31,6 +32,10 @@ namespace other {
     void resolve_and_load_roots(std::span<const filepath> roots);
     /// structural watch signal (created/deleted/unknown path) routed to the resolver
     void file_changed(const filepath& path);
+    /// a watched file changed, appeared or went. nothing reacts until it has stopped
+    ///  changing: a build replaces its output in steps, and a file caught between two of
+    ///  them is missing or half written
+    void note_file_change(const filepath& path);
     /// for a project that is about to unmount: nothing more is dispatched from its load plan
     void cancel_load_plan();
 
@@ -71,6 +76,7 @@ namespace other {
     bool watch_assets = false;
     double watch_interval = 0.25;
     double watch_accumulator = 0.0;
+    settled_changes changed_files;
 
     /// set by begin_full_unload; the all-assets-unloaded event is owed once it has drained
     bool full_unload_requested = false;

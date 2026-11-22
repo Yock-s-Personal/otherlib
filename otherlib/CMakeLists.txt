@@ -43,6 +43,7 @@ target_sources(otherlib
     src/project/script_assembly.cpp
     src/project/pipeline_collector.cpp
     src/project/project_compiler.cpp
+    src/project/project_file_changes.cpp
     src/project/compile_session.cpp
 
     src/render/default_pass_executor_resolver.cpp
@@ -69,6 +70,7 @@ target_sources(otherlib
     src/scripting/interfaces/networking_interfaces.cpp
     src/scripting/interfaces/rendering_interfaces.cpp
     src/scripting/interface_registry.cpp
+    src/scripting/main_thread_only.cpp
     src/scripting/other_abi.cpp
 
     src/scripting/actions/action.cpp

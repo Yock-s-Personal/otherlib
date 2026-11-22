@@ -39,6 +39,14 @@ namespace other {
 
     bool running() const { return in_flight; }
 
+    /// asks the running compile to stop. it stops at the next file or stage, ends a script
+    ///  build that is running, and its report says it was cancelled
+    void cancel() { progress.cancel_requested = true; }
+    bool cancelling() const { return in_flight && progress.cancel_requested.load(); }
+    /// how far the running compile has got, from 0 to 1, and what it is doing
+    float fraction() const { return static_cast<float>(progress.stage.load()) / static_cast<float>(compile_stage::NUM_STAGES); }
+    std::string_view stage_label() const { return compile_stage_label(progress.stage.load()); }
+
     /// empty until a compile has finished, and again while the next one runs
     const opt<compile_report>& last_report() const { return report; }
 
@@ -52,6 +60,8 @@ namespace other {
     /// written by the worker while in_flight, read by the owner only after finished is set
     compile_report worker_report;
     compile_settings worker_settings;
+    /// the worker says where it is through this, and is told to stop through it
+    compile_progress progress;
     opt<compile_report> report;
     /// kept so the job outlives its work
     ref<job> running_job;

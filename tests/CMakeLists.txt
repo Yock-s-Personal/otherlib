@@ -18,9 +18,11 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/core/event_system_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/logger_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/path_helpers_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/settled_changes_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/exe_adjacent_config_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/cli_tool_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cli/process_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/scene_tool_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/vm_tool_tests.cpp
 
@@ -48,10 +50,12 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/callback_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/action_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/lua_script_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripting/main_thread_only_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_serializer_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/asset_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scene/project_tool_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/physics/simulation_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/physics/shape_tests.cpp
@@ -98,6 +102,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/project/script_assembly_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/project/pipeline_collector_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/project/project_compiler_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/project/project_file_changes_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scratch_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/other_test_main.cpp

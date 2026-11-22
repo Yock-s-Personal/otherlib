@@ -15,7 +15,7 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: warp-windows-latest-x64-8x
+    runs-on: windows-latest
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4

@@ -7,9 +7,12 @@
 
 #include "core/defines.hpp"
 #include "core/profiler.hpp"
+#include "file/path_helpers.hpp"
 
 #include "driver/driver.hpp"
 #include "scripting/dotnet_bindings/window_bindings.hpp"
+#include "theme/font.hpp"
+#include "theme/theme.hpp"
 #include "ui/console/console.hpp"
 #include "ui/type_database.hpp"
 
@@ -31,6 +34,8 @@ namespace other {
     PROFILE_SECTION("driver_ui::initialize");
     component_reg = make_scope<ui::component_widget_registry>();
     OTHER_ASSERT(component_reg != nullptr, "Failed to create component widget registry in driver UI initialization.");
+
+    load_theme();
 
     register_window("type-database", make_scope<ui::type_database>(*driver_ptr->get_event_system()), ui::window_source::BUILTIN);
     register_window("console", make_scope<ui::console_window>(*driver_ptr->get_event_system(), driver_ptr), ui::window_source::BUILTIN);
@@ -60,6 +65,44 @@ namespace other {
     PROFILE_SECTION("driver_ui::shutdown");
     bindings::detach_script_windows();
     windows.clear();
+    ui_fonts().clear();
+  }
+
+  void driver_ui::load_theme() {
+    PROFILE_SECTION("driver_ui::load_theme");
+    const std::string setting = driver_ptr->configuration().get_value<std::string>("ui.theme", "");
+    if (setting.empty() || ImGui::GetCurrentContext() == nullptr) {
+      return;
+    }
+
+    /// said by the resolver when the file is not there
+    const asset_path file = resolve_asset_path(setting);
+    if (!file.found()) {
+      return;
+    }
+
+    ui_theme theme;
+    const theme_load_result loaded = load_theme_file(file.resolved, theme);
+    for (const std::string& problem : loaded.problems) {
+      CORE_LOG_WARN("Theme '{}': {}", setting, problem);
+    }
+    if (!loaded.loaded) {
+      CORE_LOG_ERROR("The theme '{}' was not loaded: the UI looks as it does with none.", setting);
+      return;
+    }
+    apply_theme(theme, ImGui::GetStyle());
+
+    /// a font added after ImGui has built its fonts would never be drawn
+    ostd::vector<std::string> font_problems;
+    if (ImGui::GetIO().Fonts->IsBuilt()) {
+      font_problems.push_back("[typography] was not read: ImGui's fonts were built before the theme was loaded");
+    } else {
+      ui_fonts().load(theme.fonts, file.resolved, font_problems);
+    }
+    for (const std::string& problem : font_problems) {
+      CORE_LOG_WARN("Theme '{}': {}", setting, problem);
+    }
+    CORE_LOG_INFO("Theme '{}' loaded: {} colours set, {} font roles", setting, loaded.colors_set, ui_fonts().loaded_count());
   }
 
   void driver_ui::available_ui_window_menu() {

@@ -57,6 +57,7 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/menus.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/draw-list.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/textures.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/theme.cs
 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/other-abi.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/native-component.cs

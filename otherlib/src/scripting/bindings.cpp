@@ -264,6 +264,10 @@ namespace other {
       .bind<bindings::native_ui_property_display>("UIPropertyDisplay");
 
     bindings::binding_context{ dn_host }
+      /// UI - Theme.
+      .bind<bindings::native_ui_theme_color>("UIThemeColor")
+      .bind<bindings::native_ui_push_font>("UIPushFont")
+      .bind<bindings::native_ui_pop_font>("UIPopFont")
       /// UI - Layout.
       .bind<bindings::native_ui_begin_group>("UIBeginGroup")
       .bind<bindings::native_ui_end_group>("UIEndGroup")

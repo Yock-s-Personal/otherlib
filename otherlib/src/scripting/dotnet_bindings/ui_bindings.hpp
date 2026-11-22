@@ -152,6 +152,13 @@ namespace other {
     /// an alpha of 0 is the text colour of the theme
     void native_ui_property_display(const char* label, const char* text, float r, float g, float b, float a);
 
+    /// the colour a token has now, as four floats. false when no token has the name
+    nbool32 native_ui_theme_color(const char* token, float* out_rgba);
+    /// role is a font_role. one the theme does not give, or a number that is no role, is
+    ///  the default font
+    void native_ui_push_font(int32_t role);
+    void native_ui_pop_font();
+
     void native_ui_begin_group();
     void native_ui_end_group();
     void native_ui_set_next_item_width(float width);

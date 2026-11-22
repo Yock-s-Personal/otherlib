@@ -82,6 +82,10 @@ namespace other {
     scope<ui::component_widget_registry> component_reg = nullptr;
 
     event_system& events();
+
+    /// a driver whose config names a theme draws with it; one that names none looks as it
+    ///  always did
+    void load_theme();
   };
 
 }  // namespace other

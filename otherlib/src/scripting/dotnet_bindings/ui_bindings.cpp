@@ -11,6 +11,8 @@
 #include "dotnet/native_string.hpp"
 
 #include "scripting/main_thread_only.hpp"
+#include "theme/font.hpp"
+#include "theme/theme.hpp"
 #include "ui/inspector_widgets.hpp"
 
 namespace other {
@@ -445,6 +447,28 @@ namespace other {
 
     void native_ui_property_display(const char* label, const char* text, float r, float g, float b, float a) {
       ui::inspector::property_display(label, text, glm::vec4{ r, g, b, a });
+    }
+
+    nbool32 native_ui_theme_color(const char* token, float* out_rgba) {
+      const color_token* found = find_color_token(token);
+      if (found == nullptr) {
+        return false;
+      }
+      const glm::vec4& color = *found->ptr;
+      out_rgba[0] = color.r;
+      out_rgba[1] = color.g;
+      out_rgba[2] = color.b;
+      out_rgba[3] = color.a;
+      return true;
+    }
+
+    void native_ui_push_font(int32_t role) {
+      const bool is_role = role >= 0 && role < static_cast<int32_t>(font_role::NUM_ROLES);
+      ImGui::PushFont(is_role ? ui_fonts().get(static_cast<font_role>(role)) : nullptr);
+    }
+
+    void native_ui_pop_font() {
+      ImGui::PopFont();
     }
 
     void native_ui_begin_group() {

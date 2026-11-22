@@ -37,6 +37,8 @@ pipelines = [
 [ui]
 # enable = false
 enable-environment-menu-bar = true
+# colours, spacing and fonts of the UI. a driver that names none looks as ImGui does
+theme = "resources/editor-assets/theme.toml"
 
 [scripting]
 init-lua = "resources/editor.lua"

@@ -11,6 +11,8 @@
 #include "driver/driver.hpp"
 #include "scripting/bindings.hpp"
 #include "scripting/dotnet_bindings/event_bindings.hpp"
+#include "scripting/dotnet_bindings/project_bindings.hpp"
+#include "scripting/dotnet_bindings/window_bindings.hpp"
 #include "tools/environment_console.hpp"
 
 namespace other {
@@ -39,16 +41,13 @@ namespace other {
 
     /// load client specific .NET
     /// \note this has to happen here because .NET can override native subsystem implementations meaning we need to load these before initializing rendering or other subsystems
-    ostd::vector<std::string> dotnet_modules = get_driver().get_config_value<ostd::vector<std::string>>("scripting.dotnet-modules");
-    for (const auto& module : dotnet_modules) {
-      CORE_LOG_DEBUG(" - .NET module to load: {}", module);
-      auto assembly = load_dotnet_module(module);
-      if (assembly == nullptr) {
-        CORE_LOG_ERROR("Failed to load .NET module: {}", module);
-      }
-
-      loaded_dotnet_modules.push_back(assembly);
+    ostd::vector<std::string> module_paths = get_driver().get_config_value<ostd::vector<std::string>>("scripting.dotnet-modules");
+    for (const auto& module_path : module_paths) {
+      CORE_LOG_DEBUG(" - .NET module to load: {}", module_path);
+      load_module(dotnet_modules.emplace_back(dotnet_module{ .path = module_path }));
     }
+    watch_modules = get_driver().get_config_value<bool>("filesystem.watch-assets", false);
+    watch_interval = get_driver().get_config_value<double>("filesystem.watch-interval-ms", 250.0) / 1000.0;
 
     /// bind the native driver to the scripting environment to glue user scripts to the native environment
     do_script_interface_bindings(&get_driver());
@@ -107,6 +106,8 @@ namespace other {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scripting_system::tick");
     bindings::deliver_queued_script_events();
+    bindings::begin_script_project_frame();
+    reload_changed_modules(dt);
     if (environment_console::is_initialized()) {
       PROFILE_SECTION("scripting_system::tick--environment_console");
       environment_console::poll();
@@ -118,10 +119,12 @@ namespace other {
     PROFILE_SECTION("scripting_system::shutdown");
 
     do_script_interface_unbinding();
-    for (auto& module : loaded_dotnet_modules) {
-      unload_dotnet_module(module);
+    for (dotnet_module& module : dotnet_modules) {
+      if (module.loaded != nullptr) {
+        unload_dotnet_module(module.loaded);
+      }
     }
-    loaded_dotnet_modules.clear();
+    dotnet_modules.clear();
 
     driver_main_lua_script = nullptr;
   }
@@ -135,8 +138,12 @@ namespace other {
       CORE_LOG_ERROR("Script module path does not exist: {}", module_path);
       return nullptr;
     }
+    /// a file that is not an assembly yet (a build still writing it) is not loaded, and
+    ///  the environment has said so
     ref<assembly> asm_ref = subsystem<scripting_environment>::get()->load_dotnet_module(path.string());
-    OTHER_ASSERT(asm_ref != nullptr, "Failed to load .NET assembly from path: {}", module_path);
+    if (asm_ref == nullptr) {
+      return nullptr;
+    }
 
     ostd::vector<callback_binding> bindings = asm_ref->get_native_function_bindings();
     CORE_LOG_DEBUG("Found {} native callback bindings in assembly [{}:{}]", bindings.size(), asm_ref->get_handle(), asm_ref->get_name());
@@ -146,6 +153,7 @@ namespace other {
       std::string method_name = binding.full_type_and_method_name.substr(last_dot + 1);
       CORE_LOG_DEBUG("Native Callback Binding registered: {} -> {}.{}", binding.binding_name, type_name, method_name);
       get_driver().get_interface_registry().register_named_callback(binding.binding_name, make_ref<dotnet_callback>(type_name, method_name));
+      module_callback_bindings[asm_ref->get_handle()].push_back(binding.binding_name);
     }
 
     return asm_ref;
@@ -160,7 +168,95 @@ namespace other {
     }
 
     CORE_LOG_DEBUG("Unloading script module with ID: {}", module->get_handle());
+    if (const auto itr = module_callback_bindings.find(module->get_handle()); itr != module_callback_bindings.end()) {
+      for (const std::string& binding_name : itr->second) {
+        get_driver().get_interface_registry().unregister_named_callback(binding_name);
+      }
+      module_callback_bindings.erase(itr);
+    }
     subsystem<scripting_environment>::get()->unload_dotnet_module(module);
+  }
+
+  void scripting_system::load_module(dotnet_module& module) {
+    PROFILE_SECTION("scripting_system::load_module");
+    /// read before the load: a build that lands during it is then seen as a change
+    std::error_code ec;
+    module.size = std::filesystem::file_size(module.path, ec);
+    module.written = std::filesystem::last_write_time(module.path, ec);
+
+    module.loaded = load_dotnet_module(module.path);
+    if (module.loaded == nullptr) {
+      CORE_LOG_ERROR("Failed to load .NET module: {}", module.path);
+      return;
+    }
+
+    /// a driver's own modules may declare editor windows
+    bindings::host_script_windows_of(module.loaded->dotnet_id);
+  }
+
+  void scripting_system::reload_changed_modules(double dt) {
+    if (!watch_modules || dotnet_modules.empty()) {
+      return;
+    }
+    watch_accumulator += dt;
+    if (watch_accumulator < watch_interval) {
+      return;
+    }
+    watch_accumulator = 0.0;
+    PROFILE_SECTION("scripting_system::reload_changed_modules");
+
+    for (dotnet_module& module : dotnet_modules) {
+      if (module.waiting_to_settle) {
+        continue;
+      }
+
+      /// a file a build is replacing may be missing for a moment: it is looked at again
+      std::error_code ec;
+      const uintmax_t size = std::filesystem::file_size(module.path, ec);
+      if (ec) {
+        continue;
+      }
+      const std::filesystem::file_time_type written = std::filesystem::last_write_time(module.path, ec);
+      if (ec || (size == module.size && written == module.written)) {
+        continue;
+      }
+
+      changed_modules.note(module.path);
+      module.waiting_to_settle = true;
+    }
+    if (changed_modules.empty()) {
+      return;
+    }
+
+    /// one interval without a change is what settled means
+    const settled_changes::result changes = changed_modules.check();
+    const auto module_of = [this](const filepath& path) -> dotnet_module* {
+      const auto itr = std::ranges::find_if(dotnet_modules, [&path](const dotnet_module& module) { return filepath{ module.path } == path; });
+      return itr == dotnet_modules.end() ? nullptr : &*itr;
+    };
+
+    for (const filepath& path : changes.gone) {
+      if (dotnet_module* module = module_of(path); module != nullptr) {
+        module->waiting_to_settle = false;
+        CORE_LOG_WARN("The .NET module '{}' was removed and has not come back; what was loaded from it stays as it is", module->path);
+      }
+    }
+    for (const filepath& path : changes.settled) {
+      dotnet_module* module = module_of(path);
+      if (module == nullptr) {
+        continue;
+      }
+
+      /// unloading takes the module's windows, menu items and event subscriptions with it;
+      ///  the windows that were open are open again once the new build is loaded
+      CORE_LOG_INFO("The .NET module '{}' changed on disk: loading it again", module->path);
+      module->waiting_to_settle = false;
+      if (module->loaded != nullptr) {
+        unload_dotnet_module(module->loaded);
+        module->loaded = nullptr;
+      }
+      load_module(*module);
+    }
   }
 
   lua_host& scripting_system::get_lua_host() {

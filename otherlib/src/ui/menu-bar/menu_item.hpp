@@ -14,6 +14,8 @@ namespace other {
     struct menu_item {
       std::string name;
       opt<action> action = std::nullopt;
+      /// 0 unless the item was added to be taken out again by this
+      natural_t id = 0;
 
       void render();
     };

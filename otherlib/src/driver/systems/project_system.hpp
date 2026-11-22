@@ -56,6 +56,8 @@ namespace other {
     /// goes up each time that happens, for whoever shows what the file says
     inline uint64_t project_file_revision() const { return file_revision; }
 
+    /// false before the system is initialized and after it is shut down
+    inline bool has_project() const { return loaded_project != nullptr; }
     inline project& get_project() {
       OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
       return *loaded_project;

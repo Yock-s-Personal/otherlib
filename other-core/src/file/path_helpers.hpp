@@ -49,6 +49,9 @@ namespace other {
   struct asset_path {
     std::string raw;
     filepath resolved;
+    /// why the path leads nowhere, to follow "Asset path '<raw>' " in a message. empty when
+    ///  it was found, and for an empty path
+    std::string problem;
 
     inline bool found() const { return !resolved.empty(); }
   };
@@ -60,6 +63,11 @@ namespace other {
   ///  is not started where the editor was, and a package has the engine's files under engine/
   std::string to_saved_asset_path(const filepath& abs);
 
+  /// where an asset path leads: through its mount when it names one, as it is when it is
+  ///  absolute, and from the search roots otherwise. logs nothing: whoever asks often says
+  ///  what the problem is itself, once
+  asset_path find_asset_path(const std::string_view raw, const filepath& referencing_file = {});
+  /// the same, with a path that leads nowhere logged as an error
   asset_path resolve_asset_path(const std::string_view raw, const filepath& referencing_file = {});
 
   std::string normalize_lexical(const filepath& p);

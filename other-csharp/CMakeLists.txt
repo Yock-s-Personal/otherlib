@@ -51,10 +51,12 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/ui-window.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/window-host.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/editor-window-attribute.cs
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/window-flags.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/ui-enums.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/windows.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/widgets.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/menus.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/draw-list.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/textures.cs
 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/other-abi.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/native-component.cs

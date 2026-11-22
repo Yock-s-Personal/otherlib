@@ -31,6 +31,7 @@
 #include "scripting/dotnet_bindings/scene_object_bindings.hpp"
 #include "scripting/dotnet_bindings/steam_bindings.hpp"
 #include "scripting/dotnet_bindings/ui_bindings.hpp"
+#include "scripting/dotnet_bindings/ui_draw_list_bindings.hpp"
 #include "scripting/dotnet_bindings/window_bindings.hpp"
 #include "scripting/lua_bindings/bind_math_types_lua.hpp"
 #include "scripting/lua_bindings/bind_rendering_types_lua.hpp"
@@ -261,6 +262,73 @@ namespace other {
       .bind<bindings::native_ui_begin_property_row>("UIBeginPropertyRow")
       .bind<bindings::native_ui_end_property_row>("UIEndPropertyRow")
       .bind<bindings::native_ui_property_display>("UIPropertyDisplay");
+
+    bindings::binding_context{ dn_host }
+      /// UI - Layout.
+      .bind<bindings::native_ui_begin_group>("UIBeginGroup")
+      .bind<bindings::native_ui_end_group>("UIEndGroup")
+      .bind<bindings::native_ui_set_next_item_width>("UISetNextItemWidth")
+      .bind<bindings::native_ui_align_text_to_frame_padding>("UIAlignTextToFramePadding")
+      .bind<bindings::native_ui_get_cursor_pos>("UIGetCursorPos")
+      .bind<bindings::native_ui_set_cursor_pos>("UISetCursorPos")
+      .bind<bindings::native_ui_get_cursor_screen_pos>("UIGetCursorScreenPos")
+      .bind<bindings::native_ui_set_cursor_screen_pos>("UISetCursorScreenPos")
+      .bind<bindings::native_ui_get_scroll_x>("UIGetScrollX")
+      .bind<bindings::native_ui_get_scroll_y>("UIGetScrollY")
+      .bind<bindings::native_ui_set_scroll_x>("UISetScrollX")
+      .bind<bindings::native_ui_set_scroll_y>("UISetScrollY")
+      .bind<bindings::native_ui_get_scroll_max_x>("UIGetScrollMaxX")
+      .bind<bindings::native_ui_get_scroll_max_y>("UIGetScrollMaxY")
+      .bind<bindings::native_ui_set_scroll_here_y>("UISetScrollHereY")
+      /// UI - State.
+      .bind<bindings::native_ui_set_next_item_open>("UISetNextItemOpen")
+      .bind<bindings::native_ui_set_keyboard_focus_here>("UISetKeyboardFocusHere")
+      .bind<bindings::native_ui_is_item_deactivated_after_edit>("UIIsItemDeactivatedAfterEdit")
+      .bind<bindings::native_ui_is_window_appearing>("UIIsWindowAppearing")
+      /// UI - Mouse and keyboard.
+      .bind<bindings::native_ui_get_mouse_pos>("UIGetMousePos")
+      .bind<bindings::native_ui_is_mouse_down>("UIIsMouseDown")
+      .bind<bindings::native_ui_is_mouse_clicked>("UIIsMouseClicked")
+      .bind<bindings::native_ui_is_mouse_double_clicked>("UIIsMouseDoubleClicked")
+      .bind<bindings::native_ui_is_mouse_released>("UIIsMouseReleased")
+      .bind<bindings::native_ui_get_mouse_drag_delta>("UIGetMouseDragDelta")
+      .bind<bindings::native_ui_get_mouse_wheel>("UIGetMouseWheel")
+      .bind<bindings::native_ui_is_mouse_hovering_rect>("UIIsMouseHoveringRect")
+      .bind<bindings::native_ui_is_key_down>("UIIsKeyDown")
+      .bind<bindings::native_ui_is_key_pressed>("UIIsKeyPressed")
+      .bind<bindings::native_ui_get_key_mods>("UIGetKeyMods")
+      /// UI - The last item.
+      .bind<bindings::native_ui_get_item_rect_min>("UIGetItemRectMin")
+      .bind<bindings::native_ui_get_item_rect_max>("UIGetItemRectMax")
+      .bind<bindings::native_ui_get_item_rect_size>("UIGetItemRectSize")
+      /// UI - Numbers.
+      .bind<bindings::native_ui_drag_int>("UIDragInt")
+      .bind<bindings::native_ui_drag_float2>("UIDragFloat2")
+      .bind<bindings::native_ui_drag_float4>("UIDragFloat4")
+      .bind<bindings::native_ui_slider_float2>("UISliderFloat2")
+      .bind<bindings::native_ui_slider_float3>("UISliderFloat3")
+      .bind<bindings::native_ui_slider_float4>("UISliderFloat4")
+      .bind<bindings::native_ui_accept_drag_drop_payload>("UIAcceptDragDropPayload");
+
+    bindings::binding_context{ dn_host }
+      /// UI - Shapes on the window's draw list.
+      .bind<bindings::native_ui_draw_line>("UIDrawLine")
+      .bind<bindings::native_ui_draw_rect>("UIDrawRect")
+      .bind<bindings::native_ui_draw_rect_filled>("UIDrawRectFilled")
+      .bind<bindings::native_ui_draw_circle>("UIDrawCircle")
+      .bind<bindings::native_ui_draw_circle_filled>("UIDrawCircleFilled")
+      .bind<bindings::native_ui_draw_triangle>("UIDrawTriangle")
+      .bind<bindings::native_ui_draw_triangle_filled>("UIDrawTriangleFilled")
+      .bind<bindings::native_ui_draw_bezier_cubic>("UIDrawBezierCubic")
+      .bind<bindings::native_ui_draw_text>("UIDrawText")
+      .bind<bindings::native_ui_draw_image>("UIDrawImage")
+      .bind<bindings::native_ui_push_clip_rect>("UIPushClipRect")
+      .bind<bindings::native_ui_pop_clip_rect>("UIPopClipRect")
+      /// UI - Images.
+      .bind<bindings::native_ui_get_pipeline_texture>("UIGetPipelineTexture")
+      .bind<bindings::native_ui_get_asset_texture>("UIGetAssetTexture")
+      .bind<bindings::native_ui_get_asset_texture_by_path>("UIGetAssetTextureByPath")
+      .bind<bindings::native_ui_image>("UIImage");
 
     bindings::binding_context{ dn_host }
       /// UI - Windows.

@@ -104,7 +104,7 @@ namespace other {
 
     /// declared a window on a class that is not one
     EXPECT_FALSE(registry->contains("test-not-a-window"));
-    EXPECT_EQ(registry->entries().size(), 4u);
+    EXPECT_EQ(registry->entries().size(), 7u);
     EXPECT_EQ(probe("CounterInitialized"), 1);
   }
 
@@ -160,6 +160,43 @@ namespace other {
     EXPECT_NE(unbalanced->disabled_reason().find("PopID"), std::string::npos) << unbalanced->disabled_reason();
     EXPECT_TRUE(overpop->is_disabled());
     EXPECT_NE(overpop->disabled_reason().find("PopID"), std::string::npos) << overpop->disabled_reason();
+  }
+
+  TEST_F(script_window_tests, the_drawing_calls_do_what_they_say) {
+    constexpr int32_t kEveryCheck = 2047;
+    ASSERT_TRUE(registry->open("test-drawing"));
+    frames(4);
+    EXPECT_EQ(probe("DrawingDraws"), 4);
+    /// one bit a group of calls: item rectangle (1, 2), cursor (4), shapes and colour (8),
+    ///  images (16), numbers (32), keys and mouse (64), next item open (128), window
+    ///  appearing (256), scroll (512), hovering (1024)
+    EXPECT_EQ(probe("DrawingFirstChecks"), kEveryCheck);
+    EXPECT_EQ(probe("DrawingChecks"), kEveryCheck);
+
+    /// and ImGui had nothing to object to in any of them
+    ui::script_window* drawing = script_window("test-drawing");
+    ASSERT_NE(drawing, nullptr);
+    EXPECT_FALSE(drawing->is_disabled()) << drawing->disabled_reason();
+  }
+
+  TEST_F(script_window_tests, a_clip_rectangle_left_open_or_popped_twice_stops_the_window) {
+    ASSERT_TRUE(registry->open("test-clip-left-open"));
+    ASSERT_TRUE(registry->open("test-clip-overpop"));
+    ASSERT_TRUE(registry->open("test-counter"));
+    frames(4);
+    EXPECT_EQ(probe("ClipLeftOpenDraws"), 1);
+    EXPECT_EQ(probe("ClipOverpopDraws"), 1);
+    /// the window drawn after them is not cut to a rectangle they left behind
+    EXPECT_EQ(probe("CounterDraws"), 4);
+
+    ui::script_window* left_open = script_window("test-clip-left-open");
+    ui::script_window* overpop = script_window("test-clip-overpop");
+    ASSERT_NE(left_open, nullptr);
+    ASSERT_NE(overpop, nullptr);
+    EXPECT_TRUE(left_open->is_disabled());
+    EXPECT_NE(left_open->disabled_reason().find("PopClipRect"), std::string::npos) << left_open->disabled_reason();
+    EXPECT_TRUE(overpop->is_disabled());
+    EXPECT_NE(overpop->disabled_reason().find("PopClipRect"), std::string::npos) << overpop->disabled_reason();
   }
 
   TEST_F(script_window_tests, a_stopped_window_asked_again_is_drawn_once_more) {

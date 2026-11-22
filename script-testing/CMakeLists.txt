@@ -13,5 +13,6 @@ target_sources(DotnetTesting PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/boundary-probe.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/window-probe.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ui-enum-probe.cs
 )
 target_link_libraries(DotnetTesting PRIVATE OtherCs)

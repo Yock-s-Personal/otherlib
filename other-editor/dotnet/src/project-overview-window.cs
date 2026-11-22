@@ -12,10 +12,7 @@ namespace Other.Editor
   public class ProjectOverviewWindow : UIWindow
   {
     private const float kDetailListHeight = 160f;
-    /// ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY
-    private const int kDetailListFlags = (1 << 0) | (1 << 3);
-    /// ImGuiCol_Text
-    private const int kTextColor = 0;
+    private const ChildFlags kDetailListFlags = ChildFlags.Borders | ChildFlags.ResizeY;
     private static readonly Vec4 kErrorRed = new Vec4(230f / 255f, 51f / 255f, 51f / 255f, 1f);
 
     /// text made from the project, made again only when the project changes
@@ -88,7 +85,7 @@ namespace Other.Editor
       {
         return;
       }
-      UIBindings.PushStyleColor(kTextColor, kErrorRed);
+      UIBindings.PushStyleColor(StyleColor.Text, kErrorRed);
       UIBindings.TextWrapped(notice_text);
       UIBindings.PopStyleColor();
     }
@@ -144,7 +141,7 @@ namespace Other.Editor
         return;
       }
 
-      UIBindings.PushStyleColor(kTextColor, kErrorRed);
+      UIBindings.PushStyleColor(StyleColor.Text, kErrorRed);
       UIBindings.TextWrapped(failure.Reason);
       UIBindings.PopStyleColor();
       if (!failure.CanRetry)

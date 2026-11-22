@@ -14,6 +14,7 @@
 #include "core/profiler.hpp"
 #include "thread/thread_safety.hpp"
 
+#include "scripting/dotnet_bindings/ui_draw_list_bindings.hpp"
 #include "theme/colors.hpp"
 
 namespace other {
@@ -95,7 +96,11 @@ namespace other {
       last_draw_us = std::chrono::duration<float, std::micro>(std::chrono::steady_clock::now() - started).count();
       ++draws;
 
-      /// what it left open (a tree node, a pushed id) is closed here, each as an objection
+      /// what it left open (a clip rectangle, a tree node, a pushed id) is closed here, each
+      ///  as an objection
+      if (bindings::close_script_clip_rects() > 0) {
+        note_imgui_error(&context, &errors, "Missing PopClipRect()");
+      }
       ImGuiErrorRecoveryState after{};
       ImGui::ErrorRecoveryStoreState(&after);
       if (std::memcmp(&before, &after, sizeof(before)) != 0) {

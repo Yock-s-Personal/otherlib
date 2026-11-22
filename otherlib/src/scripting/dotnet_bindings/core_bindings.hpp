@@ -11,7 +11,7 @@
 namespace other {
   namespace bindings {
 
-    uint64_t native_oe_fnv_hash(native_string str);
+    uint64_t native_oe_fnv_hash(const char* str);
 
   }  // namespace bindings
 }  // namespace other

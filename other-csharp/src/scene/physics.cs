@@ -15,7 +15,7 @@ namespace Other
   public static class Physics
   {
     [NativeFunction("PhysicsRaycast")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, UInt64*, float*, float*, float*, UInt32> NativePhysicsRaycast;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, UInt64*, float*, float*, float*, UInt32> NativePhysicsRaycast;
 
     /// closest hit against the active scene's physics world; sensors are triggers, not
     /// surfaces, and never hit. false = nothing within max_distance

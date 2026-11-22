@@ -90,7 +90,7 @@ namespace Other
 
     protected bool GetBool([CallerMemberName] string prop = "")
     {
-      bool v = false;
+      NativeBool32 v = false;
       unsafe { OtherABI.NativeGetFieldBool(ObjectId, component_id, FieldId(prop), &v); }
       return v;
     }
@@ -254,15 +254,19 @@ namespace Other
     {
       unsafe
       {
-        NativeString ns = default;
-        OtherABI.NativeGetFieldString(ObjectId, component_id, FieldId(prop), &ns);
-        return ns.ToString();
+        byte* text = null;
+        OtherABI.NativeGetFieldString(ObjectId, component_id, FieldId(prop), &text);
+        return Utf8Arg.Read(text);
       }
     }
 
     protected void SetNativeString(string value, [CallerMemberName] string prop = "")
     {
-      unsafe { OtherABI.NativeSetFieldString(ObjectId, component_id, FieldId(prop), value); }
+      unsafe
+      {
+        using var value_utf8 = new Utf8Arg(value, stackalloc byte[Utf8Arg.StackSize]);
+        OtherABI.NativeSetFieldString(ObjectId, component_id, FieldId(prop), value_utf8.Pointer);
+      }
     }
   }  
 }

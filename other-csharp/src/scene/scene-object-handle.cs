@@ -6,7 +6,7 @@ namespace Other
   public class SceneObjectHandle : IEquatable<SceneObjectHandle>
   {
     [NativeFunction("ValidateObjectHandle")]
-    internal static unsafe delegate*<ulong, uint, uint, NativeBool32> NativeValidate;
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, uint, uint, NativeBool32> NativeValidate;
 
 
     private readonly ulong id;

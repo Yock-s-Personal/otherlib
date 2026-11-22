@@ -22,16 +22,16 @@ namespace other {
 
     int32_t native_driver_get_state();
     void native_driver_request_shutdown();
-    native_string native_driver_get_project_name();
+    const char* native_driver_get_project_name();
 
     float native_time_get_delta_time();
     float native_time_get_elapsed_time();
     int64_t native_time_get_frame_count();
 
-    native_string native_config_get_string(native_string section, native_string key, native_string default_value);
-    int32_t native_config_get_int(native_string section, native_string key, int32_t default_value);
-    float native_config_get_float(native_string section, native_string key, float default_value);
-    nbool32 native_config_get_bool(native_string section, native_string key, nbool32 default_value);
+    const char* native_config_get_string(const char* section, const char* key, const char* default_value);
+    int32_t native_config_get_int(const char* section, const char* key, int32_t default_value);
+    float native_config_get_float(const char* section, const char* key, float default_value);
+    nbool32 native_config_get_bool(const char* section, const char* key, nbool32 default_value);
 
   }  // namespace bindings
 }  // namespace other

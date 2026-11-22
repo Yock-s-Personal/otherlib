@@ -6,43 +6,37 @@ namespace Other.Core
   public static class Filesystem
   {
     [NativeFunction("GetProgramFilesFolder")]
-    internal static unsafe delegate*<NativeString, NativeString> NativeGetProgramFilesFolder;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*> NativeGetProgramFilesFolder;
 
     [NativeFunction("GetAppDataFolder")]
-    internal static unsafe delegate*<NativeString, NativeBool32, NativeString> NativeGetAppDataFolder;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32, byte*> NativeGetAppDataFolder;
     [NativeFunction("GetInstallFolder")]
-    internal static unsafe delegate*<NativeString> NativeGetInstallFolder;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*> NativeGetInstallFolder;
 
     public static string GetProgramFilesFolder(string app_name)
     {
-      NativeString app_name_str = app_name;
-      NativeString native_path;
       unsafe
       {
-        native_path = NativeGetProgramFilesFolder(app_name_str);
+        using var app_name_utf8 = new Utf8Arg(app_name, stackalloc byte[Utf8Arg.StackSize]);
+        return Utf8Arg.Read(NativeGetProgramFilesFolder(app_name_utf8.Pointer));
       }
-      return native_path.ToString();
     }
 
     public static string GetAppDataFolder(string app_name, bool create = false)
     {
-      NativeString app_name_str = app_name;
-      NativeString native_path;
       unsafe
       {
-        native_path = NativeGetAppDataFolder(app_name_str, create);
+        using var app_name_utf8 = new Utf8Arg(app_name, stackalloc byte[Utf8Arg.StackSize]);
+        return Utf8Arg.Read(NativeGetAppDataFolder(app_name_utf8.Pointer, create));
       }
-      return native_path.ToString();
     }
 
     public static string GetInstallFolder()
     {
-      NativeString native_path;
       unsafe
       {
-        native_path = NativeGetInstallFolder();
+        return Utf8Arg.Read(NativeGetInstallFolder());
       }
-      return native_path.ToString();
     }
   }
 }

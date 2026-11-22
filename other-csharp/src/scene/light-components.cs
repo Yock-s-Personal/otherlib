@@ -7,13 +7,13 @@ namespace Other
   public class PointLightComponent : Component
   {
     [NativeFunction("PointLightGetPosition")]
-    internal static unsafe delegate*<UInt64, float*, void> NativePointLightGetPosition;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativePointLightGetPosition;
     [NativeFunction("PointLightSetPosition")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativePointLightSetPosition;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativePointLightSetPosition;
     [NativeFunction("PointLightGetColor")]
-    internal static unsafe delegate*<UInt64, float*, void> NativePointLightGetColor;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativePointLightGetColor;
     [NativeFunction("PointLightSetColor")]
-    internal static unsafe delegate*<UInt64, float, float, float, float, void> NativePointLightSetColor;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, float, void> NativePointLightSetColor;
 
     public PointLightComponent(ulong object_id)
       : base(object_id)
@@ -64,13 +64,13 @@ namespace Other
   public class DirectionLightComponent : Component
   {
     [NativeFunction("DirectionLightGetDirection")]
-    internal static unsafe delegate*<UInt64, float*, void> NativeDirectionLightGetDirection;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeDirectionLightGetDirection;
     [NativeFunction("DirectionLightSetDirection")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativeDirectionLightSetDirection;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativeDirectionLightSetDirection;
     [NativeFunction("DirectionLightGetColor")]
-    internal static unsafe delegate*<UInt64, float*, void> NativeDirectionLightGetColor;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeDirectionLightGetColor;
     [NativeFunction("DirectionLightSetColor")]
-    internal static unsafe delegate*<UInt64, float, float, float, float, void> NativeDirectionLightSetColor;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, float, void> NativeDirectionLightSetColor;
 
     public DirectionLightComponent(ulong object_id)
       : base(object_id)

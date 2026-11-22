@@ -13,6 +13,7 @@
 #include "driver/driver.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "scripting/dotnet_bindings/driver_bindings.hpp"
+#include "scripting/main_thread_only.hpp"
 
 namespace other {
   namespace detail {
@@ -29,7 +30,7 @@ namespace other {
   }  // namespace detail
   namespace bindings {
 
-    natural_t native_scene_create_object(native_string name, float x, float y, float z) {
+    natural_t native_scene_create_object(const char* name, float x, float y, float z) {
       PROFILE_SECTION("native_scene_create_object");
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
@@ -58,16 +59,16 @@ namespace other {
       return active_scene->has_object(id);
     }
 
-    native_string native_scene_get_object_name(natural_t id) {
+    const char* native_scene_get_object_name(natural_t id) {
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
-        return native_string::new_str("");
+        return returned_string("");
       }
       const scene_object& obj = active_scene->get_object(id);
-      return native_string::new_str(obj.name);
+      return returned_string(obj.name);
     }
 
-    void native_scene_set_object_name(natural_t id, native_string name) {
+    void native_scene_set_object_name(natural_t id, const char* name) {
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
         return;
@@ -98,7 +99,7 @@ namespace other {
       return active_scene->get_object_count();
     }
 
-    natural_t native_scene_find_object_by_name(native_string name) {
+    natural_t native_scene_find_object_by_name(const char* name) {
       PROFILE_SECTION("native_scene_find_object_by_name");
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
@@ -135,7 +136,7 @@ namespace other {
       *out_count = count;
     }
 
-    nbool32 native_scene_object_has_tag(natural_t id, native_string tag) {
+    nbool32 native_scene_object_has_tag(natural_t id, const char* tag) {
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
         return false;
@@ -143,7 +144,7 @@ namespace other {
       return active_scene->object_has_tag(id, (std::string)tag);
     }
 
-    void native_scene_add_object_tag(natural_t id, native_string tag) {
+    void native_scene_add_object_tag(natural_t id, const char* tag) {
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
         return;
@@ -151,7 +152,7 @@ namespace other {
       active_scene->add_object_tag(id, (std::string)tag);
     }
 
-    void native_scene_remove_object_tag(natural_t id, native_string tag) {
+    void native_scene_remove_object_tag(natural_t id, const char* tag) {
       scene* active_scene = detail::get_active_scene_checked();
       if (active_scene == nullptr) {
         return;

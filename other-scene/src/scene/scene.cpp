@@ -1089,6 +1089,10 @@ namespace other {
   bool scene::has_object(natural_t id) const {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scene::has_object_by_id");
+    /// asked with an id from anywhere, a script's included: one past the tree is not an object
+    if (id >= scene_tree::kMaxNodes) {
+      return false;
+    }
     scene_tree::node* node = storage->tree.node_at(id);
     OTHER_ASSERT(node != nullptr, "Scene nodes should never be null. Node with ID {} is null '{}'.", id, this->name);
     return node->object != nullptr;

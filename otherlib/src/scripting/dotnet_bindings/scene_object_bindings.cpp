@@ -24,17 +24,15 @@ namespace other {
       *out_id = obj->id;
     }
 
-    void native_validate_object_handle(natural_t scene_id, natural_t object_id, int32_t generation, nbool32* out_is_valid) {
-      OTHER_ASSERT(out_is_valid != nullptr, "Output validity pointer is null.");
-
+    nbool32 native_validate_object_handle(natural_t object_id, uint32_t generation, uint32_t scene_id) {
       scene* active_scene = detail::get_active_scene_checked();
-      if (active_scene == nullptr) {
-        *out_is_valid = false;
-        return;
+      if (active_scene == nullptr || !active_scene->has_object(object_id)) {
+        return false;
       }
 
-      scene_object_handle handle{ (natural_t)scene_id, (natural_t)object_id, (uint32_t)generation };
-      *out_is_valid = validate_handle(active_scene, handle);
+      /// a script's handle does not carry its scene yet: 0 stands for the active one
+      scene_object_handle handle{ scene_id != 0 ? static_cast<natural_t>(scene_id) : active_scene->id, object_id, generation };
+      return validate_handle(active_scene, handle);
     }
 
   }  // namespace bindings

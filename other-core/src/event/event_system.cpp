@@ -55,7 +55,7 @@ namespace other {
 
   void event_system::trigger_event(natural_t event_id) {
     PROFILE_SECTION("event_system::trigger_event");
-    ostd::vector<event::handler> listeners;
+    ostd::vector<listener_entry> listeners;
     value data;
     {
       std::scoped_lock lock(events_mutex);
@@ -71,8 +71,8 @@ namespace other {
     }
 
     for (const auto& listener : listeners) {
-      if (listener) {
-        listener(data);
+      if (listener.callback) {
+        listener.callback(data);
       }
     }
   }
@@ -179,12 +179,12 @@ namespace other {
     itr->ev.data = data;
   }
 
-  void event_system::add_listener(const std::string_view name, event::handler callback) {
+  event_system::listener_id event_system::add_listener(const std::string_view name, event::handler callback) {
     natural_t id = FNV(name);
-    add_listener(id, std::move(callback));
+    return add_listener(id, std::move(callback));
   }
 
-  void event_system::add_listener(natural_t id, event::handler callback) {
+  event_system::listener_id event_system::add_listener(natural_t id, event::handler callback) {
     PROFILE_SECTION("event_system::add_listener");
     std::scoped_lock lock(events_mutex);
     auto itr = std::find_if(registered_events.begin(), registered_events.end(), [id](const event_ctx& ctx) {
@@ -192,10 +192,24 @@ namespace other {
     });
     if (itr == registered_events.end()) {
       CORE_LOG_ERROR("Attempted to add listener for unregistered event ID {}", id);
-      return;
+      return 0;
     }
 
-    itr->listeners.push_back(std::move(callback));
+    const listener_id listener = next_listener_id++;
+    itr->listeners.push_back({ .id = listener, .callback = std::move(callback) });
+    return listener;
+  }
+
+  void event_system::remove_listener(natural_t event_id, listener_id listener) {
+    PROFILE_SECTION("event_system::remove_listener");
+    std::scoped_lock lock(events_mutex);
+    auto itr = std::find_if(registered_events.begin(), registered_events.end(), [event_id](const event_ctx& ctx) {
+      return ctx.ev.id == event_id;
+    });
+    if (itr == registered_events.end()) {
+      return;
+    }
+    std::erase_if(itr->listeners, [listener](const listener_entry& entry) -> bool { return entry.id == listener; });
   }
 
   void event_system::cancel_all() {

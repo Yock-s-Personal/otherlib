@@ -49,16 +49,23 @@ namespace other {
 
   namespace bindings {
 
-    template <typename Fn>
-    void bind_function(dotnet_host& dn_host, native_string name, Fn fn) {
-      PROFILE_SECTION("other::bindings::bind-function");
-      void* fn_ptr = (void*)fn;
-      dn_host.interop().bind_native_function(name, fn_ptr);
-    }
+    namespace {
+
+      /// the engine's own functions the managed side would not take, and the first of them
+      uint32_t refused_binds = 0;
+      std::string first_refused_bind;
+
+    }  // namespace
 
     void validate_binding_points(dotnet_host& dn_host) {
       PROFILE_SECTION("other::bindings::validate-binding-points");
       CORE_LOG_DEBUG("Validating native function binding points...");
+
+      /// these are the engine's two halves of one declaration. a script would call through a
+      ///  pointer that is null or that takes other arguments than it passes
+      if (refused_binds > 0) {
+        OTHER_CRITICAL_FAILURE("{} native function(s) could not be bound to C#, the first being '{}'. The error above each says how its native and C# declarations differ.", refused_binds, first_refused_bind);
+      }
 
       nbool32 res = dn_host.interop().validate_binding_points();
       if (!res) {
@@ -77,9 +84,11 @@ namespace other {
       template <auto Fn>
       binding_context& bind(const std::string_view name) {
         PROFILE_SECTION("other::bindings::binding_context::bind");
-        main_thread_only<Fn>::name = name;
-        native_scoped_string fn_name = native_string::new_str(name);
-        bind_function(host, fn_name, &main_thread_only<Fn>::call);
+        if (bind_to_script<Fn>(host, name) != binding_result::BOUND) {
+          if (refused_binds++ == 0) {
+            first_refused_bind = name;
+          }
+        }
         return *this;
       }
     };
@@ -88,6 +97,8 @@ namespace other {
 
   void bind_otherlib_dotnet_functions(dotnet_host& dn_host) {
     PROFILE_SECTION("other::bind-otherlib-dotnet-functions");
+    bindings::refused_binds = 0;
+    bindings::first_refused_bind.clear();
     dn_host.rediscover_binding_points();
 
     detail::bind_native_types_dotnet(dn_host);
@@ -260,7 +271,10 @@ namespace other {
       /// Events.
       .bind<bindings::native_event_register>("EventRegister")
       .bind<bindings::native_event_trigger>("EventTrigger")
-      .bind<bindings::native_event_trigger_with_string>("EventTriggerWithString");
+      .bind<bindings::native_event_trigger_with_string>("EventTriggerWithString")
+      .bind<bindings::native_event_trigger_with_value>("EventTriggerWithValue")
+      .bind<bindings::native_event_subscribe>("EventSubscribe")
+      .bind<bindings::native_event_unsubscribe>("EventUnsubscribe");
 
     bindings::binding_context{ dn_host }
       /// Input.
@@ -463,6 +477,8 @@ namespace other {
   }
 
   void do_script_interface_unbinding() {
+    /// the event system outlives the scripts that listen on it
+    bindings::release_script_subscriptions();
     abi::oe_cleanup_abi();
   }
 

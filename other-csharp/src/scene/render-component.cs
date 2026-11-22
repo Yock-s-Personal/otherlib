@@ -10,19 +10,19 @@ namespace Other
   public class RenderComponent : Component
   {
     [NativeFunction("GetNumVertices")]
-    internal static unsafe delegate*<UInt64, int> NativeGetNumVertices;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, int> NativeGetNumVertices;
     [NativeFunction("GetNumIndices")]
-    internal static unsafe delegate*<UInt64, int> NativeGetNumIndices;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, int> NativeGetNumIndices;
     [NativeFunction("GetMeshName")]
-    internal static unsafe delegate*<UInt64, NativeString> NativeGetMeshName;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*> NativeGetMeshName;
     [NativeFunction("FetchMesh")]
-    internal static unsafe delegate*<UInt64, float*, int*, void> NativeFetchMesh;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, int*, int*, int*, void> NativeFetchMesh;
     [NativeFunction("UploadMesh")]
-    internal static unsafe delegate*<UInt64, NativeString, float*, int*, int*, int*, void> NativeUploadMesh;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*, float*, int*, int*, int*, void> NativeUploadMesh;
     [NativeFunction("GetMaterialPath")]
-    internal static unsafe delegate*<UInt64, NativeString> NativeGetMaterialPath;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*> NativeGetMaterialPath;
     [NativeFunction("SetMaterialPath")]
-    internal static unsafe delegate*<UInt64, NativeString, void> NativeSetMaterialPath;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*, void> NativeSetMaterialPath;
 
     private Mesh? model = null;
 
@@ -40,22 +40,22 @@ namespace Other
           unsafe
           {
             model = null;
-            NativeString mesh_name = NativeGetMeshName(ObjectId);
-            if (mesh_name.ToString() != null)
-            {
-              model = new Mesh(mesh_name.ToString()!);
-            }
-            else
-            {
-              model = new Mesh("default_mesh");
-            }
+            string mesh_name = Utf8Arg.Read(NativeGetMeshName(ObjectId));
+            model = new Mesh(mesh_name.Length > 0 ? mesh_name : "default_mesh");
 
+            /// a vertex is Vertex.Stride values of four bytes and an index entry is one
+            ///  triangle, three indices: the model's own layout, copied as it is
             int num_vertices = NativeGetNumVertices(ObjectId);
-            int num_indices = NativeGetNumIndices(ObjectId);
-            float* vertices = stackalloc float[num_vertices * Vertex.Stride];
-            int* indices = stackalloc int[num_indices];
+            int num_triangles = NativeGetNumIndices(ObjectId);
+            float[] vertices = new float[num_vertices * Vertex.Stride];
+            int[] indices = new int[num_triangles * 3];
+            fixed (float* vertex_ptr = vertices)
+            fixed (int* index_ptr = indices)
+            {
+              /// in: how much there is room for. out: how much was written
+              NativeFetchMesh(ObjectId, vertex_ptr, &num_vertices, index_ptr, &num_triangles);
+            }
 
-            NativeFetchMesh(ObjectId, vertices, indices);
             for (int v = 0; v < num_vertices; v++)
             {
               int i = v * Vertex.Stride;
@@ -65,13 +65,15 @@ namespace Other
                 new Vec3(vertices[i + 6], vertices[i + 7], vertices[i + 8]),
                 new Vec3(vertices[i + 9], vertices[i + 10], vertices[i + 11]),
                 new Vec2(vertices[i + 12], vertices[i + 13]),
-                new IntVec4((int)vertices[i + 14], (int)vertices[i + 15], (int)vertices[i + 16], (int)vertices[i + 17]),
+                /// the bone ids are integers in the model; they are not floats to convert
+                new IntVec4(BitConverter.SingleToInt32Bits(vertices[i + 14]), BitConverter.SingleToInt32Bits(vertices[i + 15]),
+                            BitConverter.SingleToInt32Bits(vertices[i + 16]), BitConverter.SingleToInt32Bits(vertices[i + 17])),
                 new Vec4(vertices[i + 18], vertices[i + 19], vertices[i + 20], vertices[i + 21])
               );
             }
-            for (int i = 0; i + 2 < num_indices; i += 3)
+            for (int t = 0; t < num_triangles; t++)
             {
-              model.AddIndices(indices[i], indices[i + 1], indices[i + 2]);
+              model.AddIndices(indices[t * 3], indices[t * 3 + 1], indices[t * 3 + 2]);
             }
           }
         }
@@ -104,7 +106,8 @@ namespace Other
           {
             int vertex_count = model.VertexCount;
             int index_count = model.IndexCount;
-            NativeUploadMesh(ObjectId, model.Name, vertex_ptr, &vertex_count, index_ptr, &index_count);
+            using var name_utf8 = new Utf8Arg(model.Name, stackalloc byte[Utf8Arg.StackSize]);
+            NativeUploadMesh(ObjectId, name_utf8.Pointer, vertex_ptr, &vertex_count, index_ptr, &index_count);
           }
         }
       }
@@ -117,14 +120,15 @@ namespace Other
       {
         unsafe
         {
-          return NativeGetMaterialPath(ObjectId).ToString() ?? "";
+          return Utf8Arg.Read(NativeGetMaterialPath(ObjectId));
         }
       }
       set
       {
         unsafe
         {
-          NativeSetMaterialPath(ObjectId, new NativeString(value ?? ""));
+          using var value_utf8 = new Utf8Arg(value ?? "", stackalloc byte[Utf8Arg.StackSize]);
+          NativeSetMaterialPath(ObjectId, value_utf8.Pointer);
         }
       }
     }

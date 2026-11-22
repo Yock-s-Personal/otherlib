@@ -8,9 +8,9 @@ namespace Other
   public class AnimationComponent : Component
   {
     [NativeFunction("GetAnimationClipPath")]
-    internal static unsafe delegate*<UInt64, NativeString> NativeGetAnimationClipPath;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*> NativeGetAnimationClipPath;
     [NativeFunction("SetAnimationClipPath")]
-    internal static unsafe delegate*<UInt64, NativeString, void> NativeSetAnimationClipPath;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*, void> NativeSetAnimationClipPath;
 
     public AnimationComponent(ulong object_id)
       : base(object_id)
@@ -24,14 +24,15 @@ namespace Other
       {
         unsafe
         {
-          return NativeGetAnimationClipPath(ObjectId).ToString() ?? "";
+          return Utf8Arg.Read(NativeGetAnimationClipPath(ObjectId));
         }
       }
       set
       {
         unsafe
         {
-          NativeSetAnimationClipPath(ObjectId, new NativeString(value ?? ""));
+          using var value_utf8 = new Utf8Arg(value ?? "", stackalloc byte[Utf8Arg.StackSize]);
+          NativeSetAnimationClipPath(ObjectId, value_utf8.Pointer);
         }
       }
     }

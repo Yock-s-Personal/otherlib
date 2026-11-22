@@ -8,9 +8,9 @@ namespace Other
   public class AudioSourceComponent : Component
   {
     [NativeFunction("GetAudioClipPath")]
-    internal static unsafe delegate*<UInt64, NativeString> NativeGetAudioClipPath;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*> NativeGetAudioClipPath;
     [NativeFunction("SetAudioClipPath")]
-    internal static unsafe delegate*<UInt64, NativeString, void> NativeSetAudioClipPath;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*, void> NativeSetAudioClipPath;
 
     public AudioSourceComponent(ulong object_id)
       : base(object_id)
@@ -23,14 +23,15 @@ namespace Other
       {
         unsafe
         {
-          return NativeGetAudioClipPath(ObjectId).ToString() ?? "";
+          return Utf8Arg.Read(NativeGetAudioClipPath(ObjectId));
         }
       }
       set
       {
         unsafe
         {
-          NativeSetAudioClipPath(ObjectId, new NativeString(value ?? ""));
+          using var value_utf8 = new Utf8Arg(value ?? "", stackalloc byte[Utf8Arg.StackSize]);
+          NativeSetAudioClipPath(ObjectId, value_utf8.Pointer);
         }
       }
     }

@@ -7,19 +7,19 @@ namespace Other
   public static class Input
   {
     [NativeFunction("InputIsKeyDown")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsKeyDown;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsKeyDown;
     [NativeFunction("InputIsKeyPressed")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsKeyPressed;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsKeyPressed;
     [NativeFunction("InputIsMouseButtonDown")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsMouseButtonDown;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsMouseButtonDown;
     [NativeFunction("InputIsMouseButtonClicked")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsMouseButtonClicked;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsMouseButtonClicked;
     [NativeFunction("InputGetMousePosition")]
-    internal static unsafe delegate*<float*, float*, void> NativeGetMousePosition;
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetMousePosition;
     [NativeFunction("InputGetMouseDelta")]
-    internal static unsafe delegate*<float*, float*, void> NativeGetMouseDelta;
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetMouseDelta;
     [NativeFunction("InputGetMouseWheel")]
-    internal static unsafe delegate*<float> NativeGetMouseWheel;
+    internal static unsafe delegate* unmanaged[Cdecl]<float> NativeGetMouseWheel;
 
     public static bool IsKeyDown(KeyCode key) { unsafe { return NativeIsKeyDown((int)key); } }
     public static bool IsKeyPressed(KeyCode key) { unsafe { return NativeIsKeyPressed((int)key); } }

@@ -10,7 +10,7 @@ namespace other {
 
     /// managed code holds this handle process-long, so it can outlive the logger subsystem -
     ///  route through the guarded send (liveness-checked) instead of the cached pointer
-    void native_log_message([[maybe_unused]] logger* cached_logger, native_string message, int32_t level) {
+    void native_log_message([[maybe_unused]] logger* cached_logger, const char* message, int32_t level) {
       switch ((native_log_level)level) {
         case TRACE:
           logger::send_log_guarded(spdlog::level::trace, 0, (std::string)message);

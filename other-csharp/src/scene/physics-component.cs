@@ -15,31 +15,31 @@ namespace Other
   public class PhysicsComponent : Component
   {
     [NativeFunction("GetPhysicsBodyType")]
-    internal static unsafe delegate*<UInt64, UInt32> NativeGetPhysicsBodyType;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, UInt32> NativeGetPhysicsBodyType;
     [NativeFunction("SetPhysicsBodyType")]
-    internal static unsafe delegate*<UInt64, UInt32, void> NativeSetPhysicsBodyType;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, UInt32, void> NativeSetPhysicsBodyType;
     [NativeFunction("GetPhysicsMass")]
-    internal static unsafe delegate*<UInt64, float> NativeGetPhysicsMass;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float> NativeGetPhysicsMass;
     [NativeFunction("SetPhysicsMass")]
-    internal static unsafe delegate*<UInt64, float, void> NativeSetPhysicsMass;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, void> NativeSetPhysicsMass;
     [NativeFunction("GetPhysicsIsTrigger")]
-    internal static unsafe delegate*<UInt64, UInt32> NativeGetPhysicsIsTrigger;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, UInt32> NativeGetPhysicsIsTrigger;
     [NativeFunction("SetPhysicsIsTrigger")]
-    internal static unsafe delegate*<UInt64, UInt32, void> NativeSetPhysicsIsTrigger;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, UInt32, void> NativeSetPhysicsIsTrigger;
     [NativeFunction("GetPhysicsLinearVelocity")]
-    internal static unsafe delegate*<UInt64, float*, void> NativeGetPhysicsLinearVelocity;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeGetPhysicsLinearVelocity;
     [NativeFunction("SetPhysicsLinearVelocity")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativeSetPhysicsLinearVelocity;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativeSetPhysicsLinearVelocity;
     [NativeFunction("GetPhysicsAngularVelocity")]
-    internal static unsafe delegate*<UInt64, float*, void> NativeGetPhysicsAngularVelocity;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeGetPhysicsAngularVelocity;
     [NativeFunction("SetPhysicsAngularVelocity")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativeSetPhysicsAngularVelocity;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativeSetPhysicsAngularVelocity;
     [NativeFunction("PhysicsAddForce")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativePhysicsAddForce;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativePhysicsAddForce;
     [NativeFunction("PhysicsAddImpulse")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativePhysicsAddImpulse;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativePhysicsAddImpulse;
     [NativeFunction("PhysicsAddTorque")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativePhysicsAddTorque;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativePhysicsAddTorque;
 
     public PhysicsComponent(ulong object_id)
       : base(object_id)

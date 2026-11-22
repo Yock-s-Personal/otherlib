@@ -9,23 +9,23 @@ namespace Other
   public class CameraComponent : Component
   {
     [NativeFunction("CameraGetPosition")]
-    internal static unsafe delegate*<UInt64, float*, void> NativeCameraGetPosition;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeCameraGetPosition;
     [NativeFunction("CameraLookFrom")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativeCameraLookFrom;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativeCameraLookFrom;
     [NativeFunction("CameraGetDirection")]
-    internal static unsafe delegate*<UInt64, float*, void> NativeCameraGetDirection;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeCameraGetDirection;
     [NativeFunction("CameraLookAt")]
-    internal static unsafe delegate*<UInt64, float, float, float, void> NativeCameraLookAt;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, void> NativeCameraLookAt;
     [NativeFunction("CameraLook")]
-    internal static unsafe delegate*<UInt64, float, float, float, float, float, float, void> NativeCameraLook;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, float, float, float, float, void> NativeCameraLook;
     [NativeFunction("CameraGetFov")]
-    internal static unsafe delegate*<UInt64, float> NativeCameraGetFov;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float> NativeCameraGetFov;
     [NativeFunction("CameraSetFov")]
-    internal static unsafe delegate*<UInt64, float, void> NativeCameraSetFov;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, void> NativeCameraSetFov;
     [NativeFunction("CameraGetClipPlanes")]
-    internal static unsafe delegate*<UInt64, float*, float*, void> NativeCameraGetClipPlanes;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float*, float*, void> NativeCameraGetClipPlanes;
     [NativeFunction("CameraSetClipPlanes")]
-    internal static unsafe delegate*<UInt64, float, float, void> NativeCameraSetClipPlanes;
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64, float, float, void> NativeCameraSetClipPlanes;
 
     public CameraComponent(ulong object_id)
       : base(object_id)

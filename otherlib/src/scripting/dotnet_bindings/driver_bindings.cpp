@@ -6,6 +6,7 @@
 #include "core/logger.hpp"
 
 #include "driver/driver.hpp"
+#include "scripting/main_thread_only.hpp"
 
 namespace other {
   namespace bindings {
@@ -42,10 +43,10 @@ namespace other {
       s_driver->request_shutdown();
     }
 
-    native_string native_driver_get_project_name() {
+    const char* native_driver_get_project_name() {
       OTHER_ASSERT(s_driver != nullptr, "Driver pointer is null.");
       std::string project_name = s_driver->get_project_name();
-      return native_string::new_str(project_name);
+      return returned_string(project_name);
     }
 
     float native_time_get_delta_time() {
@@ -62,20 +63,20 @@ namespace other {
       return ImGui::GetFrameCount();
     }
 
-    native_string native_config_get_string(native_string section, native_string key, native_string default_value) {
+    const char* native_config_get_string(const char* section, const char* key, const char* default_value) {
       /// \todo connect to config table
       return default_value;
     }
 
-    int32_t native_config_get_int(native_string section, native_string key, int32_t default_value) {
+    int32_t native_config_get_int(const char* section, const char* key, int32_t default_value) {
       return default_value;
     }
 
-    float native_config_get_float(native_string section, native_string key, float default_value) {
+    float native_config_get_float(const char* section, const char* key, float default_value) {
       return default_value;
     }
 
-    nbool32 native_config_get_bool(native_string section, native_string key, nbool32 default_value) {
+    nbool32 native_config_get_bool(const char* section, const char* key, nbool32 default_value) {
       return default_value;
     }
 

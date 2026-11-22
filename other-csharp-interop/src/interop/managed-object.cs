@@ -105,6 +105,24 @@ namespace OtherCsBindings
     [UnmanagedCallersOnly]
     private static void ClearMethods() => methods.Clear();
 
+    /// methods are kept by the name of their type, which an assembly loaded again has too:
+    ///  kept, a call by name would run the code of the assembly that went, and hold it in memory
+    internal static void ForgetAssembly(Assembly assembly)
+    {
+      var gone = new List<MethodKey>();
+      foreach (var entry in methods)
+      {
+        if (entry.Value.Module.Assembly == assembly)
+        {
+          gone.Add(entry.Key);
+        }
+      }
+      foreach (MethodKey key in gone)
+      {
+        methods.Remove(key);
+      }
+    }
+
     [UnmanagedCallersOnly]
     private static unsafe IntPtr CreateObject(Int32 typeid, NativeBool32 weak_ref, IntPtr parameters, ManagedType* param_types, Int32 count)
     {
@@ -269,7 +287,14 @@ namespace OtherCsBindings
           throw new ArgumentNullException($"{nameof(method_name)} cannot be null.");
         }
 
-        Type target_type = Type.GetType(type_name!, throwOnError: true)!;
+        /// looked for across the script assemblies, as the returning call below does:
+        ///  Type.GetType alone only sees this assembly
+        string full_type_name = type_name.ToString() ?? string.Empty;
+        Type? target_type = TypeInterface.GetType(full_type_name);
+        if (target_type == null)
+        {
+          throw new TypeLoadException($"Type '{full_type_name}' could not be found.");
+        }
         MethodInfo? minfo = TryGetMethodInfo(target_type, method_name, param_types, count, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         if (minfo == null)
         {

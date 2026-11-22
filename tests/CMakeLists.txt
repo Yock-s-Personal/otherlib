@@ -52,6 +52,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/lua_script_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/main_thread_only_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/script_boundary_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripting/script_project_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_serializer_tests.cpp
@@ -99,6 +100,8 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/vm_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/console_log_layout_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/window_registry_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/script_window_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/project/script_assembly_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/project/pipeline_collector_tests.cpp

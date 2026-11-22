@@ -66,7 +66,9 @@ target_sources(otherlib
     src/scripting/dotnet_bindings/event_bindings.cpp
     src/scripting/dotnet_bindings/input_bindings.cpp
     src/scripting/dotnet_bindings/network_bindings.cpp
+    src/scripting/dotnet_bindings/project_bindings.cpp
     src/scripting/dotnet_bindings/steam_bindings.cpp
+    src/scripting/dotnet_bindings/window_bindings.cpp
     src/scripting/interfaces/networking_interfaces.cpp
     src/scripting/interfaces/rendering_interfaces.cpp
     src/scripting/interface_registry.cpp
@@ -153,6 +155,8 @@ target_sources(otherlib
     src/ui/inspector_widgets.cpp
     src/ui/ui_widgets.cpp
     src/ui/type_database.cpp
+    src/ui/window_registry.cpp
+    src/ui/script_window.cpp
     src/ui/driver_ui.cpp
 
     src/other.cpp

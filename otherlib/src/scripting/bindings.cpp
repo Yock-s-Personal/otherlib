@@ -26,10 +26,12 @@
 #include "scripting/dotnet_bindings/event_bindings.hpp"
 #include "scripting/dotnet_bindings/input_bindings.hpp"
 #include "scripting/dotnet_bindings/network_bindings.hpp"
+#include "scripting/dotnet_bindings/project_bindings.hpp"
 #include "scripting/dotnet_bindings/scene_bindings.hpp"
 #include "scripting/dotnet_bindings/scene_object_bindings.hpp"
 #include "scripting/dotnet_bindings/steam_bindings.hpp"
 #include "scripting/dotnet_bindings/ui_bindings.hpp"
+#include "scripting/dotnet_bindings/window_bindings.hpp"
 #include "scripting/lua_bindings/bind_math_types_lua.hpp"
 #include "scripting/lua_bindings/bind_rendering_types_lua.hpp"
 #include "scripting/main_thread_only.hpp"
@@ -247,6 +249,34 @@ namespace other {
       .bind<bindings::native_ui_end_drag_drop_target>("UIEndDragDropTarget");
 
     bindings::binding_context{ dn_host }
+      /// UI - Text, state and the clipboard.
+      .bind<bindings::native_ui_separator_text>("UISeparatorText")
+      .bind<bindings::native_ui_text_disabled>("UITextDisabled")
+      .bind<bindings::native_ui_bullet>("UIBullet")
+      .bind<bindings::native_ui_begin_disabled>("UIBeginDisabled")
+      .bind<bindings::native_ui_end_disabled>("UIEndDisabled")
+      .bind<bindings::native_ui_set_clipboard_text>("UISetClipboardText")
+      .bind<bindings::native_ui_get_clipboard_text>("UIGetClipboardText")
+      /// UI - the inspector's rows.
+      .bind<bindings::native_ui_begin_property_row>("UIBeginPropertyRow")
+      .bind<bindings::native_ui_end_property_row>("UIEndPropertyRow")
+      .bind<bindings::native_ui_property_display>("UIPropertyDisplay");
+
+    bindings::binding_context{ dn_host }
+      /// UI - Windows.
+      .bind<bindings::native_ui_register_window>("UIRegisterWindow")
+      .bind<bindings::native_ui_unregister_window>("UIUnregisterWindow")
+      .bind<bindings::native_ui_set_window_draw_function>("UISetWindowDrawFunction")
+      .bind<bindings::native_ui_open_window>("UIOpenWindow")
+      .bind<bindings::native_ui_close_window>("UICloseWindow")
+      .bind<bindings::native_ui_is_window_open>("UIIsWindowOpen")
+      .bind<bindings::native_ui_window_draw_count>("UIWindowDrawCount")
+      .bind<bindings::native_ui_window_draw_microseconds>("UIWindowDrawMicroseconds")
+      .bind<bindings::native_ui_add_menu_item>("UIAddMenuItem")
+      .bind<bindings::native_ui_remove_menu_item>("UIRemoveMenuItem")
+      .bind<bindings::native_ui_set_menu_item_click_function>("UISetMenuItemClickFunction");
+
+    bindings::binding_context{ dn_host }
       /// Scene
       .bind<bindings::native_scene_create_object>("SceneCreateObject")
       .bind<bindings::native_scene_destroy_object>("SceneDestroyObject")
@@ -312,6 +342,34 @@ namespace other {
       .bind<bindings::native_driver_get_state>("DriverGetState")
       .bind<bindings::native_driver_request_shutdown>("DriverRequestShutdown")
       .bind<bindings::native_driver_get_project_name>("DriverGetProjectName");
+
+    bindings::binding_context{ dn_host }
+      /// Project.
+      .bind<bindings::native_project_change_stamp>("ProjectChangeStamp")
+      .bind<bindings::native_project_get_state>("ProjectGetState")
+      .bind<bindings::native_project_get_name>("ProjectGetName")
+      .bind<bindings::native_project_get_version>("ProjectGetVersion")
+      .bind<bindings::native_project_get_author>("ProjectGetAuthor")
+      .bind<bindings::native_project_get_description>("ProjectGetDescription")
+      .bind<bindings::native_project_get_file>("ProjectGetFile")
+      .bind<bindings::native_project_get_scene_count>("ProjectGetSceneCount")
+      .bind<bindings::native_project_get_starting_scene>("ProjectGetStartingScene")
+      .bind<bindings::native_project_has_file_notice>("ProjectHasFileNotice")
+      .bind<bindings::native_project_get_file_notice_error>("ProjectGetFileNoticeError")
+      .bind<bindings::native_project_get_file_notice_part_count>("ProjectGetFileNoticePartCount")
+      .bind<bindings::native_project_get_file_notice_part>("ProjectGetFileNoticePart")
+      .bind<bindings::native_project_get_load_error_count>("ProjectGetLoadErrorCount")
+      .bind<bindings::native_project_get_load_error_subject>("ProjectGetLoadErrorSubject")
+      .bind<bindings::native_project_get_load_error_message>("ProjectGetLoadErrorMessage")
+      .bind<bindings::native_project_get_script_project_path>("ProjectGetScriptProjectPath")
+      .bind<bindings::native_project_scripts_building>("ProjectScriptsBuilding")
+      .bind<bindings::native_project_scripts_loaded>("ProjectScriptsLoaded")
+      .bind<bindings::native_project_has_script_failure>("ProjectHasScriptFailure")
+      .bind<bindings::native_project_get_script_failure_project_path>("ProjectGetScriptFailureProjectPath")
+      .bind<bindings::native_project_get_script_failure_reason>("ProjectGetScriptFailureReason")
+      .bind<bindings::native_project_get_script_failure_details>("ProjectGetScriptFailureDetails")
+      .bind<bindings::native_project_script_failure_can_retry>("ProjectScriptFailureCanRetry")
+      .bind<bindings::native_project_request_script_rebuild>("ProjectRequestScriptRebuild");
 
     bindings::binding_context{ dn_host }
       /// Configuration.

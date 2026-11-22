@@ -4,38 +4,42 @@
 #include "ui/driver_ui.hpp"
 
 #include <algorithm>
-#include <span>
 
 #include "core/defines.hpp"
 #include "core/profiler.hpp"
 
-#include "dotnet/dotnet_object.hpp"
-#include "script/scripting_environment.hpp"
-
 #include "driver/driver.hpp"
+#include "scripting/dotnet_bindings/window_bindings.hpp"
 #include "ui/console/console.hpp"
 #include "ui/type_database.hpp"
 
 namespace other {
+  namespace {
+
+    bool erase_menu_item(ui::menu& menu, natural_t id) {
+      const auto found = std::ranges::find(menu.items, id, &ui::menu_item::id);
+      if (found != menu.items.end()) {
+        menu.items.erase(found);
+        return true;
+      }
+      return std::ranges::any_of(menu.sub_menus, [id](ui::menu& sub_menu) { return erase_menu_item(sub_menu, id); });
+    }
+
+  }  // namespace
 
   void driver_ui::initialize() {
     PROFILE_SECTION("driver_ui::initialize");
     component_reg = make_scope<ui::component_widget_registry>();
     OTHER_ASSERT(component_reg != nullptr, "Failed to create component widget registry in driver UI initialization.");
 
-    initialize_builtin_windows();
+    register_window("type-database", make_scope<ui::type_database>(*driver_ptr->get_event_system()), ui::window_source::BUILTIN);
+    register_window("console", make_scope<ui::console_window>(*driver_ptr->get_event_system(), driver_ptr), ui::window_source::BUILTIN);
 
     main_menu_bar.main_menu_bar = true;
     main_menu_bar_open = driver_ptr->configuration().get_value<bool>("ui.enable-environment-menu-bar", false);
 
-    {
-      auto* env = subsystem<scripting_environment>::get();
-      OTHER_ASSERT(env != nullptr, "scripting_environment is not initialized in driver UI initialization.");
-
-      window_registry_id = env->create_object("UIScriptWindowRegistry");
-      env->attach_dotnet_object(window_registry_id, "Other.UI.WindowRegistry");
-      CORE_LOG_DEBUG("Created UI window registry script object with ID {}", window_registry_id);
-    }
+    /// scripts were loaded before there was anywhere to put a window: theirs arrive now
+    bindings::attach_script_windows(&windows, driver_ptr->get_event_system().get(), this);
   }
 
   void driver_ui::render() {
@@ -49,193 +53,79 @@ namespace other {
       main_menu_bar.render(menus);
     }
 
-    render_builtin_windows();
-    render_custom_windows();
+    windows.render();
   }
 
   void driver_ui::shutdown() {
     PROFILE_SECTION("driver_ui::shutdown");
-    {
-      auto* env = subsystem<scripting_environment>::get();
-      OTHER_ASSERT(env != nullptr, "scripting_environment is not initialized in driver UI shutdown.");
-
-      env->destroy_object(window_registry_id);
-    }
-
-    shutdown_custom_windows();
-    shutdown_builtin_windows();
+    bindings::detach_script_windows();
+    windows.clear();
   }
 
   void driver_ui::available_ui_window_menu() {
     PROFILE_SECTION("driver_ui::available_ui_window_menu");
-    auto builtin_window_item = [this](const builtin_window& win) {
-      if (ImGui::MenuItem(win.get_name().data(), nullptr, win.open)) {
-        if (win.open) {
-          close_builtin_window(win.type);
-        } else {
-          open_builtin_window(win.type);
+    bool any_listed = false;
+    for (uint8_t source = 0; source < static_cast<uint8_t>(ui::window_source::NUM_SOURCES); ++source) {
+      bool first_of_source = true;
+      for (const auto& window : windows.entries()) {
+        if (static_cast<uint8_t>(window.source) != source) {
+          continue;
         }
-      }
-    };
-    auto custom_window_item = [this](const driver_window& win) {
-      if (ImGui::MenuItem(win.name.data(), nullptr, win.open)) {
-        if (win.open) {
-          close_custom_window(win.name);
-        } else {
-          open_custom_window(win.name);
-        }
-      }
-    };
 
-    for (const auto& win : builtin_windows) {
-      if (win.type == BUILTIN_WINDOW_NONE || win.type == INVALID_WINDOW_TYPE) {
-        continue;
-      }
-      builtin_window_item(win);
-    }
-    if (!custom_windows.empty()) {
-      ImGui::Separator();
-      for (const auto& [id, win] : custom_windows) {
-        custom_window_item(win);
+        if (first_of_source && any_listed) {
+          ImGui::Separator();
+        }
+        first_of_source = false;
+        any_listed = true;
+
+        if (!ImGui::MenuItem(window.name.c_str(), nullptr, window.open)) {
+          continue;
+        }
+        if (window.open) {
+          windows.close(window.name);
+        } else {
+          windows.open(window.name);
+        }
       }
     }
   }
 
   ostd::vector<std::string> driver_ui::get_open_window_names() const {
-    PROFILE_SECTION("driver_ui::get_open_window_names");
-    ostd::vector<std::string> open_windows;
-    for (size_t i = 0; i < NUM_BUILTIN_WINDOW_TYPES; ++i) {
-      if (i == 0 || i == static_cast<size_t>(INVALID_WINDOW_TYPE)) {
-        continue;
-      }
-
-      const auto& window = builtin_windows[i];
-      if (window.open) {
-        open_windows.push_back(std::string(window.get_name()));
-      }
-    }
-    return open_windows;
+    return windows.open_names();
   }
 
   ostd::vector<std::string> driver_ui::get_available_window_names() const {
-    ostd::vector<std::string> available_windows;
-    available_windows.append_range(get_available_builtin_window_names());
-    available_windows.append_range(get_available_custom_window_names());
-    return available_windows;
-  }
-
-  ostd::vector<std::string> driver_ui::get_available_builtin_window_names() const {
-    PROFILE_SECTION("driver_ui::get_available_builtin_window_names");
-    ostd::vector<std::string> available_windows;
-    for (size_t i = 0; i < NUM_BUILTIN_WINDOW_TYPES; ++i) {
-      if (i == 0 || i == static_cast<size_t>(INVALID_WINDOW_TYPE)) {
-        continue;
-      }
-
-      const auto& window = builtin_windows[i];
-      available_windows.push_back(std::string(window.get_name()));
-    }
-    return available_windows;
-  }
-
-  ostd::vector<std::string> driver_ui::get_available_custom_window_names() const {
-    PROFILE_SECTION("driver_ui::get_available_custom_window_names");
-    ostd::vector<std::string> available_windows;
-    for (const auto& [hash, window] : custom_windows) {
-      available_windows.push_back(window.name);
-    }
-    return available_windows;
+    return windows.names();
   }
 
   void driver_ui::open_window(const std::string_view window_name) {
     PROFILE_SECTION("driver_ui::open_window");
     CORE_LOG_DEBUG("Request to open UI window: {}", window_name);
-    natural_t hash = FNV(window_name);
-
-    auto windows = std::span(builtin_windows, NUM_BUILTIN_WINDOW_TYPES);
-    auto it = std::ranges::find_if(windows, [hash](const builtin_window& win) {
-      return FNV(kBuiltinWindowNames[static_cast<size_t>(win.type)]) == hash;
-    });
-    if (it == windows.end()) {  // } || it->type == BUILTIN_WINDOW_NONE || it->type == INVALID_WINDOW_TYPE) {
-      open_custom_window(window_name);
-    } else {
-      if (it->window_ptr == nullptr) {
-        CORE_LOG_ERROR("UI window appears '{}' to be unimplemented.", window_name);
-        return;
-      }
-
-      open_builtin_window(it->type);
+    if (!windows.open(window_name)) {
+      CORE_LOG_ERROR("There is no UI window named '{}' to open.", window_name);
     }
   }
 
   void driver_ui::close_window(const std::string_view window_name) {
     PROFILE_SECTION("driver_ui::close_window");
     CORE_LOG_DEBUG("Request to close UI window: {}", window_name);
-    natural_t hash = FNV(window_name);
-
-    auto windows = std::span(builtin_windows, NUM_BUILTIN_WINDOW_TYPES);
-    auto it = std::ranges::find_if(windows, [hash](const builtin_window& win) {
-      return FNV(kBuiltinWindowNames[static_cast<size_t>(win.type)]) == hash;
-    });
-    if (it == windows.end()) {  // || it->type == BUILTIN_WINDOW_NONE || it->type == INVALID_WINDOW_TYPE) {
-      close_custom_window(window_name);
-    } else {
-      if (it->window_ptr == nullptr) {
-        CORE_LOG_ERROR("UI window appears '{}' to be unimplemented.", window_name);
-        return;
-      }
-
-      close_builtin_window(it->type);
+    if (!windows.close(window_name)) {
+      CORE_LOG_ERROR("There is no UI window named '{}' to close.", window_name);
     }
   }
 
   void driver_ui::close_all_windows() {
     PROFILE_SECTION("driver_ui::close_all_windows");
     CORE_LOG_DEBUG("Request to close all UI windows");
-    for (auto& win : builtin_windows) {
-      if (win.open) {
-        close_builtin_window(win.type);
-      }
-    }
-    for (auto& [id, win] : custom_windows) {
-      if (win.open) {
-        close_custom_window(win.name);
-      }
-    }
+    windows.close_all();
   }
 
   bool driver_ui::any_window_open() const {
-    for (const auto& win : builtin_windows) {
-      if (win.open) {
-        return true;
-      }
-    }
-    for (const auto& [id, win] : custom_windows) {
-      if (win.open) {
-        return true;
-      }
-    }
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment not found");
-    script_object* reg = env->get_object(window_registry_id);
-    if (reg == nullptr || reg->dotnet_object == nullptr) {
-      return false;
-    }
-    return reg->dotnet_object->invoke<nbool32>("AnyWindowOpen");
+    return windows.any_open();
   }
 
   bool driver_ui::is_window_open(const std::string_view window_name) const {
-    natural_t hash = FNV(window_name);
-
-    auto windows = std::span(builtin_windows, NUM_BUILTIN_WINDOW_TYPES);
-    auto it = std::ranges::find_if(windows, [hash](const builtin_window& win) {
-      return FNV(kBuiltinWindowNames[static_cast<size_t>(win.type)]) == hash;
-    });
-    if (it == windows.end()) {
-      return false;
-    }
-    return it->open;
+    return windows.is_open(window_name);
   }
 
   void driver_ui::register_main_menu_bar_sub_menu(const std::string_view menu_name, const ui::menu& sub_menu) {
@@ -300,192 +190,86 @@ namespace other {
     CORE_LOG_DEBUG("Registered main menu bar menu item: {}:{} [{}]", menu_name, item.name, hash);
   }
 
-  natural_t driver_ui::register_window(const std::string_view name, scope<ui_window> window) {
-    PROFILE_SECTION("driver_ui::register_window");
-    natural_t hash = FNV(name);
-    auto [itr, inserted] = custom_windows.emplace(hash, driver_window{
-                                                          .name = std::string(name),
-                                                          .hash = hash,
-                                                          .window_ptr = std::move(window),
-                                                        });
-    if (!inserted) {
-      CORE_LOG_ERROR("Failed to register custom window with name '{}'.", name);
-    } else {
-      CORE_LOG_DEBUG("Registered custom window: {} [{}]", name, hash);
+  natural_t driver_ui::add_menu_item(const std::string_view path, const std::string_view label, std::function<void(natural_t)> on_click) {
+    PROFILE_SECTION("driver_ui::add_menu_item");
+    const size_t first = path.find('/');
+    const std::string_view top = path.substr(0, first);
+    if (top.empty()) {
+      CORE_LOG_ERROR("The menu item '{}' was not added: '{}' names no menu.", label, path);
+      return 0;
     }
-    OTHER_ASSERT(itr->second.window_ptr != nullptr, "Registered custom window with name '{}' has null window pointer.", name);
+
+    const natural_t hash = FNV(top);
+    auto it = std::ranges::find_if(main_menu_bar_menus, [hash](const auto& menu) { return menu.hash == hash; });
+    if (it == main_menu_bar_menus.end()) {
+      register_main_menu_bar_menu(top);
+      it = std::ranges::find_if(main_menu_bar_menus, [hash](const auto& menu) { return menu.hash == hash; });
+      OTHER_ASSERT(it != main_menu_bar_menus.end(), "Failed to find or register main menu bar menu with name '{}'", top);
+    }
+
+    /// the rest of the path is menus inside that one, made as they are first named
+    ui::menu* target = &it->menu;
+    std::string_view rest = first == std::string_view::npos ? std::string_view{} : path.substr(first + 1);
+    while (!rest.empty()) {
+      const size_t next = rest.find('/');
+      const std::string_view part = rest.substr(0, next);
+      rest = next == std::string_view::npos ? std::string_view{} : rest.substr(next + 1);
+      if (part.empty()) {
+        continue;
+      }
+
+      auto sub_menu = std::ranges::find(target->sub_menus, part, &ui::menu::name);
+      if (sub_menu == target->sub_menus.end()) {
+        target->sub_menus.push_back(ui::menu{ .name = std::string{ part } });
+        sub_menu = std::prev(target->sub_menus.end());
+      }
+      target = &*sub_menu;
+    }
+
+    const natural_t id = ++last_menu_item_id;
+    target->items.push_back(ui::menu_item{
+      .name = std::string{ label },
+      .action = action{ std::function<void()>([id, on_click = std::move(on_click)]() { on_click(id); }) },
+      .id = id,
+    });
+    CORE_LOG_DEBUG("Added menu item: {} [{}]", path, id);
+    return id;
+  }
+
+  void driver_ui::remove_menu_item(natural_t id) {
+    PROFILE_SECTION("driver_ui::remove_menu_item");
+    if (id == 0) {
+      return;
+    }
+    for (main_menu_bar_menu& menu : main_menu_bar_menus) {
+      if (erase_menu_item(menu.menu, id)) {
+        return;
+      }
+    }
+  }
+
+  natural_t driver_ui::register_window(const std::string_view name, scope<ui_window> window, ui::window_source source) {
+    PROFILE_SECTION("driver_ui::register_window");
+    OTHER_ASSERT(window != nullptr, "Window '{}' registered with a null window pointer.", name);
     OTHER_ASSERT(driver_ptr != nullptr, "Driver pointer is null in driver UI register_window.");
-    itr->second.window_ptr->set_driver_ptr(driver_ptr);
-    return hash;
+    window->set_driver_ptr(driver_ptr);
+    return windows.add(name, std::move(window), source);
   }
 
   void driver_ui::unregister_window(natural_t id) {
     PROFILE_SECTION("driver_ui::unregister_window");
-    auto it = custom_windows.find(id);
-    if (it == custom_windows.end()) {
-      CORE_LOG_ERROR("Failed to unregister custom window with ID {}: no such window registered.", id);
-      return;
+    if (!windows.remove(id)) {
+      CORE_LOG_ERROR("Failed to unregister window with ID {}: no such window registered.", id);
     }
-
-    CORE_LOG_DEBUG("Unregistered custom window: {} [{}]", it->second.name, id);
-
-    it->second.window_ptr = nullptr;
-    custom_windows.erase(it);
   }
 
   void driver_ui::unregister_window(const std::string_view name) {
-    natural_t hash = FNV(name);
-    unregister_window(hash);
+    unregister_window(FNV(name));
   }
 
   event_system& driver_ui::events() {
     OTHER_ASSERT(driver_ptr != nullptr, "Driver pointer is null in driver UI.");
     return *driver_ptr->get_event_system();
-  }
-
-  void driver_ui::initialize_builtin_windows() {
-    PROFILE_SECTION("driver_ui::initialize_builtin_windows");
-    CORE_LOG_DEBUG("Initializing builtin UI windows...");
-    for (size_t i = 0; i < NUM_BUILTIN_WINDOW_TYPES; ++i) {
-      if (i == 0 || i == static_cast<size_t>(INVALID_WINDOW_TYPE)) {
-        continue;
-      }
-
-      CORE_LOG_DEBUG("  - initializing builtin window: {}", kBuiltinWindowNames[i]);
-      builtin_window_type type = static_cast<builtin_window_type>(i);
-      auto& window = builtin_windows[i];
-      window.type = type;
-      window.open = false;
-      window.id = static_cast<uint32_t>(i);
-      switch (type) {
-        case BUILTIN_WINDOW_TYPE_DATABASE: window.window_ptr = make_scope<ui::type_database>(*driver_ptr->get_event_system()); break;
-        case BUILTIN_WINDOW_CONSOLE: window.window_ptr = make_scope<ui::console_window>(*driver_ptr->get_event_system(), driver_ptr); break;
-        default:
-          break;
-      }
-    }
-  }
-
-  void driver_ui::shutdown_builtin_windows() {
-    PROFILE_SECTION("driver_ui::shutdown_builtin_windows");
-    CORE_LOG_DEBUG("Shutting down builtin UI windows...");
-    for (size_t i = 0; i < NUM_BUILTIN_WINDOW_TYPES; ++i) {
-      if (i == 0 || i == static_cast<size_t>(INVALID_WINDOW_TYPE)) {
-        continue;
-      }
-
-      CORE_LOG_DEBUG("  - shutting down builtin window: {}", kBuiltinWindowNames[i]);
-      auto& window = builtin_windows[i];
-      window.window_ptr = nullptr;
-    }
-  }
-
-  void driver_ui::shutdown_custom_windows() {
-    PROFILE_SECTION("driver_ui::shutdown_custom_windows");
-    CORE_LOG_DEBUG("Shutting down custom UI windows...");
-    for (auto& [hash, window] : custom_windows) {
-      CORE_LOG_DEBUG("  - shutting down custom window: {} [{}]", window.name, hash);
-      window.window_ptr = nullptr;
-    }
-    custom_windows.clear();
-  }
-
-  void driver_ui::open_builtin_window(builtin_window_type type) {
-    OTHER_ASSERT(type > BUILTIN_WINDOW_NONE && type < NUM_BUILTIN_WINDOW_TYPES, "Invalid builtin window type");
-    auto& window = builtin_windows[static_cast<size_t>(type)];
-    window.window_ptr->toggle_open();
-    window.open = true;
-  }
-
-  void driver_ui::close_builtin_window(builtin_window_type type) {
-    OTHER_ASSERT(type > BUILTIN_WINDOW_NONE && type < NUM_BUILTIN_WINDOW_TYPES, "Invalid builtin window type");
-    auto& window = builtin_windows[static_cast<size_t>(type)];
-    window.window_ptr->toggle_close();
-    window.open = false;
-  }
-
-  void driver_ui::render_builtin_windows() {
-    PROFILE_SECTION("driver_ui::render_builtin_windows");
-    for (size_t i = 0; i < NUM_BUILTIN_WINDOW_TYPES; ++i) {
-      auto& window = builtin_windows[i];
-      if (window.open && window.window_ptr != nullptr) {
-        window.window_ptr->render();
-        window.open = !window.window_ptr->just_closed();
-      }
-    }
-  }
-
-  void driver_ui::render_custom_windows() {
-    PROFILE_SECTION("driver_ui::render_custom_windows");
-    for (auto& [hash, window] : custom_windows) {
-      if (window.open && window.window_ptr != nullptr) {
-        window.window_ptr->render();
-        window.open = !window.window_ptr->just_closed();
-      }
-    }
-
-    {
-      PROFILE_SECTION("driver_ui::render_custom_windows--script_windows");
-      auto* env = subsystem<scripting_environment>::get();
-      OTHER_ASSERT(env != nullptr, "scripting_environment is not initialized in driver UI render.");
-
-      auto* registry = env->get_object(window_registry_id);
-      OTHER_ASSERT(registry != nullptr, "UI window registry object is null in driver UI render.");
-      OTHER_ASSERT(registry->dotnet_object != nullptr, "UI window registry .NET object is null in driver UI render.");
-      registry->dotnet_object->invoke<>("RenderAll");
-    }
-  }
-
-  void driver_ui::open_custom_window(const std::string_view name) {
-    PROFILE_SECTION("driver_ui::open_custom_window");
-    CORE_LOG_DEBUG("Attempting to open custom UI window '{}'.", name);
-    auto itr = custom_windows.find(FNV(name));
-    if (itr == custom_windows.end()) {
-      auto* env = subsystem<scripting_environment>::get();
-      OTHER_ASSERT(env != nullptr, "scripting_environment is not initialized in driver UI open_custom_window.");
-
-      auto* obj = env->get_object(window_registry_id);
-      OTHER_ASSERT(obj != nullptr, "Failed to get window registry object from scripting environment in driver UI open_custom_window.");
-      OTHER_ASSERT(obj->dotnet_object != nullptr, "UI window registry .NET object is null in driver UI open_custom_window.");
-      {
-        native_string native_name = native_string::new_str(name);
-        obj->dotnet_object->invoke<>("OpenWindow", native_name);
-        native_string::free_str(native_name);
-      }
-    } else {
-      if (itr->second.window_ptr == nullptr) {
-        CORE_LOG_ERROR("Custom UI window '{}' appears to be unimplemented.", name);
-        return;
-      }
-      itr->second.window_ptr->toggle_open();
-      itr->second.open = true;
-    }
-  }
-
-  void driver_ui::close_custom_window(const std::string_view name) {
-    PROFILE_SECTION("driver_ui::close_custom_window");
-    CORE_LOG_DEBUG("Attempting to close custom UI window '{}'.", name);
-    auto itr = custom_windows.find(FNV(name));
-    if (itr == custom_windows.end()) {
-      auto* env = subsystem<scripting_environment>::get();
-      OTHER_ASSERT(env != nullptr, "scripting_environment is not initialized in driver UI close_custom_window.");
-
-      auto* obj = env->get_object(window_registry_id);
-      OTHER_ASSERT(obj != nullptr, "Failed to get window registry object from scripting environment in driver UI close_custom_window.");
-      OTHER_ASSERT(obj->dotnet_object != nullptr, "UI window registry .NET object is null in driver UI close_custom_window.");
-      {
-        native_string native_name = native_string::new_str(name);
-        obj->dotnet_object->invoke<>("CloseWindow", native_name);
-        native_string::free_str(native_name);
-      }
-    } else {
-      if (itr->second.window_ptr == nullptr) {
-        CORE_LOG_ERROR("Custom UI window '{}' appears to be unimplemented.", name);
-        return;
-      }
-      itr->second.window_ptr->toggle_close();
-      itr->second.open = false;
-    }
   }
 
 }  // namespace other

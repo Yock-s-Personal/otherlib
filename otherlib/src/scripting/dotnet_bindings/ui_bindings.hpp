@@ -138,6 +138,20 @@ namespace other {
     nbool32 native_ui_begin_drag_drop_target();
     void native_ui_end_drag_drop_target();
 
+    void native_ui_separator_text(const char* label);
+    void native_ui_text_disabled(const char* text);
+    void native_ui_bullet();
+    void native_ui_begin_disabled(nbool32 disabled);
+    void native_ui_end_disabled();
+    void native_ui_set_clipboard_text(const char* text);
+    const char* native_ui_get_clipboard_text();
+
+    /// the rows the native inspector is made of. a label width of 0 or less is the default
+    void native_ui_begin_property_row(const char* label, float label_width);
+    void native_ui_end_property_row();
+    /// an alpha of 0 is the text colour of the theme
+    void native_ui_property_display(const char* label, const char* text, float r, float g, float b, float a);
+
   }  // namespace bindings
 }  // namespace other
 

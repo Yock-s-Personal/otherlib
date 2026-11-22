@@ -197,6 +197,20 @@ namespace Other
     internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeBeginDragDropTarget;
     [NativeFunction("UIEndDragDropTarget")]
     internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndDragDropTarget;
+    [NativeFunction("UISeparatorText")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeSeparatorText;
+    [NativeFunction("UITextDisabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeTextDisabled;
+    [NativeFunction("UIBullet")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeBullet;
+    [NativeFunction("UIBeginDisabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32, void> NativeBeginDisabled;
+    [NativeFunction("UIEndDisabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndDisabled;
+    [NativeFunction("UISetClipboardText")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeSetClipboardText;
+    [NativeFunction("UIGetClipboardText")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*> NativeGetClipboardText;
 
     public static bool BeginWindow(string title, int flags)
     {
@@ -765,6 +779,48 @@ namespace Other
     public static void EndDragDropSource() { unsafe { NativeEndDragDropSource(); } }
     public static bool BeginDragDropTarget() { unsafe { return NativeBeginDragDropTarget(); } }
     public static void EndDragDropTarget() { unsafe { NativeEndDragDropTarget(); } }
+
+    /// a separator with a label in it: the header of a section
+    public static void SeparatorText(string label)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        NativeSeparatorText(label_utf8.Pointer);
+      }
+    }
+
+    public static void TextDisabled(string text)
+    {
+      unsafe
+      {
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeTextDisabled(text_utf8.Pointer);
+      }
+    }
+
+    /// a bullet, with what is drawn next on the same line
+    public static void Bullet() { unsafe { NativeBullet(); } }
+
+    /// what is drawn until EndDisabled is greyed and takes no input when disabled is true
+    public static void BeginDisabled(bool disabled = true) { unsafe { NativeBeginDisabled(disabled); } }
+    public static void EndDisabled() { unsafe { NativeEndDisabled(); } }
+
+    public static string ClipboardText
+    {
+      get
+      {
+        unsafe { return System.Runtime.InteropServices.Marshal.PtrToStringUTF8((IntPtr)NativeGetClipboardText()) ?? string.Empty; }
+      }
+      set
+      {
+        unsafe
+        {
+          using var text_utf8 = new Utf8Arg(value, stackalloc byte[Utf8Arg.StackSize]);
+          NativeSetClipboardText(text_utf8.Pointer);
+        }
+      }
+    }
 
     public static void HelpMarker(string description)
     {

@@ -48,5 +48,6 @@ dotnet-bindings = "build/other-csharp/${build-config}/OtherCsBindings.dll"
 other-csharp = "build/other-csharp/${build-config}/OtherCs.dll"
 other-lua-directory = "other-lua-interop"
 dotnet-modules = [
-  "build/other-editor/dotnet/${build-config}/OtherEditorCs.dll"
+  "build/other-editor/dotnet/${build-config}/OtherEditorCs.dll",
+  "build/script-testing/${build-config}/DotnetTesting.dll"
 ]

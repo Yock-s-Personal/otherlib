@@ -10,6 +10,9 @@
 
 #include "dotnet/native_string.hpp"
 
+#include "scripting/main_thread_only.hpp"
+#include "ui/inspector_widgets.hpp"
+
 namespace other {
   namespace bindings {
 
@@ -401,6 +404,47 @@ namespace other {
 
     void native_ui_end_drag_drop_target() {
       ImGui::EndDragDropTarget();
+    }
+
+    void native_ui_separator_text(const char* label) {
+      ImGui::SeparatorText(label);
+    }
+
+    void native_ui_text_disabled(const char* text) {
+      ImGui::TextDisabled("%s", text);
+    }
+
+    void native_ui_bullet() {
+      ImGui::Bullet();
+    }
+
+    void native_ui_begin_disabled(nbool32 disabled) {
+      ImGui::BeginDisabled(disabled != 0);
+    }
+
+    void native_ui_end_disabled() {
+      ImGui::EndDisabled();
+    }
+
+    void native_ui_set_clipboard_text(const char* text) {
+      ImGui::SetClipboardText(text);
+    }
+
+    const char* native_ui_get_clipboard_text() {
+      const char* text = ImGui::GetClipboardText();
+      return returned_string(text != nullptr ? text : "");
+    }
+
+    void native_ui_begin_property_row(const char* label, float label_width) {
+      ui::inspector::begin_property_row(label, label_width > 0.f ? label_width : ui::inspector::kPropertyLabelWidth);
+    }
+
+    void native_ui_end_property_row() {
+      ui::inspector::end_property_row();
+    }
+
+    void native_ui_property_display(const char* label, const char* text, float r, float g, float b, float a) {
+      ui::inspector::property_display(label, text, glm::vec4{ r, g, b, a });
     }
 
   }  // namespace bindings

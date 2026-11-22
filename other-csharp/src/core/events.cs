@@ -179,7 +179,7 @@ namespace Other.Core
     {
       if (!watching_unloads)
       {
-        AssemblyUnload.Unloading += DropSubscriptionsOf;
+        ScriptAssemblies.Unloading += DropSubscriptionsOf;
         watching_unloads = true;
       }
 
@@ -220,7 +220,7 @@ namespace Other.Core
 
       if (assembly == typeof(Events).Assembly)
       {
-        AssemblyUnload.Unloading -= DropSubscriptionsOf;
+        ScriptAssemblies.Unloading -= DropSubscriptionsOf;
         watching_unloads = false;
       }
     }

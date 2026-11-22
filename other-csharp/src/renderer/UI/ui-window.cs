@@ -2,64 +2,27 @@ using System;
 
 namespace Other.UI
 {
+  /// a window drawn from C#. declare one with [EditorWindow] on a class that derives this:
+  ///  the engine makes the one instance, puts it in the View menu and the layout, and calls
+  ///  the body only while the window is open and on screen
   public abstract class UIWindow
   {
-    private string title;
-    private bool is_open = true;
-    private int window_flags = 0;
-
-    protected UIWindow(string title, int flags = 0)
-    {
-      this.title = title;
-      this.window_flags = flags;
-
-      // WindowRegistry.Register(this);
-    }
-
-    public string Title
-    {
-      get => title;
-      set => title = value;
-    }
-
-    public bool IsOpen
-    {
-      get => is_open;
-      set => is_open = value;
-    }
-
-    public int WindowFlags
-    {
-      get => window_flags;
-      set => window_flags = value;
-    }
-
-    public void Render()
-    {
-      if (!is_open) 
-      {
-        return;
-      }
-
-      OnBeforeRender();
-
-      if (UIBindings.BeginWindow(title, window_flags))
-      {
-        OnRenderHeader();
-        OnRenderBody();
-        OnRenderFooter();
-      }
-      UIBindings.EndWindow();
-
-      OnAfterRender();
-    }
-    protected virtual void OnBeforeRender() { }
+    /// once, after the window is made and before it is first drawn
+    protected virtual void OnInitialize() { }
+    /// once, before the window goes: its assembly is unloading or the UI is shutting down
+    protected virtual void OnShutdown() { }
     protected virtual void OnRenderHeader() { }
-    protected virtual void OnRenderBody() { }
+    protected abstract void OnRenderBody();
     protected virtual void OnRenderFooter() { }
-    protected virtual void OnAfterRender() { }
-    public virtual void OnInitialize() { }
-    public virtual void OnShutdown() { }
+
+    /// what the window is opened and closed by. empty until the engine has made the window
+    public string Name { get; internal set; } = "";
+
+    public bool IsOpen => Windows.IsOpen(Name);
+    public void Open() => Windows.Open(Name);
+    public void Close() => Windows.Close(Name);
+
+    /// the menu bar of a window declared with WindowFlags.MenuBar
     protected void DrawMenuBar(Action menu_contents)
     {
       if (UIBindings.BeginMenuBar())
@@ -68,22 +31,15 @@ namespace Other.UI
         UIBindings.EndMenuBar();
       }
     }
-    public void Toggle() => is_open = !is_open;
-  }
 
-  public abstract class UIWindowWithMenu : UIWindow
-  {
-    ///  \todo fix this and have enums instead of magic numbers
-    // ImGuiWindowFlags_MenuBar = 1 << 10 = 1024
-    protected UIWindowWithMenu(string title, int extra_flags = 0)
-      : base(title, 1024 | extra_flags)
+    /// the host's way in: the callbacks themselves are for the window's own class
+    internal void Initialize() { OnInitialize(); }
+    internal void Shutdown() { OnShutdown(); }
+    internal void Draw()
     {
-    }
-
-    protected abstract void OnDrawMenuBar();
-    protected override void OnRenderHeader()
-    {
-      DrawMenuBar(OnDrawMenuBar);
+      OnRenderHeader();
+      OnRenderBody();
+      OnRenderFooter();
     }
   }
 }

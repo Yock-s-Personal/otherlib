@@ -87,7 +87,7 @@ namespace other {
       reg.register_interface<ui_window>(
         [this](scope<ui_window> s, plugin_param_view params) {
           auto name = params.get_or("name", "Unnamed Window");
-          return driver_ui_ptr->register_window(name, std::move(s));
+          return driver_ui_ptr->register_window(name, std::move(s), ui::window_source::PLUGIN);
         },
         [this](natural_t id) { driver_ui_ptr->unregister_window(id); },
         ui_window_args(get_driver().get_event_system().get()),

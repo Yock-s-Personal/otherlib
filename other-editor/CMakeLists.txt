@@ -17,7 +17,6 @@ add_static_driver(other_editor
   src/ui/render-pipeline-ui/render_pipeline_editor.cpp
   src/ui/project-compiler/project_compiler.cpp
   src/ui/project-creator/project_creator.cpp
-  src/ui/project-overview/project_overview.cpp
   src/ui/scene-graph-editor/scene_graph_editor.cpp
   src/ui/viewport/viewport.cpp
 

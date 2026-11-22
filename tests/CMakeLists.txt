@@ -116,6 +116,14 @@ target_sources(other_tests
 )
 target_include_directories(other_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(other_tests PUBLIC otherlib gmock)
+## what other_test.hpp includes; most suites start from it, and it has no include
+##  guard, so it cannot be precompiled itself
+target_precompile_headers(other_tests PRIVATE
+  <gtest/gtest.h>
+  [["physics/physics_environment.hpp"]]
+  [["script/scripting_environment.hpp"]]
+  [["other.hpp"]]
+)
 
 # TODO: fix - runs at build time, before DLLs are copied, so it can't find tests and breaks the pipeline
 # include(GoogleTest)

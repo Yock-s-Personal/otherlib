@@ -4,6 +4,11 @@ on:
   pull_request:
     branches: [ "dev" ]
 
+## a new push to a pull request cancels the run still building its previous commit
+concurrency:
+  group: pull-request-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test-windows-debug:
     uses: ./.github/workflows/build-and-test-windows.yml

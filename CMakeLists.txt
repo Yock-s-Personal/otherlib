@@ -79,6 +79,9 @@ endif()
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+## nothing here is a C++ module; without this cmake scans every source for module
+##  dependencies before compiling it (its default from C++20 up)
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(BUILD_CONFIG_MACRO "$<$<CONFIG:Debug>:OTHER_ENVIRONMENT_DEBUG>$<$<CONFIG:Release>:OTHER_ENVIRONMENT_RELEASE>$<$<CONFIG:Profile>:OTHER_ENVIRONMENT_PROFILE>$<$<CONFIG:ProfileD>:OTHER_ENVIRONMENT_PROFILED>")

@@ -25,7 +25,8 @@ namespace other {
       /// draws the body of the script's window with that id; false when the script threw
       using draw_fn = nbool32 (*)(natural_t window_id);
 
-      script_window(event_system* events, const std::string_view title, natural_t window_id, glm::vec2 default_size, int32_t flags);
+      /// name is what the window is opened by, and what its errors call it
+      script_window(event_system* events, const std::string_view name, const std::string_view title, natural_t window_id, glm::vec2 default_size, int32_t flags);
 
       /// one function draws every script window. null while no script has handed one over
       static void set_draw_function(draw_fn fn);
@@ -46,6 +47,7 @@ namespace other {
       void on_render_body() override;
 
      private:
+      std::string name;
       natural_t window_id = 0;
       glm::vec2 default_size = { 0.f, 0.f };
 

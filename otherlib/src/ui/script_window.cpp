@@ -37,8 +37,8 @@ namespace other {
 
     }  // namespace
 
-    script_window::script_window(event_system* events, const std::string_view title, natural_t window_id, glm::vec2 default_size, int32_t flags)
-        : ui_window(events, title, false, flags), window_id(window_id), default_size(default_size) {
+    script_window::script_window(event_system* events, const std::string_view name, const std::string_view title, natural_t window_id, glm::vec2 default_size, int32_t flags)
+        : ui_window(events, title, false, flags), name(name), window_id(window_id), default_size(default_size) {
     }
 
     void script_window::set_draw_function(draw_fn fn) {
@@ -120,7 +120,7 @@ namespace other {
       }
 
       reason = errors.count == 1 ? std::format("ImGui: {}", errors.first) : std::format("ImGui: {} (and {} more)", errors.first, errors.count - 1);
-      CORE_LOG_ERROR("The window '{}' is stopped until it is asked to draw again. {}", title, reason);
+      CORE_LOG_ERROR("The window '{}' is stopped until it is asked to draw again. {}", name, reason);
     }
 
     void script_window::render_disabled_notice() {

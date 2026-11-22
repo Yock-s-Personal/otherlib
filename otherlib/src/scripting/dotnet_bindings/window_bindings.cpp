@@ -70,7 +70,7 @@ namespace other {
         return 0;
       }
 
-      auto window = make_scope<ui::script_window>(state.events, title, FNV(name), glm::vec2{ width, height }, flags);
+      auto window = make_scope<ui::script_window>(state.events, name, title, FNV(name), glm::vec2{ width, height }, flags);
       return state.registry->add(name, std::move(window), ui::window_source::SCRIPT);
     }
 

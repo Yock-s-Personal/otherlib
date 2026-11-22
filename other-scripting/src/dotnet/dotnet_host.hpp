@@ -11,6 +11,7 @@
 
 #include "core/config_table.hpp"
 #include "core/defines.hpp"
+#include "thread/thread_safety.hpp"
 
 #include "dotnet/dotnet_assembly.hpp"
 #include "dotnet/interop_interface.hpp"
@@ -197,7 +198,10 @@ namespace other {
       return managed_objects.size();
     }
 
+    /// every call from native code into managed code goes through this table, and managed
+    ///  code is main thread only: nothing on the managed side is guarded
     interop_table& interop() {
+      ASSERT_MAIN_THREAD();
       return interop_functions;
     }
     type_cache* get_type_cache() {

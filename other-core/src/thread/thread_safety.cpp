@@ -18,6 +18,10 @@ namespace other {
     thread_check_disabled = true;
   }
 
+  void enable_thread_check() {
+    thread_check_disabled = false;
+  }
+
   bool is_on_main_thread() {
     if (thread_check_disabled) {
       return true;

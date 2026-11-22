@@ -50,6 +50,12 @@ namespace other {
       return last_loaded_project_file;
     }
 
+    /// the open project's file changed on disk and has stopped changing: a loaded project
+    ///  re-reads what it can take as it is
+    void project_file_changed();
+    /// goes up each time that happens, for whoever shows what the file says
+    inline uint64_t project_file_revision() const { return file_revision; }
+
     inline project& get_project() {
       OTHER_ASSERT(loaded_project != nullptr, "No project loaded in project system.");
       return *loaded_project;
@@ -62,6 +68,7 @@ namespace other {
     opt<filepath> last_loaded_project_file;
     bool config_project_attempted = false;
     bool script_rebuild_requested = false;
+    uint64_t file_revision = 0;
     scope<project> loaded_project = nullptr;
 
     /// asset ids from scene.asset-load-failed; their scenes are dropped on the next tick

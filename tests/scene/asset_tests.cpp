@@ -689,6 +689,38 @@ worker_count = {}
     handler = nullptr;
   }
 
+  /// a load that begins after the full unload has (a material that settles during shutdown
+  ///  asks for its texture) is taken down when it settles; it used to stay loaded for good
+  TEST_F(asset_tests, a_load_begun_during_a_full_unload_is_unloaded_too) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_for_model_uploads(events, 1);
+
+    filepath test_file_path = "tests/resources/models/suzanne3.fbx";
+    ASSERT_TRUE(std::filesystem::exists(test_file_path));
+
+    handler->begin_unload();
+    EXPECT_TRUE(handler->all_assets_unloaded());
+
+    const natural_t asset_id = handler->load_asset(test_file_path);
+    ASSERT_NE(asset_id, 0);
+    ASSERT_EQ(handler->get_asset_state(asset_id), asset_state::LOADING);
+    EXPECT_EQ(handler->get_num_pending_unloads(), 1);
+    EXPECT_FALSE(handler->all_assets_unloaded());
+
+    pump_until(io_context, jobs, *handler, [&] { return handler->all_assets_unloaded(); });
+    EXPECT_EQ(handler->get_num_pending_unloads(), 0);
+    EXPECT_EQ(handler->get_num_loaded_assets(), 0);
+
+    handler = nullptr;
+  }
+
   /// a project that resets mid-load unmounts its root while the plan is live. once cancelled,
   ///  children still finish but their parent is never dispatched; it used to be dispatched
   ///  through a virtual path under the mount that had just gone

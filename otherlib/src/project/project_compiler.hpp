@@ -7,6 +7,7 @@
 #ifndef OTHERLIB_PROJECT_PROJECT_COMPILER_HPP
 #define OTHERLIB_PROJECT_PROJECT_COMPILER_HPP
 
+#include <atomic>
 #include <string>
 #include <string_view>
 
@@ -38,6 +39,33 @@ namespace other {
     filepath root;
   };
 
+  /// what a compile is doing, in the order it does it
+  enum class compile_stage : uint32_t {
+    CHECKS,
+    VM,
+    SCRIPTS,
+    PIPELINES,
+    SCENE_ASSETS,
+    RUNTIME,
+    ENGINE,
+    PROJECT,
+    SCENES,
+    PLUGINS,
+    FINISH,
+    NUM_STAGES,
+  };
+
+  /// a few words for a person: "building the scripts"
+  std::string_view compile_stage_label(compile_stage stage);
+
+  /// shared by a compile and whoever watches it from another thread
+  struct compile_progress {
+    std::atomic<compile_stage> stage = compile_stage::CHECKS;
+    /// set by the watcher. the compile stops at the next file or stage, ends a script build
+    ///  that is running, removes what it had made and reports that it was cancelled
+    std::atomic<bool> cancel_requested = false;
+  };
+
   struct compile_settings {
     filepath project_file;
     /// the package folder is made inside this one
@@ -49,6 +77,8 @@ namespace other {
     package_config config = package_config::RELEASE;
     /// empty means the engine this code is running from, as locate_engine_sources finds it
     opt<engine_sources> engine;
+    /// null when nobody watches. it has to outlive the compile
+    compile_progress* progress = nullptr;
   };
 
   struct compile_report {
@@ -62,6 +92,8 @@ namespace other {
     ///  names the ones the game loads by path
     ostd::vector<std::string> left_out;
     uint64_t left_out_bytes = 0;
+    /// stopped through compile_progress::cancel_requested; nothing was packaged
+    bool cancelled = false;
   };
 
   /// a number of bytes as a person reads it: "182 bytes", "41.2 KB", "3.4 MB"
@@ -100,11 +132,17 @@ namespace other {
     ostd::vector<std::string> vm_sources;
     ostd::vector<project_hook_handler> hooks;
     /// what stops a compile whatever is chosen: a project file that cannot be read, VM sources
-    ///  that do not build, a pipeline that cannot be collected
+    ///  that do not build, a pipeline that cannot be collected, a scene that cannot be read
     ostd::vector<std::string> problems;
+    /// what a compile would leave out, as compile_report has it afterwards. empty while
+    ///  there are problems
+    ostd::vector<std::string> left_out;
+    uint64_t left_out_bytes = 0;
   };
 
-  /// reads the project and builds its boot program in memory. nothing is written anywhere
+  /// reads the project, builds its boot program in memory and works out what a compile would
+  ///  leave out, which means reading every scene and every model a scene uses. nothing is
+  ///  written anywhere
   compile_preview preview_project_compile(const command_bus& bus, const filepath& project_file);
 
   /// the three things a compile can be told that a project file can also hold. an empty one

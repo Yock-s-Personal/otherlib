@@ -92,11 +92,16 @@ namespace other {
 
     native_string native_path = native_string::new_str(asm_path.string());
     asm_ref->dotnet_id = host->interop().load_managed_assembly(this->dotnet_id, native_path);
+    asm_ref->load_status = host->interop().get_last_load_status();
     if (asm_ref->dotnet_id == -1) {
+      /// nothing was loaded, so nothing stays under this handle: the next load of the same
+      ///  path (a rebuild) starts clean
       CORE_LOG_ERROR("Failed to load assembly from path: {}", asm_path.string());
+      assemblies.erase(itr);
+      native_string::free_str(native_path);
+      return nullptr;
     }
 
-    asm_ref->load_status = host->interop().get_last_load_status();
     if (asm_ref->load_status == assembly_load_status::SUCCESS) {
       auto asm_name = host->interop().get_assembly_name(asm_ref->dotnet_id);
       asm_ref->dotnet_name = asm_name;

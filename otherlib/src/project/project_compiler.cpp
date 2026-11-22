@@ -331,6 +331,9 @@ namespace other {
       const command_bus& bus;
       const compile_settings& settings;
       compile_report report = {};
+      /// for a preview: every check and every count as a compile makes them, and nothing is
+      ///  copied, chosen or said in the log
+      bool listing_only = false;
 
       engine_sources engine = {};
       filepath project_file;
@@ -374,11 +377,39 @@ namespace other {
       }
 
       void warn(std::string reason) {
-        CORE_LOG_WARN("[COMPILE] : {}", reason);
+        if (!listing_only) {
+          CORE_LOG_WARN("[COMPILE] : {}", reason);
+        }
         report.warnings.push_back(std::move(reason));
       }
 
+      /// true once whoever watches has asked for the compile to stop. said once
+      bool cancelled() {
+        if (settings.progress == nullptr || !settings.progress->cancel_requested.load()) {
+          return false;
+        }
+        if (!report.cancelled) {
+          report.cancelled = true;
+          CORE_LOG_INFO("[COMPILE] : cancelled while {}", compile_stage_label(settings.progress->stage.load()));
+        }
+        return true;
+      }
+
+      /// the start of a stage: says where the compile is, and is false when it was cancelled
+      bool enter(const compile_stage stage) {
+        if (settings.progress != nullptr) {
+          settings.progress->stage = stage;
+        }
+        return !cancelled();
+      }
+
       bool copy(const filepath& from, const filepath& to) {
+        if (listing_only) {
+          return true;
+        }
+        if (cancelled()) {
+          return false;
+        }
         std::error_code ec;
         std::filesystem::create_directories(to.parent_path(), ec);
         std::filesystem::copy_file(from, to, std::filesystem::copy_options::overwrite_existing, ec);
@@ -502,6 +533,10 @@ namespace other {
       } else {
         return false;
       }
+      /// a listing needs the engine's root and none of the things a package is made from
+      if (listing_only) {
+        return true;
+      }
       if (!std::filesystem::is_regular_file(engine.runtime_executable, ec)) {
         return fail(std::format("the runtime to package, '{}', does not exist", engine.runtime_executable.string()));
       }
@@ -614,6 +649,9 @@ namespace other {
       if (scenes.empty()) {
         return fail("the project has no scenes, so there is nothing for a package to start in");
       }
+      if (listing_only) {
+        return true;
+      }
 
       starting_scene = table.at_path("scene-graph.starting-scene").value_or(std::string{});
       starting_scene = settings.starting_scene.value_or(starting_scene);
@@ -710,7 +748,11 @@ namespace other {
           .configuration = debug ? "Debug" : "Release",
           .destination = destination,
           .copy_symbols = debug,
+          .should_stop = [this]() -> bool { return cancelled(); },
         });
+        if (cancelled()) {
+          return false;
+        }
         if (!built.success) {
           report.errors.append_range(built.errors);
           return fail("the project's C# project did not build");
@@ -750,10 +792,12 @@ namespace other {
       }
       /// the caller's choice, then the project's, then the only one there is
       main_pipeline = settings.main_pipeline.value_or(rendering->main_pipeline.value_or(collection.pipelines.size() == 1 ? collection.pipelines.front().name : std::string{}));
-      if (main_pipeline.empty()) {
+      /// which pipeline reaches the window is the caller's to choose, and a listing has no
+      ///  caller's choice yet: the files are the same whichever it is
+      if (!listing_only && main_pipeline.empty()) {
         return fail(std::format("the project draws with several pipelines and does not say which one reaches the window; choose one of: {}", names));
       }
-      if (std::ranges::find(collection.pipelines, main_pipeline, &collected_pipeline::name) == collection.pipelines.end()) {
+      if (!listing_only && std::ranges::find(collection.pipelines, main_pipeline, &collected_pipeline::name) == collection.pipelines.end()) {
         return fail(std::format("the main pipeline '{}' is not one of the project's pipelines: {}", main_pipeline, names));
       }
 
@@ -977,7 +1021,9 @@ namespace other {
           continue;
         }
         if (is_scene_content(entry->path()) && !is_used && !is_kept) {
-          CORE_LOG_DEBUG("[COMPILE] : left out '{}', which nothing uses", name);
+          if (!listing_only) {
+            CORE_LOG_DEBUG("[COMPILE] : left out '{}', which nothing uses", name);
+          }
           report.left_out.push_back(name);
           report.left_out_bytes += entry->file_size(ec);
           continue;
@@ -989,7 +1035,7 @@ namespace other {
       if (ec) {
         return fail(std::format("could not read the project folder '{}': {}", project_folder.string(), ec.message()));
       }
-      if (!report.left_out.empty()) {
+      if (!report.left_out.empty() && !listing_only) {
         CORE_LOG_INFO("[COMPILE] : left out {} file(s) that nothing in the project uses, {} bytes in all", report.left_out.size(), report.left_out_bytes);
       }
       return true;
@@ -1129,6 +1175,23 @@ namespace other {
     }
 
   }  // namespace
+
+  std::string_view compile_stage_label(const compile_stage stage) {
+    switch (stage) {
+      case compile_stage::CHECKS: return "checking the project";
+      case compile_stage::VM: return "building the boot program";
+      case compile_stage::SCRIPTS: return "building the scripts";
+      case compile_stage::PIPELINES: return "collecting the pipelines";
+      case compile_stage::SCENE_ASSETS: return "finding what the scenes use";
+      case compile_stage::RUNTIME: return "copying the runtime";
+      case compile_stage::ENGINE: return "copying the engine's files";
+      case compile_stage::PROJECT: return "copying the project";
+      case compile_stage::SCENES: return "writing the scenes";
+      case compile_stage::PLUGINS: return "copying the plugins";
+      case compile_stage::FINISH: return "finishing the package";
+      default: return "working";
+    }
+  }
 
   std::string readable_size(const uint64_t bytes) {
     constexpr uint64_t kKilobyte = 1024;
@@ -1285,6 +1348,28 @@ namespace other {
     }
     preview.vm_sources = std::move(program.sources);
     preview.hooks = std::move(program.hooks);
+    if (!preview.problems.empty()) {
+      return preview;
+    }
+
+    /// what a compile would leave out: the stages a compile decides that with, run with
+    ///  nothing copied. what stops them stops a compile too, so it is a problem here
+    const compile_settings listing = { .project_file = file, .engine = engine_sources{ .root = environment_root() } };
+    compile_run run = { .bus = bus, .settings = listing };
+    run.listing_only = true;
+    if (run.read_project()) {
+      const scoped_project_environment environment(run.engine.root, run.project_name, run.project_folder);
+      if (run.read_package_rules() && run.check_scenes() && run.collect_rendering()) {
+        run.collect_scene_assets();
+        run.vm_sources = preview.vm_sources;
+        run.copy_project();
+      }
+    }
+    preview.problems.append_range(run.report.errors);
+    if (preview.problems.empty()) {
+      preview.left_out = std::move(run.report.left_out);
+      preview.left_out_bytes = run.report.left_out_bytes;
+    }
     return preview;
   }
 
@@ -1327,7 +1412,7 @@ namespace other {
     compile_run run = { .bus = bus, .settings = settings };
 
     /// nothing is written until all of this has passed
-    if (!run.read_project()) {
+    if (!run.enter(compile_stage::CHECKS) || !run.read_project()) {
       return run.report;
     }
     const scoped_project_environment environment(run.engine.root, run.project_name, run.project_folder);
@@ -1343,10 +1428,14 @@ namespace other {
       return run.report;
     }
 
-    bool built = run.build_vm() && run.build_scripts() && run.collect_rendering();
+    bool built = run.enter(compile_stage::VM) && run.build_vm() && run.enter(compile_stage::SCRIPTS) && run.build_scripts() && run.enter(compile_stage::PIPELINES) &&
+      run.collect_rendering() && run.enter(compile_stage::SCENE_ASSETS);
     if (built) {
       run.collect_scene_assets();
-      built = run.copy_runtime() && run.copy_engine() && run.copy_project() && run.write_scenes() && run.copy_plugins() && run.write_project_file() && run.write_runtime_config() && run.swap_in();
+      /// past the start of the last stage a compile is not stopped: the package is whole by then
+      built = run.enter(compile_stage::RUNTIME) && run.copy_runtime() && run.enter(compile_stage::ENGINE) && run.copy_engine() && run.enter(compile_stage::PROJECT) &&
+        run.copy_project() && run.enter(compile_stage::SCENES) && run.write_scenes() && run.enter(compile_stage::PLUGINS) && run.copy_plugins() &&
+        run.enter(compile_stage::FINISH) && run.write_project_file() && run.write_runtime_config() && run.swap_in();
     }
     if (!built) {
       /// a failed compile leaves nothing half-made behind, and the package that was there stays

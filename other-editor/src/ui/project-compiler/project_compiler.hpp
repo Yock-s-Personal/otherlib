@@ -41,6 +41,9 @@ namespace other {
 
       /// the project the fields below were filled from; a different one refills them
       filepath shown_project;
+      /// the project file's revision the fields were last read at; it moves when the file
+      ///  changes on disk
+      uint64_t shown_revision = 0;
       compile_preview preview;
 
       std::array<char, kPathBufferSize> output_buf = {};

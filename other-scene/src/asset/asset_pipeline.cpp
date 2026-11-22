@@ -631,28 +631,19 @@ namespace other {
       filepath project_path = asset_ptr->absolute_path;
       auto& jobs = handler->get_job_system();
 
-      ref<project_tool> build_tool = make_ref<project_tool>();
       ref<job> build_project_job = jobs.submit(
         {
           .name = std::format("Build .NET project '{}'", project_path.string()),
           .priority = job::priority::LOW,
           .thread_affinity = job::affinity::WORKER_THREAD,
         },
-        [t = build_tool, path = project_path]() mutable {
-          OTHER_ASSERT(t != nullptr, "Failed to create project tool for building .NET project.");
+        [path = project_path]() {
           /// csproj generation is a project-creation concern; the resolver refuses a
           //  missing root long before this pipeline runs
           OTHER_ASSERT(std::filesystem::exists(path), "csproj '{}' vanished between resolve and build", path.string());
           PROFILE_SECTION("load_script_project--dotnet-build");
-          t->start_project_build(path);
-
-          do {
-            std::this_thread::yield();
-          } while (t->project_build_in_progress());
-
-          int32_t result = t->get_build_result();
-          t->cleanup_build();
-          t = nullptr;
+          /// a process started from here, no managed build tool: this is a worker thread
+          const int32_t result = project_tool::build_project(path);
 
           if (result == 0) {
             CORE_LOG_DEBUG("Successfully built .NET project '{}'", path.string());
@@ -672,7 +663,6 @@ namespace other {
       }
       CORE_LOG_DEBUG("Successfully loaded built assembly for .NET project '{}'", project_path.string());
 
-      build_tool = nullptr;
       call_pipeline_fn<script_project_pipeline>(pipeline, on_success);
       co_return;
     }

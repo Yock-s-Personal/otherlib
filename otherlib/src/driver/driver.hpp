@@ -197,6 +197,9 @@ namespace other {
 
     void input_event(const input_state_change_event& event);
     void file_event(const struct file_event& event);
+    /// a watched file has changed and has stopped changing: the asset loaded from it is
+    ///  reloaded, or the open project re-reads its file. called by the asset system
+    void handle_file_refresh(const filepath& path);
 
     // void data_received(natural_t id, ostd::vector<uint8_t> data);
     // void new_connection_accepted(natural_t from_connection_id, natural_t connection_id);
@@ -253,7 +256,7 @@ namespace other {
     natural_t add_interface(const std::string_view interface_name, sol::table inteface_table);
     // void add_interface(const std::string_view interface_name, plugin* plugin_ptr);
 
-    void handle_file_refresh(const filepath& path);
+    void note_file_change(const filepath& path);
 
     virtual void on_early_initialize() {}
     virtual void on_initialize() = 0;

@@ -95,7 +95,9 @@ namespace other {
 
       editor_ctx.project_compile.poll();
       take_picked_folder();
-      if (*project_file != shown_project) {
+      /// another project, or the same one with its file changed on disk
+      if (*project_file != shown_project || projects.project_file_revision() != shown_revision) {
+        shown_revision = projects.project_file_revision();
         refresh(*project_file);
       }
 
@@ -117,8 +119,8 @@ namespace other {
         return;
       }
       preview = preview_project_compile(*bus, shown_project);
-      CORE_LOG_DEBUG("[COMPILE] : '{}' would link {} VM source(s) with {} hook handler(s) and draw with {} pipeline(s)", shown_project.string(), preview.vm_sources.size(),
-                     preview.hooks.size(), preview.pipelines.size());
+      CORE_LOG_DEBUG("[COMPILE] : '{}' would link {} VM source(s) with {} hook handler(s), draw with {} pipeline(s) and leave out {} file(s)", shown_project.string(),
+                     preview.vm_sources.size(), preview.hooks.size(), preview.pipelines.size(), preview.left_out.size());
 
       /// what was typed for one project is not carried to the next; a refresh of the same
       ///  one keeps it
@@ -278,6 +280,21 @@ namespace other {
         ImGui::Bullet();
         error_text(problem);
       }
+
+      ImGui::SeparatorText("Left Out");
+      if (preview.left_out.empty()) {
+        ImGui::TextDisabled("Every model, texture, material, sound and scene of the project is used.");
+      } else {
+        const std::string left_out = std::format("{} file(s) that nothing in the project uses will be left out ({}). Name the ones the game loads by path in [package] keep.",
+                                                 preview.left_out.size(), readable_size(preview.left_out_bytes));
+        ImGui::TextWrapped("%s", left_out.c_str());
+        if (ImGui::BeginChild("##will-be-left-out", ImVec2(0.f, kListHeight), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY)) {
+          for (const std::string& name : preview.left_out) {
+            ImGui::TextUnformatted(name.c_str());
+          }
+        }
+        ImGui::EndChild();
+      }
       if (ImGui::SmallButton("Refresh")) {
         refresh(shown_project);
       }
@@ -293,6 +310,18 @@ namespace other {
       }
       ImGui::EndDisabled();
       render_unsaved_prompt();
+
+      if (running) {
+        const compile_session& compile = editor_ctx.project_compile;
+        ImGui::SameLine();
+        ImGui::BeginDisabled(compile.cancelling());
+        if (ImGui::Button(compile.cancelling() ? "Cancelling..." : "Cancel")) {
+          editor_ctx.project_compile.cancel();
+        }
+        ImGui::EndDisabled();
+        const std::string_view stage = compile.stage_label();
+        ImGui::ProgressBar(compile.fraction(), ImVec2(-FLT_MIN, 0.f), std::string{ stage }.c_str());
+      }
 
       if (!running && !reason.empty()) {
         ImGui::SameLine();
@@ -351,6 +380,8 @@ namespace other {
           }
           ImGui::EndChild();
         }
+      } else if (report->cancelled) {
+        ImGui::TextWrapped("The compile was cancelled. Nothing was packaged, and the package that was there is as it was.");
       } else {
         error_text("The project was not packaged.");
       }

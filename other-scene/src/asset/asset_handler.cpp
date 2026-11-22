@@ -557,6 +557,12 @@ namespace other {
     if (std::ranges::find(all_assets, loading_asset->id) == all_assets.end()) {
       all_assets.push_back(loading_asset->id);
     }
+
+    /// begun after the full unload's pass (a material that settles during shutdown asks for
+    ///  its texture): nothing else would take it down, and all_assets_unloaded never came true
+    if (remove_after_unload) {
+      pending_unloads.push(loading_asset->id);
+    }
   }
 
   ostd::unordered_map<natural_t, asset>::iterator asset_handler::begin_unload(natural_t asset_id) {

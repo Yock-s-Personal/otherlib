@@ -102,6 +102,15 @@ namespace other {
     auto* fs = subsystem<file_system>::get();
     OTHER_ASSERT(fs != nullptr, "File system subsystem is not available in asset system tick.");
     fs->poll_files();
+
+    /// one interval without a change is what settled means
+    const settled_changes::result changes = changed_files.check();
+    for (const filepath& path : changes.settled) {
+      get_driver().handle_file_refresh(path);
+    }
+    for (const filepath& path : changes.gone) {
+      CORE_LOG_WARN("'{}' was removed and has not come back; what was loaded from it stays as it is", path.string());
+    }
   }
 
   void asset_system::shutdown(driver_kernel* kernel) {
@@ -131,6 +140,10 @@ namespace other {
 
     asset_mgr->re_resolve(path);
     push_watch_filters();
+  }
+
+  void asset_system::note_file_change(const filepath& path) {
+    changed_files.note(path);
   }
 
   void asset_system::cancel_load_plan() {

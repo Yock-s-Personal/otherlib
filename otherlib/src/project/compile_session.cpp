@@ -24,6 +24,9 @@ namespace other {
     report.reset();
     worker_report = {};
     worker_settings = std::move(settings);
+    progress.stage = compile_stage::CHECKS;
+    progress.cancel_requested = false;
+    worker_settings.progress = &progress;
     finished = false;
     in_flight = true;
 

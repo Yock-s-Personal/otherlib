@@ -6,6 +6,7 @@
 #ifndef OTHERLIB_PROJECT_SCRIPT_ASSEMBLY_HPP
 #define OTHERLIB_PROJECT_SCRIPT_ASSEMBLY_HPP
 
+#include <functional>
 #include <string>
 #include <string_view>
 
@@ -22,6 +23,8 @@ namespace other {
     filepath destination;
     /// also copy the .pdb. a Debug package wants it; a Release build writes one too, and it stays behind
     bool copy_symbols = false;
+    /// asked while the build runs; true ends it, and the result says so in its errors
+    std::function<bool()> should_stop = nullptr;
   };
 
   struct script_assembly_result {

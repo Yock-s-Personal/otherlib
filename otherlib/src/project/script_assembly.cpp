@@ -101,11 +101,15 @@ namespace other {
       .working_directory = csproj.parent_path(),
       .wait_for_exit = true,
       .new_console = false,
+      .should_stop = request.should_stop,
     };
     CORE_LOG_INFO("[PROJECT] : building '{}' ({})", csproj.string(), request.configuration);
     const cli::process_result built = cli::launch_process(launch);
     if (!built.started) {
       return failed(std::format("could not start 'dotnet build': {}", built.error));
+    }
+    if (built.stopped) {
+      return failed(std::format("the build of '{}' was stopped before it finished", csproj.string()));
     }
     if (built.exit_code != 0) {
       script_assembly_result result;

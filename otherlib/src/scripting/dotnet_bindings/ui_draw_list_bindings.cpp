@@ -3,9 +3,16 @@
  **/
 #include "scripting/dotnet_bindings/ui_draw_list_bindings.hpp"
 
+#include <chrono>
+#include <functional>
+#include <string>
+#include <string_view>
+#include <unordered_map>
+
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 
+#include "core/logger.hpp"
 #include "file/path_helpers.hpp"
 
 #include "gpu_resource/texture.hpp"
@@ -25,6 +32,31 @@ namespace other {
 
       /// clip rectangles scripts have pushed and not popped yet
       natural_t open_clip_rects = 0;
+
+      /// what a path a script asked for a texture by led to. a window asks every frame: the
+      ///  answer is kept, so a frame costs one lookup and a path that leads nowhere is an
+      ///  error once and not once a frame
+      struct path_lookup {
+        /// 0 while the path leads to no loaded asset
+        natural_t asset_id = 0;
+        natural_t path_hash = 0;
+        bool reported = false;
+        std::chrono::steady_clock::time_point next_try{};
+      };
+
+      struct text_hash {
+        using is_transparent = void;
+        size_t operator()(const std::string_view text) const { return std::hash<std::string_view>{}(text); }
+      };
+
+      /// a path with no asset behind it is looked for again this often: it may be loading
+      constexpr std::chrono::milliseconds kPathRetryInterval{ 250 };
+
+      /// plain containers: these outlive the arena
+      std::unordered_map<std::string, path_lookup, text_hash, std::equal_to<>>& texture_paths() {
+        static std::unordered_map<std::string, path_lookup, text_hash, std::equal_to<>> paths;
+        return paths;
+      }
 
       void no_size(int32_t* out_width, int32_t* out_height) {
         *out_width = 0;
@@ -152,12 +184,48 @@ namespace other {
       if (d == nullptr || !d->get_kernel().has_core_system<asset_system>()) {
         return 0;
       }
+      asset_system& assets = d->get_kernel().get_core_system<asset_system>();
 
-      const asset_path resolved = resolve_asset_path(path);
-      if (!resolved.found()) {
+      const std::string_view key{ path };
+      auto itr = texture_paths().find(key);
+      if (itr == texture_paths().end()) {
+        itr = texture_paths().emplace(std::string{ key }, path_lookup{}).first;
+      }
+      path_lookup& lookup = itr->second;
+
+      /// the asset the path led to before, unless it has gone or its id is another's now
+      if (lookup.asset_id != 0) {
+        const asset* kept = assets.get_asset(lookup.asset_id);
+        if (kept != nullptr && kept->path_hash == lookup.path_hash) {
+          return native_ui_get_asset_texture(lookup.asset_id, out_width, out_height);
+        }
+        lookup.asset_id = 0;
+      }
+
+      const auto now = std::chrono::steady_clock::now();
+      if (now < lookup.next_try) {
         return 0;
       }
-      const natural_t asset_id = d->get_kernel().get_core_system<asset_system>().get_asset_id_from_path(resolved.resolved);
+      lookup.next_try = now + kPathRetryInterval;
+
+      const asset_path resolved = find_asset_path(path);
+      if (!resolved.found()) {
+        if (!lookup.reported) {
+          lookup.reported = true;
+          CORE_LOG_ERROR("Texture path '{}' {}. Texture will be shown if the path exists.", path, resolved.problem);
+        }
+        return 0;
+      }
+      lookup.reported = false;
+
+      /// a file that is there but is not a loaded asset yet is asked about again in a moment
+      const natural_t asset_id = assets.get_asset_id_from_path(resolved.resolved);
+      const asset* found = asset_id != 0 ? assets.get_asset(asset_id) : nullptr;
+      if (found == nullptr) {
+        return 0;
+      }
+      lookup.asset_id = asset_id;
+      lookup.path_hash = found->path_hash;
       return native_ui_get_asset_texture(asset_id, out_width, out_height);
     }
 

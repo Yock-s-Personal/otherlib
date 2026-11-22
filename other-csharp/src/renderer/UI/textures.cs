@@ -67,7 +67,8 @@ namespace Other.UI
     }
 
     /// a texture asset that is loaded, by the path it was loaded from. the path is read as
-    ///  any asset path is: it may name a mount
+    ///  any asset path is: it may name a mount. a path that leads nowhere is an error in the
+    ///  log once, however often it is asked for
     public static UITexture FromAsset(string path)
     {
       unsafe

@@ -36,7 +36,8 @@ namespace other {
     /// a texture a rendering pipeline holds, by the pipeline's name and the texture's. 0
     ///  when there is none; the size is the texture's, in pixels
     natural_t native_ui_get_pipeline_texture(const char* pipeline, const char* name, int32_t* out_width, int32_t* out_height);
-    /// a loaded texture asset, by its id or by the path it was loaded from
+    /// a loaded texture asset, by its id or by the path it was loaded from. what a path led
+    ///  to is kept, and a path that leads nowhere is an error in the log once
     natural_t native_ui_get_asset_texture(natural_t asset_id, int32_t* out_width, int32_t* out_height);
     natural_t native_ui_get_asset_texture_by_path(const char* path, int32_t* out_width, int32_t* out_height);
     /// an item of that size showing the texture. no texture leaves the item's space empty

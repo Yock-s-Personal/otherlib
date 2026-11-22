@@ -106,7 +106,15 @@ namespace other {
   }
 
   asset_path resolve_asset_path(const std::string_view raw, const filepath& referencing_file) {
-    PROFILE_SECTION("resolve_asset_path");
+    asset_path result = find_asset_path(raw, referencing_file);
+    if (!result.problem.empty()) {
+      CORE_LOG_ERROR("Asset path '{}' {}", raw, result.problem);
+    }
+    return result;
+  }
+
+  asset_path find_asset_path(const std::string_view raw, const filepath& referencing_file) {
+    PROFILE_SECTION("find_asset_path");
     asset_path result = { .raw = std::string{ raw } };
     if (raw.empty()) {
       return result;
@@ -119,14 +127,14 @@ namespace other {
       if (std::filesystem::exists(*mounted)) {
         result.resolved = *mounted;
       } else {
-        CORE_LOG_ERROR("Asset path '{}' does not exist under its mount ({})", raw, mounted->string());
+        result.problem = std::format("does not exist under its mount ({})", mounted->string());
       }
       return result;
     }
 
     /// a mount-qualified path whose mount is missing is an error, not a relative path
     if (const size_t sep = expanded.find(file_system::kPathSeparator); sep != std::string::npos) {
-      CORE_LOG_ERROR("Asset path '{}' names mount '{}', which is not mounted", raw, expanded.substr(0, sep));
+      result.problem = std::format("names mount '{}', which is not mounted", expanded.substr(0, sep));
       return result;
     }
 
@@ -135,7 +143,7 @@ namespace other {
       if (std::filesystem::exists(candidate)) {
         result.resolved = candidate.lexically_normal();
       } else {
-        CORE_LOG_ERROR("Asset path '{}' does not exist ({})", raw, candidate.string());
+        result.problem = std::format("does not exist ({})", candidate.string());
       }
       return result;
     }
@@ -149,7 +157,7 @@ namespace other {
       }
     }
 
-    CORE_LOG_ERROR("Asset path '{}' not found; searched {} roots (first: {})", raw, roots.size(), roots.empty() ? "<none>" : roots.front().string());
+    result.problem = std::format("not found; searched {} roots (first: {})", roots.size(), roots.empty() ? "<none>" : roots.front().string());
     return result;
   }
 

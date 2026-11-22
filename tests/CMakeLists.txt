@@ -18,6 +18,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/core/event_system_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/logger_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/path_helpers_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/asset_path_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/settled_changes_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/exe_adjacent_config_tests.cpp
 

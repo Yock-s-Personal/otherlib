@@ -128,7 +128,7 @@ namespace other {
       in_degree.resize(canvas.nodes.node_names.size(), 0);
       sorted.reserve(in_degree.size());
 
-      std::set<natural_t> no_incoming_edges = {};
+      ostd::set<natural_t> no_incoming_edges = {};
       for (natural_t n = 0; n < canvas.nodes.node_names.size(); ++n) {
         for (const auto& neighbor : adjacency_list[n]) {
           in_degree[neighbor]++;
@@ -139,7 +139,7 @@ namespace other {
       }
 
       /// build list of edges to process
-      ostd::map<natural_t, std::set<natural_t>> edges;
+      ostd::map<natural_t, ostd::set<natural_t>> edges;
       for (const auto& [nid, neighbors] : adjacency_list) {
         for (const auto& neighbor : neighbors) {
           edges[nid].insert(neighbor);

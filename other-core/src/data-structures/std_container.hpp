@@ -1,12 +1,15 @@
 /**
- * \file data-structures/std_containers.hpp
+ * \file data-structures/std_container.hpp
  **/
 #ifndef OTHER_CORE_DATA_STRUCTURES_STD_CONTAINER_HPP
 #define OTHER_CORE_DATA_STRUCTURES_STD_CONTAINER_HPP
 
 #include <map>
-#include <string>
+// #include <string>
+#include <deque>
+#include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "memory/memory_resource.hpp"
@@ -14,6 +17,13 @@
 namespace other {
   namespace ostd {
 
+    template <typename T, typename Cmp = ::std::less<T>>
+    using set = ::std::set<T, Cmp, std_arena_allocator<T>>;
+    template <typename T, typename Hash = ::std::hash<T>, typename Eq = ::std::equal_to<T>>
+    using unordered_set = ::std::unordered_set<T, Hash, Eq, std_arena_allocator<T>>;
+
+    template <typename T>
+    using deque = ::std::deque<T, std_arena_allocator<T>>;
     template <typename T>
     using vector = ::std::vector<T, std_arena_allocator<T>>;
     template <typename T>
@@ -24,7 +34,6 @@ namespace other {
 
     template <typename K, typename V, typename Cmp = ::std::less<K>>
     using map = ::std::map<K, V, Cmp, std_arena_allocator<::std::pair<const K, V>>>;
-
     template <typename K, typename V, typename Hash = ::std::hash<K>, typename Eq = ::std::equal_to<K>>
     using unordered_map = ::std::unordered_map<K, V, Hash, Eq, std_arena_allocator<::std::pair<const K, V>>>;
 

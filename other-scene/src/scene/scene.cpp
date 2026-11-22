@@ -240,6 +240,15 @@ namespace other {
 
     play_snapshot = capture_snapshot();
 
+    /// the snapshot records each object under its runtime id; the generation tells stop()
+    ///  whether the object in that slot is still the one that was captured
+    play_object_generations.clear();
+    for (const natural_t id : get_all_object_ids()) {
+      if (const scene_object* object = find_object(id); object != nullptr) {
+        play_object_generations[id] = object->generation;
+      }
+    }
+
     playing = true;
     if (storage->physics != nullptr) {
       revalidate_physics();  /// restored/edited bodies must match their authored settings before simulating
@@ -308,10 +317,11 @@ namespace other {
     }
 
     CORE_LOG_DEBUG("Restoring scene '{}' to its pre-play state ({} snapshot bytes).", name, play_snapshot.size());
-    /// restore consumes the snapshot — the next play() captures a fresh one
+    /// restore consumes the snapshot - the next play() captures a fresh one
     ostd::vector<uint8_t> snapshot = std::move(play_snapshot);
     play_snapshot.clear();
     restore_snapshot(snapshot);
+    play_object_generations.clear();
   }
 
   ostd::vector<uint8_t> scene::capture_snapshot() {
@@ -334,23 +344,29 @@ namespace other {
     serialization::instantiate_scene(*this, *parsed.document, serialization::default_codec_services());
 
     /// whatever the rebuild did not reclaim was created during play and is not part of
-    ///  the restored state — destroying it now is a genuine removal (Remove fires)
-    if (!preserved_script_objects.empty()) {
+    ///  the restored state - destroying it now is a genuine removal (Remove fires)
+    if (!preserved_script_objects.empty() || !orphaned_script_objects.empty()) {
       auto* script_env = subsystem<scripting_environment>::get();
       OTHER_ASSERT(script_env != nullptr, "Scripting environment is not initialized.");
-      for (const integer_t orphan_id : preserved_script_objects) {
-        CORE_LOG_DEBUG("Destroying script object with ID {} left unclaimed by the restore.", orphan_id);
+      for (const integer_t orphan_id : orphaned_script_objects) {
+        CORE_LOG_DEBUG("Destroying script object with ID {} created during play.", orphan_id);
         script_env->destroy_object(orphan_id);
       }
+      for (const auto& [object_id, script_id] : preserved_script_objects) {
+        CORE_LOG_DEBUG("Destroying script object with ID {} left unclaimed by the restore (object {}).", script_id, object_id);
+        script_env->destroy_object(script_id);
+      }
+      orphaned_script_objects.clear();
       preserved_script_objects.clear();
     }
+    pending_object_source_id = 0;
   }
 
   void scene::destroy_all_non_root_objects() {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scene::destroy_all_non_root_objects");
     const natural_t root_id = root_object().id;
-    /// copy the child list — destroy mutates it
+    /// copy the child list - destroy mutates it
     const ostd::vector<uint64_t> children = get_children_ids(root_id);
     for (const natural_t child_id : children) {
       destroy_object(child_id);
@@ -496,7 +512,7 @@ namespace other {
   physics_body::settings scene::effective_body_settings(natural_t object_id, const physics_component& phys_comp) const {
     physics_body::settings settings = phys_comp.settings;
     /// replica mode: net-registered dynamic bodies build kinematic so interpolated
-    ///  poses drive them — authored settings untouched, role is runtime state
+    ///  poses drive them - authored settings untouched, role is runtime state
     if (storage->network.role == replication_role::REPLICA &&
         storage->network.net_of(object_id).has_value() && settings.body_type == physics_body::DYNAMIC) {
       settings.body_type = physics_body::KINEMATIC;
@@ -575,7 +591,7 @@ namespace other {
       physics_body* a = storage->physics->body_by_id(ev.body_a);
       physics_body* b = storage->physics->body_by_id(ev.body_b);
       if (a == nullptr || b == nullptr) {
-        continue;  /// a side was destroyed the same tick — dropped by contract
+        continue;  /// a side was destroyed the same tick - dropped by contract
       }
 
       const char* method = nullptr;
@@ -1009,6 +1025,30 @@ namespace other {
     storage->tree.destroy_object(id);
   }
 
+  void scene::rename_object(natural_t id, const std::string_view name) {
+    ASSERT_MAIN_THREAD();
+    PROFILE_SECTION("scene::rename_object");
+    if (name.empty()) {
+      CORE_LOG_ERROR("Cannot rename scene object {}: the name is empty.", id);
+      return;
+    }
+
+    scene_object* object = find_object(id);
+    if (object == nullptr) {
+      CORE_LOG_ERROR("Cannot rename scene object {}: it is not in scene '{}'.", id, this->name);
+      return;
+    }
+    object->name = name;
+
+    /// the script object carries the name as a label; keep the two in step
+    const script_component* script = try_get_component<script_component>(id);
+    if (script != nullptr && script->script_object_id >= 0) {
+      auto* script_env = subsystem<scripting_environment>::get();
+      OTHER_ASSERT(script_env != nullptr, "Scripting environment is not initialized.");
+      script_env->rename_object(script->script_object_id, name);
+    }
+  }
+
   bool scene::reparent_object(natural_t id, natural_t new_parent_id) {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scene::reparent_object");
@@ -1076,7 +1116,7 @@ namespace other {
     scene_tree::node* node = storage->tree.node_at(id);
     OTHER_ASSERT(node != nullptr, "Node with the given ID does not exist in the scene storage->tree.");
     /// a reset node means the id outlived its object (snapshot restores reassign runtime
-    ///  ids) — callers that can hold stale ids must resolve through find_object instead
+    ///  ids) - callers that can hold stale ids must resolve through find_object instead
     OTHER_ASSERT(node->object != nullptr, "Scene object with ID {} no longer exists.", id);
     return *node->object;
   }
@@ -1419,7 +1459,7 @@ namespace other {
       }
     });
 
-    static bool instance_overflow_warned = false;
+    bool draw_overflow_warned = false;
     {
       PROFILE_SECTION("scene::prepare_render_data--render_view");
       storage->registry.view<object_handle, render_component>().each([&](const object_handle& handle, render_component& render) {
@@ -1507,11 +1547,20 @@ namespace other {
             draw_material = &imported_materials[sm.material_index];
           }
 
+          /// per-instance slots (tints + model matrices) are fixed arrays of kMaxMaterials, so a
+          ///  full draw rolls over into a new draw for the same key; the map tracks the open one
           auto it = data.mesh_indices.find(key);
-          if (it == data.mesh_indices.end()) {
-            auto [itr, inserted] = data.mesh_indices.insert({ key, data.num_draw_calls++ });
-            OTHER_ASSERT(inserted, "Failed to insert mesh key into map");
+          if (it == data.mesh_indices.end() || data.draw_calls[it->second].instance_count >= gpu::kMaxMaterials) {
+            /// the per-draw rings hold kMaxDrawCalls slots; one more draw would overrun them
+            if (data.num_draw_calls >= renderer::kMaxDrawCalls) {
+              if (!draw_overflow_warned) {
+                CORE_LOG_WARN("Scene needs more than {} draws; extra instances are dropped this frame.", renderer::kMaxDrawCalls);
+                draw_overflow_warned = true;
+              }
+              continue;
+            }
 
+            const size_t draw_index = data.num_draw_calls++;
             data.mesh_keys.emplace_back() = key;
             data.draw_calls.emplace_back() = draw_call{};
             data.draw_materials.emplace_back() = draw_material;
@@ -1519,7 +1568,13 @@ namespace other {
             data.model_buffers.emplace_back() = gpu::model_matrix_buffer{};
             data.bone_buffers.emplace_back() = gpu::bone_matrix_buffer{};
 
-            it = itr;
+            if (it == data.mesh_indices.end()) {
+              auto [itr, inserted] = data.mesh_indices.insert({ key, draw_index });
+              OTHER_ASSERT(inserted, "Failed to insert mesh key into map");
+              it = itr;
+            } else {
+              it->second = draw_index;
+            }
           }
           OTHER_ASSERT(it != data.mesh_indices.end(), "Mesh key not found in map after insertion");
 
@@ -1537,16 +1592,6 @@ namespace other {
             call.index_count = sm.idx_cnt;
 
             call.line_thickness = 1.f;
-          }
-
-          /// per-instance slots (tints + model matrices) are fixed arrays: a dropped instance
-          ///  beats a buffer overrun; a real >kMaxMaterials-instance path is instancing work
-          if (call.instance_count >= gpu::kMaxMaterials) {
-            if (!instance_overflow_warned) {
-              CORE_LOG_WARN("Draw for submesh {} exceeded {} instances; extra instances are dropped this frame.", sm_idx, gpu::kMaxMaterials);
-              instance_overflow_warned = true;
-            }
-            continue;
           }
 
           glm::mat4 world_transform = get_world_transform(handle.id);  // * transform_it->second;
@@ -1743,16 +1788,20 @@ namespace other {
     auto* script_env = subsystem<scripting_environment>::get();
     OTHER_ASSERT(script_env != nullptr, "Scripting environment is not initialized.");
 
-    if (preserving_script_objects) {
-      for (auto it = preserved_script_objects.begin(); it != preserved_script_objects.end(); ++it) {
-        script_object* preserved = script_env->get_object(*it);
-        if (preserved != nullptr && preserved->name == script->object->name) {
-          script->script_object_id = *it;
-          script_env->rebind_dotnet_object(*it, (void*)script->object);
-          preserved_script_objects.erase(it);
-          CORE_LOG_DEBUG("Rebound script object with ID {} for scene object '{}' [ID: {}] (entity {})", script->script_object_id, script->object->name, script->object->id, (natural_t)entity);
-          return;
-        }
+    /// consumed by every creation so a stale id can never reach a later object
+    const natural_t source_id = std::exchange(pending_object_source_id, 0);
+    if (preserving_script_objects && source_id != 0) {
+      /// matched on the snapshot record's id, never the name: same-named objects must each
+      ///  get their own instance back
+      if (const auto it = preserved_script_objects.find(source_id); it != preserved_script_objects.end()) {
+        script->script_object_id = it->second;
+        preserved_script_objects.erase(it);
+
+        /// the object may have been renamed during play; the restored name wins
+        script_env->rename_object(script->script_object_id, script->object->name);
+        script_env->rebind_dotnet_object(script->script_object_id, (void*)script->object);
+        CORE_LOG_DEBUG("Rebound script object with ID {} for scene object '{}' [ID: {}] (entity {})", script->script_object_id, script->object->name, script->object->id, (natural_t)entity);
+        return;
       }
     }
 
@@ -1777,9 +1826,16 @@ namespace other {
 
     script_component& script = storage->registry.get<script_component>(entity);
     if (preserving_script_objects && script.script_object_id >= 0) {
-      /// play-stop restore: the managed instance outlives the native rebuild and is
-      ///  reclaimed by name in on_create_script_component
-      preserved_script_objects.push_back(script.script_object_id);
+      /// play-stop restore: the managed instance outlives the native rebuild and is handed back
+      ///  in on_create_script_component. only an object that existed at capture can be reclaimed;
+      ///  a newer generation means the slot was reused by an object created during play
+      const scene_object* object = script.object;
+      const auto captured = object != nullptr ? play_object_generations.find(object->id) : play_object_generations.end();
+      if (captured != play_object_generations.end() && captured->second == object->generation) {
+        preserved_script_objects[object->id] = script.script_object_id;
+      } else {
+        orphaned_script_objects.push_back(script.script_object_id);
+      }
       return;
     }
     script_env->destroy_object(script.script_object_id);

@@ -60,8 +60,7 @@ namespace other {
       text.set_type(texture::tex_type::TEXTURE_2D)
         .set_format(texture::format::RGBA8)
         .set_size(static_cast<uint32_t>(data.width), static_cast<uint32_t>(data.height))
-        /// mip_levels 0 = full chain (the render_pipeline convention); upload generates the chain
-        .set_mip_levels(0)
+        /// generate_mips has the upload build the full chain, whatever the level count is
         .set_generate_mips(true)
         .set_filter(texture::filter::LINEAR_MIPMAP_LINEAR, texture::filter::LINEAR)
         .set_wrap_mode(texture::wrap::REPEAT, texture::wrap::REPEAT)

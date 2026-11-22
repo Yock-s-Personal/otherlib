@@ -1,8 +1,8 @@
 /**
- * \file driver/systems/driver_system.hpp
+ * \file driver/driver_system.hpp
  **/
-#ifndef OTHERLIB_DRIVER_SYSTEMS_DRIVER_SYSTEM_HPP
-#define OTHERLIB_DRIVER_SYSTEMS_DRIVER_SYSTEM_HPP
+#ifndef OTHERLIB_DRIVER_DRIVER_SYSTEM_HPP
+#define OTHERLIB_DRIVER_DRIVER_SYSTEM_HPP
 
 #include <cstdint>
 
@@ -13,13 +13,12 @@ namespace other {
   class driver;
   class driver_kernel;
 
-  /** \note also defines core-system boot/update order — keep consistent
+  /** \note also defines core-system boot/update order - keep consistent
    **/
   enum driver_system_type : uint32_t {
     /// group 0
     NETWORK_DRIVER_SYSTEM = 0,
     JOB_DRIVER_SYSTEM,
-    PEER_MESH_DRIVER_SYSTEM,
     /// group 1
     EVENT_DRIVER_SYSTEM,
     /// group 2 - might need to use events
@@ -86,4 +85,4 @@ namespace other {
 
 }  // namespace other
 
-#endif  // OTHERLIB_DRIVER_SYSTEMS_DRIVER_SYSTEM_HPP
+#endif  // OTHERLIB_DRIVER_DRIVER_SYSTEM_HPP

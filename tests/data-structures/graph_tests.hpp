@@ -4,9 +4,9 @@
 #ifndef OTHER_TESTS_DATA_STRUCTURES_GRAPH_TESTS_HPP
 #define OTHER_TESTS_DATA_STRUCTURES_GRAPH_TESTS_HPP
 
-#include "other_test.hpp"
-
 #include "data-structures/graph.hpp"
+
+#include "other_test.hpp"
 
 namespace other {
 

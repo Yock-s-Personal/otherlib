@@ -11,6 +11,7 @@
 #include <nlohmann/json.hpp>
 
 #include "core/logger.hpp"
+
 #include "driver/driver.hpp"
 #include "driver/systems/scene_system.hpp"
 
@@ -133,7 +134,7 @@ namespace other {
       live_growth = static_cast<int64_t>(samples.back().arena_live_allocations) - static_cast<int64_t>(samples.front().arena_live_allocations);
       used_growth = static_cast<int64_t>(samples.back().arena_used_memory) - static_cast<int64_t>(samples.front().arena_used_memory);
       memory_ok = live_growth <= static_cast<int64_t>(max_live_allocation_growth) &&
-                  used_growth <= static_cast<int64_t>(max_used_memory_growth_bytes);
+        used_growth <= static_cast<int64_t>(max_used_memory_growth_bytes);
     }
 
     const bool completed = measuring && frames > 0;

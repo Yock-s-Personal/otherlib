@@ -17,9 +17,12 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/core/filesystem_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/event_system_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/logger_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/path_helpers_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/exe_adjacent_config_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/cli_tool_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/scene_tool_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/cli/vm_tool_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/arena/arena_test.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/arena/arena_buffer_test.cpp
@@ -69,16 +72,8 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/assets/file_watcher_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/network/network_thread_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/transport_provider_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/network/slot_registry_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/network/acknowledgement_list_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/peer_mesh_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/network_session_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/replication_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/scene_op_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/scene_mode_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/steam_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/network/transport_conformance_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/network_thread_test_runner.cpp
 
@@ -90,7 +85,19 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/oasm_parsing2_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/ocmd_compiler_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/ocmd_linker_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/obin_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_lexer_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_parser_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_lowering_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_pipeline_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/project_program_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/vm_tests.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/console_log_layout_tests.cpp
+
+    ${CMAKE_CURRENT_SOURCE_DIR}/project/script_assembly_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/project/pipeline_collector_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/project/project_compiler_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scratch_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/other_test_main.cpp

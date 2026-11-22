@@ -23,12 +23,14 @@
 #include "driver/systems/scene_system.hpp"
 #include "ui/menu-bar/menu_item.hpp"
 #include "ui/object-editor/object_editor.hpp"
+#include "ui/project-compiler/project_compiler.hpp"
 #include "ui/project-creator/project_creator.hpp"
+#include "ui/project-overview/project_overview.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
+#include "ui/scene-graph-editor/scene_graph_editor.hpp"
 #include "ui/scene-hierarchy/scene_hierarchy.hpp"
 #include "ui/viewport/viewport.hpp"
-
 
 namespace other {
 
@@ -41,6 +43,9 @@ namespace other {
     ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
+    ui->register_window<ui::scene_graph_editor>("scene-graph-editor", context, *get_event_system(), this);
+    ui->register_window<ui::project_overview>("project-overview", *get_event_system(), this);
+    ui->register_window<ui::project_compiler>("project-compiler", context, *get_event_system(), this);
   }
 
   void editor_driver::on_initialize() {
@@ -240,8 +245,17 @@ namespace other {
     }
   }
 
+  void editor_driver::on_shutdown_request() {
+    PROFILE_SECTION("editor_driver::on_shutdown_request");
+    /// a compile reads the project through its mount and links against the VM's devices. the
+    ///  project is unloaded next and the VM goes soon after, so the compile is waited for here
+    context.project_compile.wait();
+  }
+
   void editor_driver::on_shutdown() {
     PROFILE_SECTION("editor_driver::on_shutdown");
+    /// only a compile started after the shutdown was asked for can still be running
+    context.project_compile.wait();
     context.remove_all_viewports();
   }
 
@@ -249,6 +263,22 @@ namespace other {
     PROFILE_SECTION("editor_driver::update_running");
     auto& kernel = get_kernel();
     auto& rendering_sys = kernel.get_core_system<rendering_system>();
+
+    if (context.pending_scene_activation.has_value()) {
+      const natural_t scene_id = *context.pending_scene_activation;
+      context.pending_scene_activation.reset();
+
+      /// the scene can leave the graph between the click and this update
+      auto& scenes = kernel.get_core_system<scene_system>();
+      if (scenes.get_scene_graph().has_scene(scene_id)) {
+        /// object ids are per scene, a kept selection would point at unrelated objects
+        context.current_selection.objects.clear();
+        scenes.set_scene_to_active(scene_id);
+      } else {
+        CORE_LOG_WARN("Scene with ID {} is no longer in the scene graph; not activating it.", scene_id);
+      }
+    }
+
     auto* s = get_active_scene();
     if (s != nullptr) {
       for (auto& vp : rendering_sys.get_viewports()) {
@@ -343,25 +373,33 @@ namespace other {
     }
   }
 
-  void editor_driver::save_active_scene() {
+  bool editor_driver::save_active_scene() {
     PROFILE_SECTION("editor_driver::save_active_scene");
     scene* s = get_active_scene();
     if (s == nullptr) {
       CORE_LOG_WARN("No active scene to save.");
-      return;
+      return false;
     }
 
     if (!s->source_path.has_value()) {
       CORE_LOG_ERROR("Scene '{}' has no scene document path to save to (in-memory scenes cannot be saved yet).", s->name);
-      return;
+      return false;
+    }
+
+    /// an edit still being made is closed first, so what is written is what is marked as saved
+    if (context.edit_tracker.session_active) {
+      context.edit_tracker.idle_frames = editor_context::scene_edit_tracker::kIdleFramesToCommit;
+      context.tick_edit_tracker();
     }
 
     const serialization::scene_document doc = serialization::capture_scene(*s, serialization::default_codec_services());
-    if (serialization::save_scene_document(doc, *s->source_path)) {
-      CORE_LOG_INFO("Saved scene '{}' to '{}' ({} objects).", s->name, s->source_path->string(), doc.objects.size());
-    } else {
+    if (!serialization::save_scene_document(doc, *s->source_path)) {
       CORE_LOG_ERROR("Failed to save scene '{}' to '{}'.", s->name, s->source_path->string());
+      return false;
     }
+    CORE_LOG_INFO("Saved scene '{}' to '{}' ({} objects).", s->name, s->source_path->string(), doc.objects.size());
+    context.mark_scene_saved();
+    return true;
   }
 
   ostd::vector<selected_draw> editor_driver::get_selection_draws() const {
@@ -377,7 +415,7 @@ namespace other {
     }
 
     for (const auto& obj_id : context.current_selection.objects) {
-      /// selection ids can be stale for a frame around a snapshot restore — skip
+      /// selection ids can be stale for a frame around a snapshot restore - skip
       ///  entries that no longer resolve
       scene_object* selected = scene->find_object(obj_id);
       if (selected == nullptr) {
@@ -390,7 +428,7 @@ namespace other {
         aabb = bounding_box(glm::vec3(-0.5f), glm::vec3(0.5f));
       }
 
-      /// obj_model.source stays null until the model asset finishes its async load —
+      /// obj_model.source stays null until the model asset finishes its async load -
       ///  draw the model outline only once it is ready
       if (render != nullptr && render->obj_model.source != nullptr) {
         const glm::mat4 world = scene->get_world_transform(obj_id);
@@ -433,9 +471,9 @@ namespace other {
     def.textures.push_back({ .name = "depth", .use_window_size = true, .format = texture::format::DEPTHF });
     def.textures.push_back({ .name = "debug_frame", .use_window_size = true, .format = texture::format::RGBA16F });
     def.buffers.push_back({ .name = "camera_buffer", .type = gpu_buffer::UNIFORM_BUFFER, .usage = gpu_buffer::DYNAMIC, .tag = resource_tag(resource_tag::kCameraTag) });
-    def.shaders.push_back({ .name = "blit", .vertex_path = "resources/basic-textured-quad.vert", .fragment_path = "resources/debug-overlay-blit.frag" });
-    def.shaders.push_back({ .name = "debug_overlay", .vertex_path = "resources/debug-overlay.vert", .fragment_path = "resources/debug-overlay.frag" });
-    def.shaders.push_back({ .name = "debug_meshes", .vertex_path = "resources/debug-mesh.vert", .fragment_path = "resources/debug-overlay.frag" });
+    def.shaders.push_back({ .name = "blit", .vertex_path = "engine://resources/basic-textured-quad.vert", .fragment_path = "engine://resources/debug-overlay-blit.frag" });
+    def.shaders.push_back({ .name = "debug_overlay", .vertex_path = "engine://resources/debug-overlay.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
+    def.shaders.push_back({ .name = "debug_meshes", .vertex_path = "engine://resources/debug-mesh.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
 
     def.passes.emplace_back() = {
       .name = "overlay-blit",

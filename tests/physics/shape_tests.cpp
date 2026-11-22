@@ -3,14 +3,14 @@
  *  doc-02 shapes & colliders: desc-driven builds reach the backend, every kind collides,
  *  revalidation reconciles settings/shape/scale edits and restored bodies
  **/
-#include "other_test.hpp"
-
 #include "physics/physics_environment.hpp"
 #include "physics_world/physics_body.hpp"
 #include "physics_world/physics_shape.hpp"
 
 #include "object/physics_component.hpp"
 #include "scene/scene.hpp"
+
+#include "other_test.hpp"
 
 namespace other {
 
@@ -49,6 +49,7 @@ namespace other {
 
     /// unit cube point cloud / triangle list for direct hull/mesh builds (no render model needed)
     static void cube_geometry(ostd::vector<glm::vec3>& positions, ostd::vector<uint32_t>& indices, float half = 0.5f) {
+      // clang-format off
       positions = {
         { -half, -half, -half }, { half, -half, -half }, { half, half, -half }, { -half, half, -half },
         { -half, -half, half }, { half, -half, half }, { half, half, half }, { -half, half, half },
@@ -57,6 +58,7 @@ namespace other {
         0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6, 0, 4, 5, 0, 5, 1,
         3, 2, 6, 3, 6, 7, 0, 3, 7, 0, 7, 4, 1, 5, 6, 1, 6, 2,
       };
+      // clang-format on
     }
   };
 
@@ -118,7 +120,7 @@ namespace other {
     s.play();
     tick(s, 300);
 
-    EXPECT_NEAR(body_y(ball_pc), 1.f, 0.1f);  /// floor top + radius
+    EXPECT_NEAR(body_y(ball_pc), 1.f, 0.1f);    /// floor top + radius
     EXPECT_NEAR(body_y(pill_pc), 1.5f, 0.15f);  /// floor top + half_height + cap radius (upright)
     s.stop();
   }
@@ -129,11 +131,24 @@ namespace other {
     /// static mesh floor built from raw triangles (physics_world entry point takes spans
     ///  directly); jolt triangles are single-sided, so the fixture emits both windings
     ostd::vector<glm::vec3> positions = {
-      { -20.f, 0.f, -20.f }, { 20.f, 0.f, -20.f }, { 20.f, 0.f, 20.f }, { -20.f, 0.f, 20.f },
+      { -20.f, 0.f, -20.f },
+      { 20.f, 0.f, -20.f },
+      { 20.f, 0.f, 20.f },
+      { -20.f, 0.f, 20.f },
     };
     ostd::vector<uint32_t> indices = {
-      0, 2, 1, 0, 3, 2,
-      0, 1, 2, 0, 2, 3,
+      0,
+      2,
+      1,
+      0,
+      3,
+      2,
+      0,
+      1,
+      2,
+      0,
+      2,
+      3,
     };
 
     physics_shape_desc mesh_desc;
@@ -251,7 +266,7 @@ namespace other {
     authored.shape.radius = 1.25f;
     physics_component& pc = s.add_component<physics_component>(&obj, authored);
 
-    s.play();  /// captures the snapshot
+    s.play();                                /// captures the snapshot
     pc.settings = physics_body::settings{};  /// stomp everything mid-play
     s.stop();
     s.reset();  /// restore

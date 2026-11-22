@@ -5,6 +5,7 @@
 #define OTHER_SCENE_SCENE_SCENE_STORAGE_HPP
 
 #include <entt/entt.hpp>
+
 #include <sol/forward.hpp>
 
 #include "core/defines.hpp"

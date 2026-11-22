@@ -4,6 +4,7 @@
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 #include "ui/inspector_widgets.hpp"
 #include "ui/unicode.hpp"
@@ -157,7 +158,7 @@ namespace other {
       };
       struct graph {
         ostd::map<natural_t, editor_node> nodes;
-        ostd::map<natural_t, std::set<natural_t>> edges;
+        ostd::map<natural_t, ostd::set<natural_t>> edges;
       };
       graph g;
 
@@ -290,7 +291,7 @@ namespace other {
     }
 
     /// list of outgoing edges
-    ostd::map<natural_t, std::set<natural_t>> edges;
+    ostd::map<natural_t, ostd::set<natural_t>> edges;
     for (const auto& n1 : nodes) {
       auto& e1 = edges[n1.id];
 
@@ -483,7 +484,7 @@ namespace other {
 
     // void render_pipeline_viewer::save_current() {
     //   OTHER_ASSERT(has_doc, "save with no document");
-    //   OTHER_ASSERT(last_validation.valid, "save reached with invalid def — button should be disabled");
+    //   OTHER_ASSERT(last_validation.valid, "save reached with invalid def - button should be disabled");
 
     //   const list_entry* e = (selected >= 0) ? &entries[selected] : nullptr;
     //   const filepath dst = (e && e->on_disk) ? e->path : default_pipeline_dir() / (working_def.name + ".toml");

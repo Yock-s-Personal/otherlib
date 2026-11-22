@@ -6,7 +6,6 @@
 #include <glm/glm.hpp>
 
 #include "core/profiler.hpp"
-
 #include "math/definitions.hpp"
 
 #include "glm/fwd.hpp"
@@ -29,21 +28,18 @@ namespace other {
       sol::overload(
         [](const glm::vec2& a, const glm::vec2& b) { return a * b; },
         [](const glm::vec2& a, float s) { return a * s; },
-        [](float s, const glm::vec2& a) { return s * a; }
-      ),
+        [](float s, const glm::vec2& a) { return s * a; }),
       sol::meta_function::division,
       sol::overload(
         [](const glm::vec2& a, const glm::vec2& b) { return a / b; },
-        [](const glm::vec2& a, float s) { return a / s; }
-      ),
+        [](const glm::vec2& a, float s) { return a / s; }),
       "x", &glm::vec2::x,
       "y", &glm::vec2::y,
       "dot", [](const glm::vec2& self, const glm::vec2& other) { return glm::dot(self, other); },
       "length", [](const glm::vec2& self) { return glm::length(self); },
       "length_squared", [](const glm::vec2& self) { return glm::dot(self, self); },
       "distance", [](const glm::vec2& self, const glm::vec2& other) { return glm::distance(self, other); },
-      "normalized", [](const glm::vec2& self) { return glm::normalize(self); }
-    );
+      "normalized", [](const glm::vec2& self) { return glm::normalize(self); });
 
     auto vec3_type = lua_state.new_usertype<glm::vec3>(
       "__native_vector3",
@@ -59,13 +55,11 @@ namespace other {
       sol::overload(
         [](const glm::vec3& a, const glm::vec3& b) { return a * b; },
         [](const glm::vec3& a, float s) { return a * s; },
-        [](float s, const glm::vec3& a) { return s * a; }
-      ),
+        [](float s, const glm::vec3& a) { return s * a; }),
       sol::meta_function::division,
       sol::overload(
         [](const glm::vec3& a, const glm::vec3& b) { return a / b; },
-        [](const glm::vec3& a, float s) { return a / s; }
-      ),
+        [](const glm::vec3& a, float s) { return a / s; }),
       "x", &glm::vec3::x,
       "y", &glm::vec3::y,
       "z", &glm::vec3::z,
@@ -74,8 +68,7 @@ namespace other {
       "length", [](const glm::vec3& self) { return glm::length(self); },
       "length_squared", [](const glm::vec3& self) { return glm::dot(self, self); },
       "distance", [](const glm::vec3& self, const glm::vec3& other) { return glm::distance(self, other); },
-      "normalized", [](const glm::vec3& self) { return glm::normalize(self); }
-    );
+      "normalized", [](const glm::vec3& self) { return glm::normalize(self); });
 
     auto vec4_type = lua_state.new_usertype<glm::vec4>(
       "__native_vector4",
@@ -91,13 +84,11 @@ namespace other {
       sol::overload(
         [](const glm::vec4& a, const glm::vec4& b) { return a * b; },
         [](const glm::vec4& a, float s) { return a * s; },
-        [](float s, const glm::vec4& a) { return s * a; }
-      ),
+        [](float s, const glm::vec4& a) { return s * a; }),
       sol::meta_function::division,
       sol::overload(
         [](const glm::vec4& a, const glm::vec4& b) { return a / b; },
-        [](const glm::vec4& a, float s) { return a / s; }
-      ),
+        [](const glm::vec4& a, float s) { return a / s; }),
       "x", &glm::vec4::x,
       "y", &glm::vec4::y,
       "z", &glm::vec4::z,
@@ -106,8 +97,7 @@ namespace other {
       "length", [](const glm::vec4& self) { return glm::length(self); },
       "length_squared", [](const glm::vec4& self) { return glm::dot(self, self); },
       "distance", [](const glm::vec4& self, const glm::vec4& other) { return glm::distance(self, other); },
-      "normalized", [](const glm::vec4& self) { return glm::normalize(self); }
-    );
+      "normalized", [](const glm::vec4& self) { return glm::normalize(self); });
 
     auto* type_db = subsystem<type_database>::get();
     OTHER_ASSERT(type_db != nullptr, "Type database subsystem is not initialized.");

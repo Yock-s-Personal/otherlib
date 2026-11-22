@@ -4,6 +4,7 @@
 #include "ui/scene-hierarchy/scene_hierarchy.hpp"
 
 #include "core/profiler.hpp"
+
 #include "driver/driver.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "theme/colors.hpp"
@@ -109,7 +110,7 @@ namespace other {
 
       draw_hierarchy_context_menu(active_scene);
       if (editor_ctx.has_selection()) {
-        /// the selected id can be stale right after a snapshot restore — no menu for
+        /// the selected id can be stale right after a snapshot restore - no menu for
         ///  ids that no longer resolve
         scene_object* selected = active_scene->find_object(editor_ctx.current_selection.objects.front());
         if (selected != nullptr) {
@@ -156,7 +157,7 @@ namespace other {
           ImGui::SetKeyboardFocusHere();
         }
         if (ImGui::InputText("##rename_input", rename_buf, sizeof(rename_buf), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_AutoSelectAll)) {
-          obj->name = std::string(rename_buf);
+          active_scene->rename_object(obj->id, rename_buf);
           editor_ctx.notify_scene_edited();
           renaming_object_id = 0;
           ImGui::CloseCurrentPopup();

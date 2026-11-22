@@ -143,12 +143,12 @@ namespace other {
     };
 
     struct skeleton_build_ctx {
-      std::set<std::string> rigged_names;       /// node names any aiBone references
+      ostd::set<std::string> rigged_names;      /// node names any aiBone references
       ostd::vector<bone_influence> influences;  /// index-aligned with model_data::vertices
       bool cap_warned = false;
     };
 
-    bool node_contains_bone(const std::set<std::string>& rigged_names, const aiNode* node) {
+    bool node_contains_bone(const ostd::set<std::string>& rigged_names, const aiNode* node) {
       OTHER_ASSERT(node != nullptr, "aiNode is null");
 
       if (rigged_names.contains(node->mName.C_Str())) {
@@ -195,7 +195,7 @@ namespace other {
       return joint_idx;
     }
 
-    /// joints land parents-first (a node emits before recursing) — build_palette depends
+    /// joints land parents-first (a node emits before recursing) - build_palette depends
     ///  on this to complete every chain in one forward pass
     void traverse_bone(const aiNode* node, int16_t parent_idx, skeleton_build_ctx& bctx, skeleton& skel, assimp_import_ctx& ctx) {
       const int16_t joint_idx = emit_joint(node, parent_idx, bctx, skel, ctx);

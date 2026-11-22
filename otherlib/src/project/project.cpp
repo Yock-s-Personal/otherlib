@@ -11,10 +11,10 @@
 #include "core/job_system.hpp"
 #include "core/weak_ref.hpp"
 #include "file/filesystem.hpp"
+#include "file/path_helpers.hpp"
+#include "serialization/scene_serializer.hpp"
 
 #include "script/scripting_environment.hpp"
-
-#include "serialization/scene_serializer.hpp"
 
 #include "driver/driver.hpp"
 #include "driver/systems/asset_system.hpp"
@@ -35,6 +35,27 @@ namespace other {
   project::~project() {
   }
 
+  opt<filepath> project::find_project_file(const filepath& path) {
+    std::error_code ec;
+    if (std::filesystem::is_regular_file(path, ec)) {
+      return path;
+    }
+    if (!std::filesystem::is_directory(path, ec)) {
+      return std::nullopt;
+    }
+
+    /// 'my-game/' ends in an empty part; the folder's name is one step up
+    const filepath folder = path.has_filename() ? path : path.parent_path();
+    for (const std::string_view extension : { ".toml", ".oproj" }) {
+      filepath candidate = folder / folder.filename();
+      candidate += extension;
+      if (std::filesystem::is_regular_file(candidate, ec)) {
+        return candidate;
+      }
+    }
+    return std::nullopt;
+  }
+
   void project::load_from_file(driver_kernel* kernel, const filepath& path) {
     OTHER_ASSERT(kernel != nullptr, "Driver kernel is null in process_project_file.");
 
@@ -45,6 +66,10 @@ namespace other {
 
     auto* fs = subsystem<file_system>::get();
     OTHER_ASSERT(fs != nullptr, "file_system subsystem is not available.");
+
+    load_errors.clear();
+    script_project_failure.reset();
+    prebuilt_assembly.clear();
 
     /// the project root mount anchors every canonical virtual path (=> stable_id) the
     //  resolver produces; it must exist before anything under it is registered or virtualized
@@ -106,22 +131,42 @@ namespace other {
     }
 
     waiting_for_script_load = process_scripting_sections(table, kernel);
-    if (waiting_for_script_load &&
-        (project_scripts.csproject_path.empty() || !std::filesystem::exists(project_scripts.csproject_path))) {
-      CORE_LOG_ERROR("Project's .NET project file '{}' does not exist. Cannot load project scripts.", project_scripts.csproject_path.string());
+    /// a built assembly is loaded as it is; a csproj is built first
+    const bool prebuilt = !prebuilt_assembly.empty();
+    const filepath script_root = prebuilt ? prebuilt_assembly : project_scripts.csproject_path;
+    if (waiting_for_script_load && (script_root.empty() || !std::filesystem::exists(script_root))) {
       waiting_for_script_load = false;
-      project_scripts.csproject_path.clear();
+      /// never resolved, so no asset plan covers it and a rebuild would have nothing to start
+      drop_script_project(prebuilt ? "script assembly does not exist" : "C# project file does not exist", {}, false);
     }
 
+    has_script_project = !project_scripts.csproject_path.empty() || !prebuilt_assembly.empty();
+
     waiting_for_scene_load = process_scene_sections(table);
+
+    /// dropped before anything is resolved or added to the scene graph
+    ostd::vector<natural_t> unusable = {};
+    for (const project::scene& scene_data : scenes_in_project) {
+      if (!std::filesystem::exists(scene_data.path) || !serialization::is_scene_file_extension(scene_data.path.extension().string())) {
+        unusable.push_back(scene_data.scene_id);
+      }
+    }
+    for (const natural_t id : unusable) {
+      drop_scene(id, "scene file is missing or is not a scene document");
+    }
+    waiting_for_scene_load = !scenes_in_project.empty();
 
     /// one resolve over everything the project declares: the csproj (scripts) and every
     //  scene document (models/textures/hook scripts ride the scene's manifest edges)
     ostd::vector<filepath> resolve_roots = {};
-    if (waiting_for_script_load) {
+    if (waiting_for_script_load && prebuilt) {
+      CORE_LOG_INFO("Loading script assembly from '{}'", prebuilt_assembly.string());
+      resolve_roots.push_back(prebuilt_assembly);
+    } else if (waiting_for_script_load) {
       CORE_LOG_INFO("Loading .NET project from '{}'", project_scripts.csproject_path.string());
       resolve_roots.push_back(project_scripts.csproject_path);
     }
+
     for (const project::scene& scene_data : scenes_in_project) {
       if (std::filesystem::exists(scene_data.path) && serialization::is_scene_file_extension(scene_data.path.extension().string())) {
         resolve_roots.push_back(scene_data.path);
@@ -173,6 +218,10 @@ namespace other {
     }
     project_file_handle = nullptr;
     file_buffer.release();
+
+    /// before the unmount: a load still in flight would otherwise dispatch its parent through
+    ///  a virtual path under the mount that is about to go
+    system->cancel_asset_plan();
 
     /// unmounting the project root also drops its domain watcher, so no re_resolve
     //  can arrive between project close and the next resolve_roots
@@ -266,12 +315,21 @@ namespace other {
   }
 
   bool project::refresh_built_script(const filepath& script_asset_path) {
-    if (script_asset_path.extension() != ".dll" || script_asset_path != project_scripts.cs_script_source) {
+    if (script_asset_path.extension() != ".dll") {
+      return false;
+    }
+
+    /// scripts dropped at load never recorded a source; the csproj's own assembly mounts
+    ///  here the first time a rebuild gets through
+    const bool first_mount = script_project_failure.has_value() && script_project_failure->can_retry &&
+      project_scripts.cs_script_source.empty() && script_asset_path.stem() == script_project_failure->csproj_path.stem();
+    if (!first_mount && script_asset_path != project_scripts.cs_script_source) {
       return false;
     }
 
     CORE_LOG_INFO("[PROJECT] Assembly refresh: reattaching '{}'", script_asset_path.string());
     attach_project_dll(script_asset_path);
+    clear_script_failure();
     return true;
   }
 
@@ -281,10 +339,13 @@ namespace other {
     CORE_LOG_DEBUG("[PROJECT] Adding loaded scene with ID '{}'.", scene_id);
 
     it->scene_id = scene_id;
-    it->scene_loaded = true;
-    it->incoming_scenes.clear();
-    it->outgoing_scenes.clear();
-    all_scenes_loaded = std::ranges::all_of(scenes_in_project, [](const scene& s) { return s.incoming_scenes.empty() && s.outgoing_scenes.empty(); });
+    /// two entries can name one scene file, and the scene graph loads it once for both
+    for (scene& entry : scenes_in_project) {
+      if (entry.scene_id == scene_id) {
+        entry.scene_loaded = true;
+      }
+    }
+    all_scenes_loaded = std::ranges::all_of(scenes_in_project, &scene::scene_loaded);
     all_scenes_unloaded = false;
     CORE_LOG_DEBUG(" - scene loaded. all_scenes_loaded: {}", all_scenes_loaded);
   }
@@ -300,6 +361,71 @@ namespace other {
     all_scenes_unloaded = std::ranges::all_of(scenes_in_project, [](const scene& s) { return !s.scene_loaded; });
     all_scenes_loaded = false;
     CORE_LOG_DEBUG(" - scene removed. all_scenes_unloaded: {}", all_scenes_unloaded);
+  }
+
+  void project::drop_scene(natural_t scene_id, const std::string_view reason) {
+    auto it = std::ranges::find(scenes_in_project, scene_id, &scene::scene_id);
+    if (it == scenes_in_project.end()) {
+      return;
+    }
+
+    CORE_LOG_ERROR("[PROJECT] Dropping scene '{}' ({}): {}", it->name, it->path.string(), reason);
+    load_errors.push_back({ .subject = it->name, .message = std::string{ reason } });
+
+    if (starting_scene_id == scene_id) {
+      CORE_LOG_ERROR("[PROJECT] Starting scene '{}' was dropped; no scene will be activated.", it->name);
+      starting_scene_id = 0;
+    }
+
+    scenes_in_project.erase(it);
+    all_scenes_loaded = std::ranges::all_of(scenes_in_project, &scene::scene_loaded);
+  }
+
+  void project::drop_script_project(const std::string_view reason, const std::string_view details, bool can_retry) {
+    /// a built assembly has no csproj: the assembly is what failed, and nothing can rebuild it
+    const bool prebuilt = !prebuilt_assembly.empty();
+    const std::string subject = prebuilt ? prebuilt_assembly.string() : project_scripts.csproject_path.string();
+    CORE_LOG_ERROR("[PROJECT] Dropping script project '{}': {}", subject, reason);
+    load_errors.push_back({ .subject = subject, .message = std::string{ reason } });
+    script_project_failure = script_failure{
+      .csproj_path = project_scripts.csproject_path,
+      .reason = std::string{ reason },
+      .details = std::string{ details },
+      .can_retry = can_retry && !prebuilt,
+    };
+    project_scripts.csproject_path.clear();
+    prebuilt_assembly.clear();
+    has_script_project = false;
+  }
+
+  void project::record_script_failure(const std::string_view reason, const std::string_view details) {
+    CORE_LOG_ERROR("[PROJECT] Script project '{}' failed: {}", script_project_path().string(), reason);
+    /// a dropped project keeps its record: the path and the retry flag still hold
+    if (!script_project_failure.has_value()) {
+      script_project_failure = script_failure{ .csproj_path = project_scripts.csproject_path };
+    }
+    script_project_failure->reason = reason;
+    script_project_failure->details = details;
+  }
+
+  filepath project::script_project_path() const {
+    return script_project_failure.has_value() ?
+      script_project_failure->csproj_path :
+      project_scripts.csproject_path;
+  }
+
+  void project::clear_script_failure() {
+    if (!script_project_failure.has_value()) {
+      return;
+    }
+
+    /// the load error a drop left behind is resolved too
+    const std::string subject = script_project_failure->csproj_path.string();
+    std::erase_if(load_errors, [&subject](const load_error& e) -> bool { return e.subject == subject; });
+
+    project_scripts.csproject_path = script_project_failure->csproj_path;
+    has_script_project = !project_scripts.csproject_path.empty();
+    script_project_failure.reset();
   }
 
   void project::attach_project_dll(const filepath& dll_path) {
@@ -441,6 +567,25 @@ namespace other {
         waiting_for_script_load = true;
       }
     });
+
+    /// a packaged project names the assembly that was built for it. it wins over cs_project,
+    ///  so a project that has both is loaded without a build
+    const auto assembly = scripting_table->get("assembly");
+    if (assembly && assembly->is_string()) {
+      /// written like any asset path: tags are replaced and a mount is followed. with no mount
+      ///  it is a path from the working directory, as cs_project beside it is
+      const std::string written = perform_tag_replacement(assembly->as_string()->get());
+      if (written.contains(file_system::kPathSeparator)) {
+        /// kept as written when the mount or the file is not there, so the error names it
+        const asset_path mounted = resolve_asset_path(written);
+        prebuilt_assembly = mounted.found() ? mounted.resolved : filepath{ written };
+      } else {
+        prebuilt_assembly = written;
+      }
+      project_scripts.csproject_path.clear();
+      waiting_for_script_load = true;
+      CORE_LOG_DEBUG("Project script assembly set to '{}'; no C# project will be built", prebuilt_assembly.string());
+    }
 
     auto rc_path = scripting_table->get("projectrc-path");
     if (rc_path && rc_path->is_string()) {

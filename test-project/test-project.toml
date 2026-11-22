@@ -5,9 +5,7 @@ metadata = [
   { key = "author", value = "N/A"},
   { key = "version", value = "0.1.0"} 
 ]
-plugins = [
-  { name = "Network Simulation", path = "build/test-project/${build-config}/net_sim_plugin.dll" }
-]
+# plugins = []
 
 [filesystem]
 working-directory = "test-project"

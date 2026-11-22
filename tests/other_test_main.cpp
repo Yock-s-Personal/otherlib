@@ -1,18 +1,17 @@
 /**
- * \file tests/test_main.cpp
+ * \file tests/other_test_main.cpp
  **/
-#include <gtest/gtest.h>
-
 #include <iostream>
+
+#include <gtest/gtest.h>
 
 #include <Windows.h>
 
 #include "core/logger.hpp"
 #include "core/profiler_backend.hpp"
-
-#include "audio/audio_environment.hpp"
 #include "thread/thread_safety.hpp"
 
+#include "audio/audio_environment.hpp"
 #include "other_test.hpp"
 
 using other::command_line;
@@ -20,13 +19,13 @@ using other::config_table;
 using other::exit_code;
 
 /// have to define for linking
-exit_code other_main(const command_line& cmd, const config_table& config) { return exit_code::FAILURE; }
+exit_code other_main(const command_line& cmd, const config_table& config, const other::subsystem_registry& registry) { return exit_code::FAILURE; }
 extern "C" {
 other::driver* otherlib_create_driver(const other::command_line* cmd, const other::config_table* config) { return nullptr; }
 void otherlib_destroy_driver(other::driver* instance) {}
 }
 
-/// gtest's SEH guard only covers faults raised on the test's own thread — a fault on a
+/// gtest's SEH guard only covers faults raised on the test's own thread - a fault on a
 ///  background thread (net pump, script finalizers) kills the process silently without this
 static LONG WINAPI report_unhandled_seh(EXCEPTION_POINTERS* info) {
   const uint32_t code = info != nullptr && info->ExceptionRecord != nullptr ? info->ExceptionRecord->ExceptionCode : 0;

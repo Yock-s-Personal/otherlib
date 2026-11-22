@@ -10,7 +10,6 @@
 
 #include "message/message_serialization.hpp"
 
-
 namespace other {
 
   enum class mesh_message : uint16_t {

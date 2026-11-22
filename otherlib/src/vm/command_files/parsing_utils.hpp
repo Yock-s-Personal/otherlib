@@ -22,6 +22,8 @@ namespace other {
         token{ TOKEN_TYPE_INVALID, "", source_span{ { 0, 0 }, { 0, 0 } } },
         token{ TOKEN_TYPE_INVALID, "", source_span{ { 0, 0 }, { 0, 0 } } }
       };
+      /// where the instruction's keyword is in the source; all zero for one the parser adds itself
+      source_span span = {};
     };
     struct jump_label_ir {
       std::string name;

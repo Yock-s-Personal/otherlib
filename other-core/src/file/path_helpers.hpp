@@ -46,6 +46,22 @@ namespace other {
 
   }  // namespace detail
 
+  struct asset_path {
+    std::string raw;
+    filepath resolved;
+
+    inline bool found() const { return !resolved.empty(); }
+  };
+
+  std::string to_mount_qualified(const filepath& abs);
+
+  /// the id a saved document gives a file: to_mount_qualified, except that a file both the
+  ///  working directory and the engine's mount hold is named through the engine's. a game
+  ///  is not started where the editor was, and a package has the engine's files under engine/
+  std::string to_saved_asset_path(const filepath& abs);
+
+  asset_path resolve_asset_path(const std::string_view raw, const filepath& referencing_file = {});
+
   std::string normalize_lexical(const filepath& p);
 
   opt<std::string> try_relative(const filepath& path, const filepath& base);
@@ -58,6 +74,12 @@ namespace other {
 
   bool is_under_any_project_mount(const filepath& path);
   bool is_environment_owned(const filepath& path);
+  bool is_packaged_layout(const filepath& path);
+
+  filepath environment_root_for(const filepath& exe);
+  filepath environment_root();
+  bool is_installed_build();
+  bool is_packaged_build();
 
 }  // namespace other
 

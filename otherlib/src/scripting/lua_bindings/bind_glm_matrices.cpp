@@ -8,7 +8,6 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "core/profiler.hpp"
-
 #include "math/definitions.hpp"
 
 namespace other {
@@ -20,8 +19,7 @@ namespace other {
       sol::constructors<
         glm::mat2(),
         glm::mat2(float),
-        glm::mat2(const glm::vec2&, const glm::vec2&)>()
-    );
+        glm::mat2(const glm::vec2&, const glm::vec2&)>());
 
     mat2_type[sol::meta_function::addition] = [](const glm::mat2& a, const glm::mat2& b) {
       return a + b;
@@ -37,8 +35,7 @@ namespace other {
       [](const glm::mat2& a, const glm::vec2& v) { return a * v; },
       [](const glm::vec2& v, const glm::mat2& a) { return v * a; },
       [](const glm::mat2& a, float s) { return a * s; },
-      [](float s, const glm::mat2& a) { return s * a; }
-    );
+      [](float s, const glm::mat2& a) { return s * a; });
     mat2_type[sol::meta_function::division] = [](const glm::mat2& a, float s) {
       return a / s;
     };
@@ -52,8 +49,7 @@ namespace other {
       sol::constructors<
         glm::mat3(),
         glm::mat3(float),
-        glm::mat3(const glm::vec3&, const glm::vec3&, const glm::vec3&)>()
-    );
+        glm::mat3(const glm::vec3&, const glm::vec3&, const glm::vec3&)>());
 
     mat3_type[sol::meta_function::addition] = [](const glm::mat3& a, const glm::mat3& b) {
       return a + b;
@@ -69,8 +65,7 @@ namespace other {
       [](const glm::mat3& a, const glm::vec3& v) { return a * v; },
       [](const glm::vec3& v, const glm::mat3& a) { return v * a; },
       [](const glm::mat3& a, float s) { return a * s; },
-      [](float s, const glm::mat3& a) { return s * a; }
-    );
+      [](float s, const glm::mat3& a) { return s * a; });
     mat3_type[sol::meta_function::division] = [](const glm::mat3& a, float s) {
       return a / s;
     };
@@ -84,8 +79,7 @@ namespace other {
       sol::constructors<
         glm::mat4(),
         glm::mat4(float),
-        glm::mat4(const glm::vec4&, const glm::vec4&, const glm::vec4&, const glm::vec4&)>()
-    );
+        glm::mat4(const glm::vec4&, const glm::vec4&, const glm::vec4&, const glm::vec4&)>());
 
     mat4_type[sol::meta_function::addition] = [](const glm::mat4& a, const glm::mat4& b) {
       return a + b;
@@ -101,8 +95,7 @@ namespace other {
       [](const glm::mat4& a, const glm::vec4& v) { return a * v; },
       [](const glm::vec4& v, const glm::mat4& a) { return v * a; },
       [](const glm::mat4& a, float s) { return a * s; },
-      [](float s, const glm::mat4& a) { return s * a; }
-    );
+      [](float s, const glm::mat4& a) { return s * a; });
     mat4_type[sol::meta_function::division] = [](const glm::mat4& a, float s) {
       return a / s;
     };

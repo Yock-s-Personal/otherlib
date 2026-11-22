@@ -83,6 +83,8 @@ namespace other {
             }
           }
 
+          /// a play-stop restore reads this to give the rebuilt object its managed instance back
+          s.set_pending_object_source_id(record.file_id);
           scene_object& object = s.create_object(record.name, parent);
           id_remap[record.file_id] = object.id;
           object.visible = record.visible;
@@ -218,7 +220,7 @@ namespace other {
       }
 
       ostd::vector<std::string> warnings = {};
-      std::set<natural_t> seen_ids = {};
+      ostd::set<natural_t> seen_ids = {};
       {
         PROFILE_SECTION("parse_scene_binary--objects");
         for (uint32_t i = 0; i < object_count; ++i) {
@@ -356,7 +358,7 @@ namespace other {
         }
       }
 
-      std::set<natural_t> seen_ids = {};
+      ostd::set<natural_t> seen_ids = {};
       natural_t next_synthetic_id = 1;
       if (const toml::array* objects = root.get_as<toml::array>("objects"); objects != nullptr) {
         PROFILE_SECTION("parse_scene_toml--objects");
@@ -482,6 +484,26 @@ namespace other {
         }
       }
       return refs;
+    }
+
+    size_t rewrite_scene_asset_refs(scene_document& doc, const asset_path_rewrite_fn& rewrite) {
+      PROFILE_SECTION("rewrite_scene_asset_refs");
+      OTHER_ASSERT(rewrite != nullptr, "rewrite_scene_asset_refs needs a function to rewrite with");
+      size_t changed = 0;
+      const asset_path_rewrite_fn counted = [&](const std::string& path) -> std::string {
+        std::string replacement = rewrite(path);
+        changed += replacement != path ? 1 : 0;
+        return replacement;
+      };
+      for (object_record& object : doc.objects) {
+        for (component_record& component : object.components) {
+          const component_codec* codec = find_component_codec(component.key_hash);
+          if (codec != nullptr && codec->rewrite_asset_refs != nullptr) {
+            component.payload = codec->rewrite_asset_refs(component.payload, counted);
+          }
+        }
+      }
+      return changed;
     }
 
   }  // namespace serialization

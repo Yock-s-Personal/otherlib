@@ -6,8 +6,9 @@
 #include <filesystem>
 #include <format>
 
-#include <miniaudio/miniaudio.h>
 #include <toml++/toml.hpp>
+
+#include <miniaudio/miniaudio.h>
 
 #include "core/profiler.hpp"
 

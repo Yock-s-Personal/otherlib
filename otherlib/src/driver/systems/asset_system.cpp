@@ -4,14 +4,14 @@
 #include "driver/systems/asset_system.hpp"
 
 #include "file/filesystem.hpp"
+#include "file/path_helpers.hpp"
+#include "serialization/component_codec.hpp"
 
 #include "scene/scene.hpp"
-#include "serialization/component_codec.hpp"
 
 #include "driver/driver.hpp"
 #include "driver/driver_mounts.hpp"
 #include "driver/systems/job_driver_system.hpp"
-#include "driver/systems/network_system.hpp"
 
 namespace other {
 
@@ -31,16 +31,18 @@ namespace other {
         CORE_LOG_WARN("Scene serialization referenced unknown asset id {}; storing an empty path.", asset_id);
         return "";
       }
-      const filepath& path = !ass->load_path.empty() ? ass->load_path : ass->virtual_path;
-      return path.generic_string();
+
+      if (ass->absolute_path.empty()) {
+        return ass->virtual_path.generic_string();
+      }
+      return to_saved_asset_path(ass->absolute_path);
     };
-    scene_codec_services.resolve_asset = [this](const std::string& path) -> natural_t {
-      filepath asset_path = path;
-      if (!std::filesystem::exists(asset_path) && !std::filesystem::exists(std::filesystem::absolute(asset_path))) {
-        CORE_LOG_ERROR("Scene document references asset '{}' which does not exist.", path);
+    scene_codec_services.resolve_asset = [this](const std::string& path, const filepath& document) -> natural_t {
+      const asset_path resolved = resolve_asset_path(path, document);
+      if (!resolved.found()) {
         return 0;
       }
-      return begin_asset_load(asset_path);
+      return begin_asset_load(resolved.resolved);
     };
 
     watch_assets = get_driver().get_config_value<bool>("filesystem.watch-assets", false);
@@ -81,7 +83,10 @@ namespace other {
   void asset_system::tick(driver_kernel* kernel, double dt) {
     PROFILE_SECTION("asset_system::tick");
     asset_mgr->update_pipelines();
-    if (asset_mgr->all_assets_unloaded()) {
+    /// once, when a requested full unload has drained. not on any tick with nothing held:
+    ///  that is also true at start-up, before anything has begun loading
+    if (full_unload_requested && !full_unload_confirmed && asset_mgr->all_assets_unloaded()) {
+      full_unload_confirmed = true;
       get_driver().get_event_system()->trigger_event("assets.all-assets-unloaded");
     }
 
@@ -128,6 +133,11 @@ namespace other {
     push_watch_filters();
   }
 
+  void asset_system::cancel_load_plan() {
+    OTHER_ASSERT(asset_mgr != nullptr, "Asset manager is not initialized in driver.");
+    asset_mgr->cancel_plan();
+  }
+
   natural_t asset_system::begin_asset_load(const filepath& asset_path) {
     OTHER_ASSERT(asset_mgr != nullptr, "Asset manager is not initialized in driver.");
     PROFILE_SECTION("asset_system::begin_asset_load");
@@ -172,7 +182,7 @@ namespace other {
     OTHER_ASSERT(fs != nullptr, "File system subsystem is not available while pushing watch filters.");
 
     /// domain glob_sets are replace-registered on every re-parse, so the pointers must be
-    //  re-pushed after every resolve/re_resolve — stale filters would let bin/ churn through
+    //  re-pushed after every resolve/re_resolve - stale filters would let bin/ churn through
     for (const manifest_domain& d : asset_mgr->manifest_domains()) {
       fs->apply_watch_filter(d.root_abs, &d.set);
     }
@@ -195,6 +205,8 @@ namespace other {
 
   void asset_system::begin_full_unload() {
     CORE_LOG_DEBUG("Beginning full unload of all assets.");
+    full_unload_requested = true;
+    full_unload_confirmed = false;
     asset_mgr->begin_unload();
   }
 

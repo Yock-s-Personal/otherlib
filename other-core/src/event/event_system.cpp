@@ -21,7 +21,7 @@ namespace other {
       natural_t event_id;
       asio::steady_timer timer;
     };
-    std::deque<event_timer> entries;
+    ostd::deque<event_timer> entries;
   };
 
   event_system::event_system(asio::io_context& io_ctx)
@@ -45,7 +45,7 @@ namespace other {
     CORE_LOG_INFO("Cleared all events and listeners");
   }
 
-  /** \note never log inside trigger_event — log sinks trigger events too, so logging here can deadlock
+  /** \note never log inside trigger_event - log sinks trigger events too, so logging here can deadlock
       \todo add an event log/history of events without risking that deadlock **/
 
   void event_system::trigger_event(const std::string_view name) {

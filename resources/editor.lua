@@ -9,6 +9,7 @@ Other:Driver():AddMainMenuBarMenu(
         { Name = "New Project", Action = function() Other:Driver().TriggerEvent("project.new-project") end },
         { Name = "Open Project", Action = function() Other:Driver().TriggerEvent("project.open-project") end },
         { Name = "Save Project", Action = function() Other:Driver().TriggerEvent("project.save-project") end },
+        { Name = "Compile...", Action = function() Other:Driver():OpenWindow("project-compiler") end },
       }
     },
     -- { 
@@ -26,6 +27,8 @@ Other:Driver():OpenWindow("console")
 Other:Driver():OpenWindow("viewport")
 Other:Driver():OpenWindow("scene-hierarchy")
 Other:Driver():OpenWindow("object-editor")
+Other:Driver():OpenWindow("scene-graph-editor")
+Other:Driver():OpenWindow("project-overview")
 -- Other:Driver():OpenWindow("render-pipeline-editor")
 
 -- Other:Console():RegisterConsoleCommand("testcmd", "A test command that prints its arguments", function(...)

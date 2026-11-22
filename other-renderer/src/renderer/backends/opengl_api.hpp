@@ -1,5 +1,5 @@
 /**
- * @file renderer/backends/opengl_api.hpp
+ * \file renderer/backends/opengl_api.hpp
  */
 #ifndef OTHER_RENDERER_RENDERER_BACKENDS_OPENGL_API_HPP
 #define OTHER_RENDERER_RENDERER_BACKENDS_OPENGL_API_HPP
@@ -81,6 +81,7 @@ namespace other {
     void bind_image(const resource_handle& handle, uint32_t index, uint32_t level, bool layered, int32_t layer, texture::format frmt, access_flags flags) override;
     void* get_texture_gpu_resource(const resource_handle& handle) override;
     void blit_texture(const blit_data& src, const blit_data& dest, const glm::ivec3& size) override;
+    void present_texture(const resource_handle& handle) override;
 
     void bind_buffer_resource(const resource_handle& handle, gpu_buffer::buf_type type) override;
     void unbind_buffer_resource(const resource_handle& handle) override;
@@ -158,6 +159,7 @@ namespace other {
     ostd::map<natural_t, ostd::vector<uint32_t>> framebuffer_msaa_color_rbs;
     ostd::map<natural_t, uint32_t> framebuffer_msaa_depth_rbs;
     natural_t current_pass_framebuffer_id = 0;
+    uint32_t present_framebuffer = 0;
 
     int32_t get_gpu_api_window_flags() const override;
 

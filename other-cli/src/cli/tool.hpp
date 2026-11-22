@@ -1,8 +1,8 @@
 /**
  * \file cli/tool.hpp
  **/
-#ifndef OTHER_CLI_TOOL_HPP
-#define OTHER_CLI_TOOL_HPP
+#ifndef OTHER_CLI_CLI_TOOL_HPP
+#define OTHER_CLI_CLI_TOOL_HPP
 
 #include <format>
 #include <functional>
@@ -37,8 +37,10 @@ namespace other {
       filepath working_directory = "";
       environment_paths env = {};
 
-      std::function<void(std::string_view)> out = [](std::string_view) {};
-      std::function<void(std::string_view)> err = [](std::string_view) {};
+      std::function<void(std::string_view)> out = [](std::string_view) {
+      };
+      std::function<void(std::string_view)> err = [](std::string_view) {
+      };
 
       template <typename... Args>
       void print(std::format_string<Args...> fmt, Args&&... args) const {
@@ -68,4 +70,4 @@ namespace other {
   }  // namespace cli
 }  // namespace other
 
-#endif  // OTHER_CLI_TOOL_HPP
+#endif  // OTHER_CLI_CLI_TOOL_HPP

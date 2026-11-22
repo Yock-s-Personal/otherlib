@@ -167,11 +167,12 @@ namespace other {
     EXPECT_NO_FATAL_FAILURE(env->destroy_object(parent_id));
   }
 
-  /// snapshot restore (undo/redo, play/stop) destroys the parent slot and rebuilds under the
-  ///  same names; behavior slots must release with it or the rebuild collides with leaked names
+  /// snapshot restore (undo/redo, play/stop) destroys the parent slot and rebuilds it; behavior
+  ///  slots must release with it or every rebuild leaks a managed object
   TEST_F(script_environment_tests, destroy_parent_releases_behaviors_for_rebuild) {
     auto* env = subsystem<scripting_environment>::get();
     ASSERT_NE(env, nullptr);
+    const size_t baseline = env->get_dotnet_host().managed_object_count();
 
     for (int cycle = 0; cycle < 3; ++cycle) {
       integer_t parent_id = -1;
@@ -184,8 +185,6 @@ namespace other {
       ASSERT_NE(parent->dotnet_object, nullptr);
 
       EXPECT_NO_FATAL_FAILURE(env->attach_dotnet_behavior(parent_id, "TestBehavior"));
-      /// an empty handle list here means the managed name from the previous cycle leaked
-      ///  and the behavior failed to instantiate
       ASSERT_EQ(parent->behavior_handles.size(), 1u) << "cycle " << cycle;
 
       const integer_t behavior_id = parent->behavior_handles[0].script_object_id;
@@ -197,7 +196,147 @@ namespace other {
 
       /// scene teardown destroys only the parent's slot
       EXPECT_NO_FATAL_FAILURE(env->destroy_object(parent_id));
+      /// names no longer collide, so a leaked behavior shows up as a count that keeps growing
+      EXPECT_EQ(env->get_dotnet_host().managed_object_count(), baseline) << "cycle " << cycle;
     }
+  }
+
+  /// managed objects are keyed by a handle, so a name is free to repeat: across scenes and
+  ///  inside one. the second object used to fail with "already exists"
+  TEST_F(script_environment_tests, same_named_objects_each_own_a_managed_object) {
+    auto* env = subsystem<scripting_environment>::get();
+    ASSERT_NE(env, nullptr);
+    const size_t baseline = env->get_dotnet_host().managed_object_count();
+
+    const integer_t first_id = env->create_object("Twin");
+    const integer_t second_id = env->create_object("Twin");
+    ASSERT_GE(first_id, 0);
+    ASSERT_GE(second_id, 0);
+    ASSERT_NE(first_id, second_id);
+
+    env->attach_dotnet_object(first_id, "TestParentObject");
+    env->attach_dotnet_object(second_id, "TestParentObject");
+
+    script_object* first = env->get_object(first_id);
+    script_object* second = env->get_object(second_id);
+    ASSERT_NE(first, nullptr);
+    ASSERT_NE(second, nullptr);
+    ASSERT_NE(first->dotnet_object, nullptr);
+    ASSERT_NE(second->dotnet_object, nullptr) << "the second object lost its managed object to the shared name";
+    EXPECT_NE(first->dotnet_object, second->dotnet_object);
+    EXPECT_NE(first->dotnet_object->handle, second->dotnet_object->handle);
+    EXPECT_EQ(env->get_dotnet_host().managed_object_count(), baseline + 2);
+
+    /// a behavior is labelled after its parent, so its label repeats too
+    env->attach_dotnet_behavior(first_id, "TestBehavior");
+    env->attach_dotnet_behavior(second_id, "TestBehavior");
+    ASSERT_EQ(first->behavior_handles.size(), 1u);
+    ASSERT_EQ(second->behavior_handles.size(), 1u);
+    EXPECT_EQ(first->dotnet_object->invoke<int>("CountBehaviors"), 1);
+    EXPECT_EQ(second->dotnet_object->invoke<int>("CountBehaviors"), 1);
+    EXPECT_EQ(env->get_dotnet_host().managed_object_count(), baseline + 4);
+
+    /// destroying one must leave the other's managed objects alone
+    env->destroy_object(first_id);
+    ASSERT_NE(second->dotnet_object, nullptr);
+    EXPECT_EQ(second->dotnet_object->invoke<int>("CountBehaviors"), 1);
+    EXPECT_EQ(env->get_dotnet_host().managed_object_count(), baseline + 2);
+
+    env->destroy_object(second_id);
+    EXPECT_EQ(env->get_dotnet_host().managed_object_count(), baseline);
+  }
+
+  /// a parent can lack its managed object (type missing, constructor threw); the behavior is
+  ///  dropped with an error. this used to abort the process
+  TEST_F(script_environment_tests, behavior_attach_without_managed_parent_is_not_fatal) {
+    auto* env = subsystem<scripting_environment>::get();
+    ASSERT_NE(env, nullptr);
+
+    const integer_t parent_id = env->create_object("Unmanaged");
+    ASSERT_GE(parent_id, 0);
+    script_object* parent = env->get_object(parent_id);
+    ASSERT_NE(parent, nullptr);
+    ASSERT_EQ(parent->dotnet_object, nullptr);
+
+    env->attach_dotnet_behavior(parent_id, "TestBehavior");
+    EXPECT_TRUE(parent->behavior_handles.empty());
+
+    env->detach_dotnet_behavior(parent_id, "TestBehavior");
+    EXPECT_TRUE(parent->behavior_handles.empty());
+
+    env->destroy_object(parent_id);
+  }
+
+  /// a missing type (the project assembly failed to build) leaves an invalid handle, not
+  ///  nothing: scene capture reads behavior names from the handles, so dropping it would
+  ///  erase the behavior from the next saved scene
+  TEST_F(script_environment_tests, behavior_with_missing_type_keeps_an_invalid_handle) {
+    auto* env = subsystem<scripting_environment>::get();
+    ASSERT_NE(env, nullptr);
+
+    const integer_t parent_id = env->create_object("MissingTypeParent");
+    ASSERT_GE(parent_id, 0);
+    env->attach_dotnet_object(parent_id, "TestParentObject");
+    script_object* parent = env->get_object(parent_id);
+    ASSERT_NE(parent, nullptr);
+    ASSERT_NE(parent->dotnet_object, nullptr);
+
+    env->attach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
+    ASSERT_EQ(parent->behavior_handles.size(), 1u);
+    EXPECT_EQ(parent->behavior_handles[0].type_name, "NoSuchBehaviorType");
+    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+    EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 0);
+
+    /// attach stays idempotent per type, and a refresh that still lacks the type changes nothing
+    env->attach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
+    EXPECT_EQ(parent->behavior_handles.size(), 1u);
+    env->reattach_invalidated_dotnet_behaviors();
+    ASSERT_EQ(parent->behavior_handles.size(), 1u);
+    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+
+    /// a type that exists attaches beside it and the unresolved one can still be removed
+    env->attach_dotnet_behavior(parent_id, "TestBehavior");
+    ASSERT_EQ(parent->behavior_handles.size(), 2u);
+    EXPECT_GE(parent->behavior_handles[1].script_object_id, 0);
+
+    env->detach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
+    ASSERT_EQ(parent->behavior_handles.size(), 1u);
+    EXPECT_EQ(parent->behavior_handles[0].type_name, "TestBehavior");
+    EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 1);
+
+    env->destroy_object(parent_id);
+  }
+
+  /// a name is a label: renaming updates it everywhere without replacing the managed object
+  TEST_F(script_environment_tests, rename_updates_object_and_behavior_labels) {
+    auto* env = subsystem<scripting_environment>::get();
+    ASSERT_NE(env, nullptr);
+
+    const integer_t id = env->create_object("Before");
+    ASSERT_GE(id, 0);
+    env->attach_dotnet_object(id, "TestParentObject");
+    env->attach_dotnet_behavior(id, "TestBehavior");
+
+    script_object* obj = env->get_object(id);
+    ASSERT_NE(obj, nullptr);
+    ASSERT_NE(obj->dotnet_object, nullptr);
+    ASSERT_EQ(obj->behavior_handles.size(), 1u);
+    script_object* behavior = env->get_object(obj->behavior_handles[0].script_object_id);
+    ASSERT_NE(behavior, nullptr);
+    ASSERT_NE(behavior->dotnet_object, nullptr);
+    EXPECT_EQ(behavior->name, "Before__behavior__TestBehavior");
+    const natural_t handle = obj->dotnet_object->handle;
+
+    env->rename_object(id, "After");
+
+    EXPECT_EQ(obj->name, "After");
+    EXPECT_EQ(obj->dotnet_object->object_name, "After");
+    EXPECT_EQ(obj->dotnet_object->handle, handle);
+    EXPECT_EQ(behavior->name, "After__behavior__TestBehavior");
+    EXPECT_EQ(behavior->dotnet_object->object_name, "After__behavior__TestBehavior");
+    EXPECT_EQ(obj->dotnet_object->invoke<int>("CountBehaviors"), 1);
+
+    env->destroy_object(id);
   }
 
 }  // namespace other

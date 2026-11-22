@@ -1,8 +1,8 @@
 /**
  * \file ui/script/script_property_widget.hpp
  **/
-#ifndef OTHERLIB_UI_SCRIPT_PROPERTY_WIDGET_HPP
-#define OTHERLIB_UI_SCRIPT_PROPERTY_WIDGET_HPP
+#ifndef OTHERLIB_UI_SCRIPT_SCRIPT_PROPERTY_WIDGET_HPP
+#define OTHERLIB_UI_SCRIPT_SCRIPT_PROPERTY_WIDGET_HPP
 
 #include <string>
 
@@ -85,7 +85,7 @@ namespace other {
                   continue;
                 }
               } else if (!current_group.empty() && !has_flag(field.flags, behavior_display_flags::IS_GROUP_START)) {
-                /// still inside a group — skip if group is collapsed
+                /// still inside a group - skip if group is collapsed
                 if (!group_open) {
                   continue;
                 }
@@ -116,4 +116,4 @@ namespace other {
   }  // namespace ui
 }  // namespace other
 
-#endif  // OTHERLIB_UI_SCRIPT_PROPERTY_WIDGET_HPP
+#endif  // OTHERLIB_UI_SCRIPT_SCRIPT_PROPERTY_WIDGET_HPP

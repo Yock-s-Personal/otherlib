@@ -115,6 +115,8 @@ namespace other {
 
     void resolve_roots(std::span<const filepath> roots);
     void re_resolve(const filepath& changed);
+    /// stops the plan dispatching anything further; loads already in flight still finish
+    void cancel_plan();
 
     natural_t load_asset(const filepath& file_path, load_completion_callback on_complete = nullptr);
     natural_t load_asset(const std::string_view engine_path, load_completion_callback on_complete = nullptr);
@@ -228,7 +230,7 @@ namespace other {
     ostd::unordered_map<natural_t, asset> unloaded_assets;
     ostd::unordered_map<natural_t, asset_state_machine> asset_states;
 
-    std::unordered_set<natural_t> needs_refresh;
+    ostd::unordered_set<natural_t> needs_refresh;
     // stable_id -> id
     ostd::unordered_map<natural_t, natural_t> runtime_by_stable;
 

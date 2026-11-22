@@ -1,14 +1,13 @@
 /**
  * \file core/scope.hpp
  **/
-#ifndef OTHER_CORE_SCOPE_HPP
-#define OTHER_CORE_SCOPE_HPP
+#ifndef OTHER_CORE_CORE_SCOPE_HPP
+#define OTHER_CORE_CORE_SCOPE_HPP
 
 #include <memory>
 
 #include "core/profiler.hpp"
 #include "memory/arena_allocator.hpp"
-
 
 namespace other {
 
@@ -38,4 +37,4 @@ namespace other {
 
 }  // namespace other
 
-#endif  // OTHER_CORE_SCOPE_HPP
+#endif  // OTHER_CORE_CORE_SCOPE_HPP

@@ -1,0 +1,60 @@
+; generated from example.ocmd
+/entry: m_example
+
+#d_example {
+  .v_limit : = 100000
+  .v_best : = 0
+  .l_0_a : = 0
+  .l_1_b : = 0
+  .s_0 : string = "hello"
+  .s_1 : string = "test-project"
+  .s_2 : string = "load failed"
+}
+
+$f_larger:
+  write r0, d_example.l_0_a
+  write r1, d_example.l_1_b
+  set r8, [d_example.l_0_a]
+  set r9, [d_example.l_1_b]
+  cmpgt r8, r9, r8
+  mov r8, rflag
+  je l_0
+  set r8, [d_example.l_0_a]
+  mov r8, rf
+  set rflag, 0
+  ret
+@l_0:
+  set r8, [d_example.l_1_b]
+  mov r8, rf
+  set rflag, 0
+  ret
+  set rf, 0
+  set rflag, 0
+  ret
+end
+
+$m_example:
+  set r0, d_example.s_0
+  set r1, 5
+  set r2, 2
+  set rflag, 0
+  syscall core.log
+  set r0, 0
+  add r0, 300
+  set r1, [d_example.v_limit]
+  call f_larger
+  mov rf, r8
+  write r8, d_example.v_best
+  set r0, d_example.s_1
+  set r1, 12
+  set rflag, 0
+  syscall project.load
+  je l_1
+  set r0, d_example.s_2
+  set r1, 11
+  set r2, 4
+  set rflag, 0
+  syscall core.log
+@l_1:
+  stopdev
+end

@@ -1,14 +1,16 @@
 /**
  * \file ui/console/console_widgets.hpp
  * */
-#ifndef OTHERLIB_UI_CONSOLE_WIDGETS_HPP
-#define OTHERLIB_UI_CONSOLE_WIDGETS_HPP
+#ifndef OTHERLIB_UI_CONSOLE_CONSOLE_WIDGETS_HPP
+#define OTHERLIB_UI_CONSOLE_CONSOLE_WIDGETS_HPP
 
 #include <cstdint>
 #include <string>
 
 #include <glm/glm.hpp>
 #include <imgui/imgui.h>
+
+#include "ui/console/console_log_layout.hpp"
 
 namespace other {
 
@@ -64,10 +66,19 @@ namespace other {
       };
 
       struct log_entry {
+        // stable until a 'clear' command runs
+        uint64_t id = 0;
+
         std::string timestamp;
         std::string message;
         log_level level = log_level::OUTPUT;
         std::string source;
+
+        struct view_cache {
+          bool tokenized = false;
+          ostd::vector<text_span> spans;
+          log_layout layout;
+        } view;
       };
 
       struct prompt_result {
@@ -95,7 +106,6 @@ namespace other {
 
       void draw_title_bar(const std::string_view title);
       filter_result draw_filter_bar(uint8_t& filter_mask, char* search_buf, uint32_t search_buf_size);
-      bool draw_log_line(const log_entry& entry, bool alt_row);
       prompt_result draw_prompt_bar(driver* driver_ptr, char* input_buf, uint32_t buf_size, bool focus_requested);
       autocomplete_result draw_autocomplete_popup(const autocomplete_item* items, uint32_t item_count, int32_t current_index, const ImVec2& anchor_pos);
 
@@ -107,4 +117,4 @@ namespace other {
   }  // namespace ui
 }  // namespace other
 
-#endif  // OTHERLIB_UI_CONSOLE_WIDGETS_HPP
+#endif  // OTHERLIB_UI_CONSOLE_CONSOLE_WIDGETS_HPP

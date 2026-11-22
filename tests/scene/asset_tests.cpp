@@ -5,21 +5,22 @@
 
 #include <deque>
 #include <fstream>
+#include <map>
+#include <numeric>
+#include <vector>
 
 #include <asio/asio.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <glm/gtc/matrix_transform.hpp>
-
 #include "file/filesystem.hpp"
+#include "serialization/animation_serializer.hpp"
 
 #include "gpu_resource/material.hpp"
 #include "gpu_resource/renderer_resource.hpp"
 #include "renderer/renderer.hpp"
 #include "renderer/renderer_backend.hpp"
-
-#include "serialization/animation_serializer.hpp"
 
 #include "object/animation_component.hpp"
 #include "object/render_component.hpp"
@@ -27,10 +28,9 @@
 
 #include "driver/driver_mounts.hpp"
 
-#include "audio/audio_environment.hpp"
-
 #include "asset/asset.hpp"
 #include "asset/asset_handler.hpp"
+#include "audio/audio_environment.hpp"
 #include "audio/audio_test_fixtures.hpp"
 #include "mock_rendering_api.hpp"
 
@@ -153,7 +153,7 @@ namespace other {
       EXPECT_CALL(*mock_api, create_mesh_resource(_, _))
         .Times(model_count)
         .WillRepeatedly(testing::Invoke([](const resource_handle& handle, resource_type) -> mesh* {
-          static std::deque<mesh> meshes;  /// stable addresses; callers hold the pointer
+          static ostd::deque<mesh> meshes;  /// stable addresses; callers hold the pointer
           return &meshes.emplace_back(handle);
         }));
       EXPECT_CALL(*mock_api, destroy_mesh_resource(_))
@@ -166,7 +166,7 @@ namespace other {
       EXPECT_CALL(*mock_api, create_buffer_resource(_, _))
         .Times(2 * model_count)
         .WillRepeatedly(testing::Invoke([](const resource_handle& handle, resource_type) -> gpu_buffer* {
-          static std::deque<gpu_buffer> buffers;  /// stable addresses; callers hold the pointer
+          static ostd::deque<gpu_buffer> buffers;  /// stable addresses; callers hold the pointer
           return &buffers.emplace_back(handle);
         }));
       EXPECT_CALL(*mock_api, destroy_buffer_resource(_))
@@ -560,7 +560,7 @@ worker_count = {}
     audio_cfg.force_pump_mode = true;
     ASSERT_TRUE(env->initialize(audio_cfg));
     /// full destroy, not just shutdown(): minimal profile never owns audio, and clip_revisions
-    ///  is high-water — only a fresh instance keeps revision assertions valid under --gtest_repeat
+    ///  is high-water - only a fresh instance keeps revision assertions valid under --gtest_repeat
     struct env_guard {
       ~env_guard() { subsystem<audio_environment>::shutdown(); }
     } ___env_guard;
@@ -655,6 +655,84 @@ worker_count = {}
     EXPECT_EQ(handler->get_num_loaded_assets(), 0);
 
     handler = nullptr;
+  }
+
+  /// a full unload (driver shutdown) that begins mid-load must take the in-flight asset
+  ///  down too; it used to finish into the loaded set after the pass and all_assets_unloaded
+  ///  never came true
+  TEST_F(asset_tests, full_unload_during_load_still_reaches_all_unloaded) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_for_model_uploads(events, 1);
+
+    filepath test_file_path = "tests/resources/models/suzanne3.fbx";
+    ASSERT_TRUE(std::filesystem::exists(test_file_path));
+
+    const natural_t asset_id = handler->load_asset(test_file_path);
+    ASSERT_NE(asset_id, 0);
+    ASSERT_EQ(handler->get_asset_state(asset_id), asset_state::LOADING);
+
+    handler->begin_unload();
+    EXPECT_EQ(handler->get_num_pending_unloads(), 1);
+    EXPECT_FALSE(handler->all_assets_unloaded());
+
+    pump_until(io_context, jobs, *handler, [&] { return handler->all_assets_unloaded(); });
+    EXPECT_EQ(handler->get_num_pending_unloads(), 0);
+    EXPECT_EQ(handler->get_num_loaded_assets(), 0);
+
+    handler = nullptr;
+  }
+
+  /// a project that resets mid-load unmounts its root while the plan is live. once cancelled,
+  ///  children still finish but their parent is never dispatched; it used to be dispatched
+  ///  through a virtual path under the mount that had just gone
+  TEST_F(asset_tests, cancelled_plan_dispatches_no_parent) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_and_expect_no_resource_creation(events);
+
+    const filepath project_root = std::filesystem::temp_directory_path() / "other-asset-tests" / "cancel-proj";
+    std::filesystem::remove_all(project_root.parent_path());
+    std::filesystem::create_directories(project_root / "scripts");
+    const filepath csproj = project_root / "CancelProj.csproj";
+    std::ofstream(csproj) << "<Project Sdk=\"Microsoft.NET.Sdk\">\n  <PropertyGroup>\n    <OutputType>Library</OutputType>\n  </PropertyGroup>\n</Project>";
+    std::ofstream(project_root / "scripts" / "a.cs") << "class A {}";
+    std::ofstream(project_root / "scripts" / "b.cs") << "class B {}";
+
+    auto* fs = subsystem<file_system>::get();
+    ASSERT_NE(fs, nullptr);
+    ASSERT_NE(fs->mount_directory("cancelproj", project_root, mount_scope::PROJECT), nullptr);
+
+    /// the two sources go out at once; the csproj waits on both, its assembly on the csproj
+    const std::array roots{ csproj };
+    handler->resolve_roots(roots);
+    ASSERT_EQ(handler->get_num_loading_assets(), 2u);
+
+    handler->cancel_plan();
+    pump_until(io_context, jobs, *handler, [&] { return handler->get_num_loading_assets() == 0; });
+
+    EXPECT_EQ(handler->get_num_loaded_assets(), 2u);
+    EXPECT_EQ(handler->get_asset_id_from_path(csproj), 0u) << "the csproj was dispatched after the plan was cancelled";
+
+    handler->begin_unload();
+    pump_until(io_context, jobs, *handler, [&] { return handler->all_assets_unloaded(); });
+
+    handler = nullptr;
+    fs->unmount("cancelproj");
+    std::error_code ec;
+    std::filesystem::remove_all(project_root.parent_path(), ec);
   }
 
   /// asset machinery + the script environment: prepare_render_data tests need live scenes
@@ -771,7 +849,7 @@ worker_count = {}
     EXPECT_EQ(rig_a_render->obj_model.bone_matrices.size(), 2u);
 
     /// a live palette drives the object's AABB: union of each joint's bind-space bounds through
-    ///  its palette matrix, then the world transform — follows the animation, not the bind pose
+    ///  its palette matrix, then the world transform - follows the animation, not the bind pose
     {
       const model_data& src = rig_a_render->obj_model.source->source_data();
       bounding_box expected = bounding_box::empty;
@@ -802,6 +880,82 @@ worker_count = {}
     handler = nullptr;
     std::error_code ec;
     std::filesystem::remove_all(rig_dir, ec);
+  }
+
+  /// a draw holds gpu::kMaxMaterials instances; the rest roll over into further draws for the
+  ///  same mesh instead of being dropped
+  TEST_F(animation_draw_tests, instances_past_the_per_draw_cap_roll_into_more_draws) {
+    dtor ___destructor_guard;
+
+    job_system jobs{ io_context };
+    event_system events{ io_context };
+    config_table cfg = config_table::load_from_source(std::format(kConfig, kNumWorkers));
+    jobs.initialize(cfg);
+
+    scope<asset_handler> handler = make_scope<asset_handler>(events, jobs);
+    set_up_mock_rendering_api_for_model_uploads(events, 1);
+
+    const filepath model_path = "tests/resources/models/suzanne3.fbx";
+    const natural_t model_id = handler->load_asset(model_path);
+    ASSERT_NE(model_id, 0);
+    pump_until(io_context, jobs, *handler, [&] {
+      return handler->asset_loaded(model_id);
+    });
+
+    constexpr uint32_t kCap = static_cast<uint32_t>(gpu::kMaxMaterials);
+    constexpr uint32_t kRemainder = kCap / 2;
+    constexpr size_t kInstances = kCap * 2 + kRemainder;
+    scene s("Instance Rollover Scene");
+    for (size_t i = 0; i < kInstances; ++i) {
+      scene_object& obj = s.create_object(std::format("Instance{}", i));
+      render_component render = {};
+      render.model_asset_id = model_id;
+      /// the tint tags each instance, so a lost or duplicated slot shows up below
+      render.tint = glm::vec4(static_cast<float>(i), 0.f, 0.f, 1.f);
+      s.add_component<render_component>(&obj, std::move(render));
+    }
+
+    render_data data = s.prepare_render_data(handler);
+
+    /// 3 submeshes, each split into two full draws and a remainder
+    ASSERT_EQ(data.num_draw_calls, 9u);
+    ASSERT_EQ(data.draw_calls.size(), 9u);
+    ASSERT_EQ(data.mesh_keys.size(), 9u);
+    ASSERT_EQ(data.draw_tints.size(), 9u);
+    ASSERT_EQ(data.model_buffers.size(), 9u);
+    ASSERT_EQ(data.bone_buffers.size(), 9u);
+
+    std::map<uint32_t, std::vector<uint32_t>> counts_by_submesh;
+    std::map<uint32_t, std::vector<float>> tags_by_submesh;
+    for (size_t i = 0; i < data.draw_calls.size(); ++i) {
+      const draw_call& call = data.draw_calls[i];
+      ASSERT_LE(call.instance_count, kCap);
+      /// a rolled-over draw carries its own mesh range, not an empty one
+      EXPECT_GT(call.index_count, 0u);
+
+      const uint32_t submesh = data.mesh_keys[i].submesh_index;
+      EXPECT_EQ(call.submesh_index, submesh);
+      counts_by_submesh[submesh].push_back(call.instance_count);
+      for (uint32_t slot = 0; slot < call.instance_count; ++slot) {
+        tags_by_submesh[submesh].push_back(data.draw_tints[i].tints[slot].x);
+      }
+    }
+
+    std::vector<float> expected_tags(kInstances);
+    std::iota(expected_tags.begin(), expected_tags.end(), 0.f);
+
+    ASSERT_EQ(counts_by_submesh.size(), 3u);
+    for (auto& [submesh, counts] : counts_by_submesh) {
+      std::ranges::sort(counts);
+      EXPECT_EQ(counts, (std::vector<uint32_t>{ kRemainder, kCap, kCap }));
+
+      /// every instance landed in exactly one slot
+      std::vector<float>& tags = tags_by_submesh[submesh];
+      std::ranges::sort(tags);
+      EXPECT_EQ(tags, expected_tags);
+    }
+
+    handler = nullptr;
   }
 
   /// tick and draw fill composed end-to-end: embedded clip resolved, sampled by scene::update,

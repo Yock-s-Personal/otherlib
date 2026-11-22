@@ -8,6 +8,7 @@
 #include <imgui/imgui.h>
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 
 namespace other {

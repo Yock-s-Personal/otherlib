@@ -5,7 +5,6 @@
 
 #include "math/constants.hpp"
 
-
 namespace other {
 
   real_t rand_real_t() {

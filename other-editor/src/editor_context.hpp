@@ -11,6 +11,8 @@
 
 #include "scene/scene.hpp"
 
+#include "project/compile_session.hpp"
+
 #include "edit_stack.hpp"
 #include "editor_selection.hpp"
 #include "editor_settings.hpp"
@@ -31,6 +33,10 @@ namespace other {
     scene* active_scene = nullptr;
     camera* scene_active_camera = nullptr;
     natural_t scene_viewport_handle = 0;
+
+    /// requested by ui, applied in editor_driver::update_running so the active scene
+    ///  never changes while a frame is being rendered
+    opt<natural_t> pending_scene_activation;
 
     camera editor_camera;
     ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
@@ -57,6 +63,15 @@ namespace other {
 
     void undo_scene_edit();
     void redo_scene_edit();
+
+    /// the history's change count when the active scene was last written to disk
+    uint64_t saved_change_count = 0;
+
+    /// true while the active scene holds an edit that is only in memory. an undo back to the
+    ///  saved state still counts: the count moved
+    bool has_unsaved_scene_edits() const;
+    /// the active scene is on disk as it is now
+    void mark_scene_saved();
 
     selection current_selection;
 
@@ -88,6 +103,10 @@ namespace other {
     ImTextureID get_pipeline_texture_id(const std::string_view pipeline_name, const std::string_view texture_name) const;
 
     ImVec2 get_pipeline_texture_size(const std::string_view pipeline_name, const std::string_view texture_name) const;
+
+    /// the compile the compile window starts. it is here and not in the window so the driver
+    ///  can wait for it at shutdown, before the VM whose devices it links against is gone
+    compile_session project_compile;
   };
 
 }  // namespace other

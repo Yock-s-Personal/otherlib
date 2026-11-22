@@ -1,5 +1,5 @@
 /**
- * @file renderer/renderer_backend.hpp
+ * \file renderer/renderer_backend.hpp
  */
 #ifndef OTHER_RENDERER_RENDERER_RENDERER_BACKEND_HPP
 #define OTHER_RENDERER_RENDERER_RENDERER_BACKEND_HPP
@@ -10,9 +10,9 @@
 #include "core/scope.hpp"
 #include "core/subsystem.hpp"
 
+#include "gpu_resource/imgui_fwd.hpp"
 #include "gpu_resource/material.hpp"
 #include "model/model.hpp"
-#include "gpu_resource/imgui_fwd.hpp"
 #include "model/model_source.hpp"
 #include "renderer/rendering_api.hpp"
 
@@ -68,12 +68,13 @@ namespace other {
     void remove_material(natural_t handle);
 
     /// standalone animation clips keyed by asset path hash, immutable after registration (playback
-    ///  state lives with the player); same refresh contract as materials — embedded clips stay on model_source
+    ///  state lives with the player); same refresh contract as materials - embedded clips stay on model_source
     void add_animation(natural_t handle, animation_clip clip);
     const animation_clip* get_animation(natural_t handle) const;
     void remove_animation(natural_t handle);
 
-    enum class fallback_texture : uint8_t { WHITE, FLAT_NORMAL };
+    enum class fallback_texture : uint8_t { WHITE,
+                                            FLAT_NORMAL };
     /// 1x1 stand-ins for material texture slots with no loaded texture (samples white * params,
     ///  so zero shader variants); created lazily on first use, destroyed in unload_backend
     resource_handle get_fallback_texture(fallback_texture kind);

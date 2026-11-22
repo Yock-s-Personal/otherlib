@@ -24,6 +24,23 @@ namespace other {
     std::string project_name;
     std::string project_path;
   };
+
+  struct load_error {
+    /// scene name, csproj path or assembly path
+    std::string subject;
+    std::string message;
+  };
+
+  /// why the C# project is not running its current sources; kept until a build gets through
+  struct script_failure {
+    filepath csproj_path;
+    std::string reason;
+    /// msbuild errors when a build failed, otherwise whatever else is known
+    std::string details;
+    /// false when the csproj was never resolved, so no asset plan can rebuild it
+    bool can_retry = true;
+  };
+
   class project {
    public:
     enum state {
@@ -62,6 +79,10 @@ namespace other {
     project(project_system* proj_system);
     ~project();
 
+    /// the project file a path stands for: the path itself when it is a file, or the .toml or
+    ///  .oproj a folder holds under the folder's own name. empty when there is no such file
+    static opt<filepath> find_project_file(const filepath& path);
+
     void load_from_file(driver_kernel* kernel, const filepath& path);
     void generate_at(driver_kernel* kernel, const filepath& directory);
 
@@ -81,13 +102,17 @@ namespace other {
     void add_loaded_scene(natural_t scene_id);
     void remove_loaded_scene(natural_t scene_id);
 
+    void drop_scene(natural_t scene_id, const std::string_view reason);
+    void drop_script_project(const std::string_view reason, const std::string_view details = {}, bool can_retry = true);
+    /// a build failed without dropping anything: whatever assembly is mounted stays mounted
+    void record_script_failure(const std::string_view reason, const std::string_view details);
+
     const std::string& get_project_name() const { return project_metadata.name; }
+    inline const metadata& get_metadata() const { return project_metadata; }
 
-    inline void error_building_script_project() { able_to_load_script_project = false; }
-    inline bool did_script_project_error_occurred() const { return !able_to_load_script_project; }
-
-    inline void error_building_scene_graph() { able_to_load_scene_graph = false; }
-    inline bool did_scene_graph_error_occurred() const { return !able_to_load_scene_graph; }
+    /// the csproj a rebuild would build: the mounted one, or the one that failed
+    filepath script_project_path() const;
+    inline const opt<script_failure>& get_script_failure() const { return script_project_failure; }
 
     inline const filepath& get_project_rc_path() const { return rc_path; }
     inline const filepath get_csproj_path() const { return project_scripts.csproject_path; }
@@ -100,6 +125,7 @@ namespace other {
     inline bool load_failed() const { return current_state == LOAD_FAILED; }
     inline bool is_unloading() const { return current_state == UNLOADING; }
 
+    inline bool expects_script_project() const { return has_script_project; }
     inline bool script_project_mounted() const {
       return project_assembly != nullptr;
     }
@@ -113,6 +139,8 @@ namespace other {
     inline natural_t get_starting_scene_id() const { return starting_scene_id; }
     inline std::span<project::scene> get_scenes() { return scenes_in_project; }
     inline const std::span<const project::scene> get_scenes() const { return scenes_in_project; }
+
+    inline std::span<const load_error> get_load_errors() const { return load_errors; }
 
    private:
     struct project_args {
@@ -139,8 +167,17 @@ namespace other {
     bool all_scenes_loaded = false;
     bool all_scenes_unloaded = true;
 
-    bool able_to_load_script_project = true;
-    bool able_to_load_scene_graph = true;
+    // assume there is one since that is default during project creation
+    bool has_script_project = true;
+
+    ostd::vector<load_error> load_errors;
+    opt<script_failure> script_project_failure;
+
+    /// [scripting] assembly: a built assembly that is loaded as it is. while it is set nothing
+    ///  is built and the project has no csproj
+    filepath prebuilt_assembly;
+
+    void clear_script_failure();
 
     void attach_project_dll(const filepath& dll_path);
     void attach_project_cs_file(const filepath& cs_file);

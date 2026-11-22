@@ -35,6 +35,10 @@ namespace other {
       DEBUG = 1 << 4,
       REPL = 1 << 5,
 
+      /// set by core.yield: the program has nothing more to do this frame. vm::run_frame
+      ///  stops on it and clears it when the next frame starts
+      YIELDED = 1 << 6,
+
       VM_ERROR = 1 << 7,
     };
     state current_state = STOPPED;
@@ -51,6 +55,7 @@ namespace other {
     /// for device-only use
     constexpr static uint16_t kMaxDeviceAddress = kMemorySize;
     constexpr static uint16_t kProgramStartAddress = 0x0010;
+    constexpr static uint16_t kMaxProgramSize = kMemorySize - kProgramStartAddress - 1;
 
     uint16_t program_load_cursor = kProgramStartAddress;
     uint16_t pc = 0;

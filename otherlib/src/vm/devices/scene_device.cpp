@@ -28,7 +28,7 @@ namespace other {
       { VM_TYPE_U64, "name-len" },
     };
     constexpr type_descriptor kGetSceneIdFromNameParams[] = {
-      { VM_TYPE_VOID, "name-ptr" },
+      { VM_TYPE_PTR, "name-ptr" },
       { VM_TYPE_U64, "name-len" }
     };
     constexpr type_descriptor kVoidRet = { VM_TYPE_VOID, "void" };

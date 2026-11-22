@@ -22,6 +22,9 @@ namespace other {
     ostd::vector<instruction> machine_instructions = {};
     ostd::vector<fixup_handle> jump_labels = {};
     ostd::vector<fixup_handle> unresolved_labels = {};
+    /// for each machine instruction, the source position of what it was made from; line 0 for
+    ///  none. left empty by anything that builds an artifact without a source
+    ostd::vector<source_location> origins = {};
   };
 
   class ocmd_code_generator {

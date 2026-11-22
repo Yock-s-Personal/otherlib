@@ -12,10 +12,6 @@
 #include "core/logger_sinks.hpp"
 #include "thread/thread_safety.hpp"
 
-#include "network/memory/memory_transport_provider.hpp"
-#include "network/tcp/tcp_transport_provider.hpp"
-#include "network/udp/udp_transport_provider.hpp"
-
 #include "driver/systems/network_system.hpp"
 #include "driver/systems/project_system.hpp"
 #include "driver/systems/scene_system.hpp"
@@ -24,7 +20,6 @@
 #include "scripting/interfaces/rendering_interfaces.hpp"
 #include "tools/environment_console_sink.hpp"
 #include "tools/scene_cli_tool.hpp"
-
 
 namespace other {
 
@@ -258,6 +253,13 @@ namespace other {
     state_machine.handle_event(event, this);
   }
 
+  void driver::request_failure_shutdown(const std::string_view reason) {
+    CORE_LOG_ERROR("Fatal: {}", reason);
+    /// set before the request: a shutdown already under way must still exit non-zero
+    process_exit_code = exit_code::FAILURE;
+    request_shutdown();
+  }
+
   void driver::request_shutdown() {
     if (current_driver_state() == driver_state::DRIVER_STATE_SHUTTING_DOWN ||
         current_driver_state() == driver_state::DRIVER_STATE_STOPPED) {
@@ -269,8 +271,8 @@ namespace other {
     if (driver_kernel_ptr->has_core_system<project_system>()) {
       auto& projects = driver_kernel_ptr->get_core_system<project_system>();
       CORE_LOG_DEBUG("Project state on shutdown request: {}", projects.get_project().get_state());
-      if (projects.is_project_loading() || projects.is_project_unloading()) {
-        CORE_LOG_INFO("Project is currently loading or unloading, deferring shutdown request.");
+      if (projects.is_project_unloading()) {
+        CORE_LOG_INFO("Project is currently unloading, deferring shutdown request.");
         runtime_state.shutdown_requested = true;
         return;
       }
@@ -308,9 +310,6 @@ namespace other {
     if (network_enabled()) {
       OTHER_ASSERT(driver_kernel_ptr->has_core_system<network_system>(), "Network system is not initialized in driver kernel.");
       auto& net_system = driver_kernel_ptr->get_core_system<network_system>();
-      net_system.register_transport_provider(make_scope<tcp_transport_provider>());
-      net_system.register_transport_provider(make_scope<udp_transport_provider>());
-      net_system.register_transport_provider(make_scope<memory_transport_provider>());
     }
 
     {
@@ -622,12 +621,8 @@ namespace other {
     if (!rendering_enabled()) {
       return;
     }
-    PROFILE_SECTION("driver::render");
-    {
-      PROFILE_SECTION("driver::render--on_render");
-      on_render();
-    }
 
+    PROFILE_SECTION("driver::render");
     if (driver_kernel_ptr->has_core_system<rendering_system>()) {
       driver_kernel_ptr->get_core_system<rendering_system>().render(driver_kernel_ptr.get());
     }
@@ -716,6 +711,10 @@ namespace other {
     PROFILE_SECTION("driver::begin_shutdown_sequence");
     CORE_LOG_DEBUG("Beginning shutdown sequence");
 
+    /// first, while the scene, the project and its mounts are all still there: a driver may
+    ///  have work of its own running that reads through them
+    on_shutdown_request();
+
     if (driver_kernel_ptr->has_core_system<rendering_system>()) {
       auto& rendering = driver_kernel_ptr->get_core_system<rendering_system>();
       rendering.close_all_windows();
@@ -731,7 +730,13 @@ namespace other {
       CORE_LOG_DEBUG("Project state on shutdown request: {}", projects.get_project().get_state());
       if (projects.is_project_loaded()) {
         projects.unload_project(driver_kernel_ptr.get());
-      } else if (projects.is_project_empty()) {
+      } else if (!projects.is_project_unloading()) {
+        /// EMPTY, LOADING, LOAD_FAILED: nothing left that will emit project.unloaded
+        projects.abort_project_load();
+        shutdown_state.project_unloaded = true;
+      }
+      /// this may not be needed
+      else if (projects.is_project_empty()) {
         shutdown_state.project_unloaded = true;
       }
     } else {
@@ -743,7 +748,6 @@ namespace other {
     driver_kernel_ptr->get_core_system<network_system>().begin_shutdown_sequence(driver_kernel_ptr.get());
     driver_kernel_ptr->get_core_system<asset_system>().begin_full_unload();
 
-    on_shutdown_request();
     process_driver_event(driver_event::DRIVER_EVENT_STOP);
 
     if (!driver_kernel_ptr->get_core_system<network_system>().network_active()) {

@@ -34,6 +34,10 @@ namespace other {
       return data_type::OCMD_DATA_TYPE_I32;
     } else if (label == "uint32") {
       return data_type::OCMD_DATA_TYPE_U32;
+    } else if (label == "int64") {
+      return data_type::OCMD_DATA_TYPE_I64;
+    } else if (label == "uint64") {
+      return data_type::OCMD_DATA_TYPE_U64;
     } else if (label == "float") {
       return data_type::OCMD_DATA_TYPE_F32;
     } else if (label == "double") {

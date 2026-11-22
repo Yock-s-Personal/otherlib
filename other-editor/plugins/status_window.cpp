@@ -1,10 +1,9 @@
 /**
- * \file status_window.hpp
+ * \file plugins/status_window.cpp
  **/
 #include "driver/driver.hpp"
 #include "plugin/plugin.hpp"
 #include "ui/ui_window.hpp"
-
 
 class OTHER_CLASS status_window : public other::ui_window {
  public:

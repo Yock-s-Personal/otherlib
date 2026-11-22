@@ -73,7 +73,10 @@ namespace other {
 
   scene* scene_graph::find_scene(natural_t id) {
     auto id_itr = std::ranges::find(id_pairs, id, &scene_graph::id_pair::scene_hash);
-    OTHER_ASSERT(id_itr != id_pairs.end(), "Scene with ID {} not found in ID pairs.", id);
+    if (id_itr == id_pairs.end()) {
+      CORE_LOG_ERROR("Scene with ID {} not found in ID pairs.", id);
+      return nullptr;
+    }
     return get_scene(id_itr->node_id);
   }
 

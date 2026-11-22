@@ -9,6 +9,7 @@
 #include <imgui/imgui_memory_editor.h>
 
 #include "core/profiler.hpp"
+
 #include "vm/opcode.hpp"
 #include "vm/other_device.hpp"
 

@@ -193,6 +193,10 @@ namespace other {
     dotnet_object* instantiate_managed_object_of_type(const std::string_view name, dotnet_type* type, const void** argv, const managed_type* arg_ts, size_t argc);
     void destroy_managed_object(dotnet_object* obj);
 
+    inline size_t managed_object_count() const {
+      return managed_objects.size();
+    }
+
     interop_table& interop() {
       return interop_functions;
     }
@@ -221,7 +225,10 @@ namespace other {
     std::basic_string<char_t> dotnet_runtime_config;
 
     ostd::map<natural_t, assembly_context> assembly_contexts;
+    /// keyed by dotnet_object::handle, not by name: scene objects in different scenes, or in
+    ///  one scene, may share a name
     ostd::map<natural_t, dotnet_object> managed_objects;
+    natural_t next_object_handle = 0;
 
     opt<int32_t> behavior_base_type_id = std::nullopt;
 
@@ -230,7 +237,7 @@ namespace other {
     filepath get_bindings_assembly_path() const;
 
     dotnet_object* new_object(const std::string_view name, dotnet_type* type);
-    ostd::map<natural_t, dotnet_object>::iterator remove_object(const std::string_view name);
+    ostd::map<natural_t, dotnet_object>::iterator remove_object(natural_t handle);
 
     void bind_interop_table();
     void bind_native_functions();

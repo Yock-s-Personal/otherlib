@@ -1,5 +1,5 @@
 /**
- * @file other.hpp
+ * \file other.hpp
  */
 #ifndef OTHERLIB_OTHER_HPP
 #define OTHERLIB_OTHER_HPP
@@ -26,6 +26,8 @@ namespace other {
 
   using load_config_result = std::tuple<bool, config_table, command_line>;
   load_config_result read_command_line_and_config(int argc, char* argv[]);
+
+  opt<filepath> find_exe_adjacent_config(const filepath& exe_path);
 
 }  // namespace other
 

@@ -10,13 +10,14 @@
 #include "input/input_system.hpp"
 #include "memory/arena.hpp"
 
-#include "audio/audio_environment.hpp"
 #include "physics/physics_environment.hpp"
 #include "renderer/renderer_backend.hpp"
 #include "script/scripting_environment.hpp"
 
 #include "driver/driver_mounts.hpp"
 #include "scripting/bindings.hpp"
+
+#include "audio/audio_environment.hpp"
 
 namespace other {
   namespace detail {
@@ -88,7 +89,7 @@ namespace other {
   void subsystem_registry::resolve_dependency_list_and_do_initialization(std::span<const std::string_view> requested_systems, const config_table* config) {
     PROFILE_SECTION("subsystem_registry::resolve_dependency_list_and_do_initialization");
     initialization_order.clear();
-    initialization_order = resolve_dependencies(requested_systems, subsystem_definition{});
+    initialization_order = resolve_dependencies(requested_systems);
 
     for (const natural_t id : initialization_order) {
       auto it = registry.find(id);
@@ -162,7 +163,7 @@ namespace other {
     return profile_name == subsystem_profile::kFullProfileName;
   }
 
-  std::vector<natural_t> subsystem_registry::resolve_dependencies(std::span<const std::string_view> requested_systems, const subsystem_definition& def) {
+  std::vector<natural_t> subsystem_registry::resolve_dependencies(std::span<const std::string_view> requested_systems) {
     std::vector<natural_t> result;
     std::unordered_map<natural_t, bool> visited;
 
@@ -324,7 +325,7 @@ namespace other {
 
   namespace detail {
 
-    /** @note exceptions ok here — pre-entry code, outside the "no exceptions" rule; just log and exit
+    /** @note exceptions ok here - pre-entry code, outside the "no exceptions" rule; just log and exit
      **/
 
     spdlog::sink_ptr stdout_sink_fn(const config_table& config) {

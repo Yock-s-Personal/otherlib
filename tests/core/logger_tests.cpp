@@ -32,7 +32,10 @@ namespace other {
     /// sink id 1 is the fixture's console sink; re-registering must hit the
     ///  error path (which holds log_mutex) and return without deadlocking
     log_sink duplicate = {
-      1, "duplicate-console-sink", "%v", spdlog::level::info,
+      1,
+      "duplicate-console-sink",
+      "%v",
+      spdlog::level::info,
       stdout_sink_fn,
     };
     std::string loggers[] = { "other-core-log" };

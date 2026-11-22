@@ -21,7 +21,6 @@
 #include "file/filesystem.hpp"
 #include "input/input_system.hpp"
 
-#include "audio/audio_environment.hpp"
 #include "renderer/renderer.hpp"
 #include "script/scripting_environment.hpp"
 
@@ -46,6 +45,7 @@
 #include "ui/field_editor_registry.hpp"
 #include "vm/other_device.hpp"
 
+#include "audio/audio_environment.hpp"
 #include "message/message.hpp"
 
 namespace json = nlohmann;
@@ -100,6 +100,7 @@ namespace other {
     natural_t get_asset_id_from_path(const filepath& path) const;
 
     void process_driver_event(driver_event event);
+    void request_failure_shutdown(const std::string_view reason);
     void request_shutdown();
 
     std::string get_driver_info_string(const std::string_view str) const;
@@ -179,6 +180,9 @@ namespace other {
     inline mode get_current_mode() const {
       return current_mode;
     }
+    inline exit_code get_exit_code() const {
+      return process_exit_code;
+    }
 
     inline void queue_project_load(const filepath& project_file) {
       std::lock_guard lock(runtime_state.mutex);
@@ -249,7 +253,6 @@ namespace other {
     natural_t add_interface(const std::string_view interface_name, sol::table inteface_table);
     // void add_interface(const std::string_view interface_name, plugin* plugin_ptr);
 
-
     void handle_file_refresh(const filepath& path);
 
     virtual void on_early_initialize() {}
@@ -261,6 +264,7 @@ namespace other {
     virtual void update_running() {}
     virtual void update_shutting_down() {}
     virtual void on_shutdown() = 0;
+    /// called as the shutdown sequence begins, before anything is unloaded
     virtual void on_shutdown_request() {}
     virtual void on_shutdown_confirm() {}
 
@@ -308,6 +312,9 @@ namespace other {
     };
     running_state runtime_state;
     shutdown_state shutdown_state;
+
+    /// what the process returns; only request_failure_shutdown changes it
+    exit_code process_exit_code = exit_code::SUCCESS;
 
     config_table config;
     command_line cmd_line;

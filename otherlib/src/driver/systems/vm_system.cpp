@@ -1,14 +1,10 @@
 /**
- * \file driver/systems/vm_systems.cpp
+ * \file driver/systems/vm_system.cpp
  **/
 #include "driver/systems/vm_system.hpp"
 
 #include "driver/driver.hpp"
-#include "vm/devices/asset_device.hpp"
-#include "vm/devices/core_command_device.hpp"
-#include "vm/devices/event_device.hpp"
-#include "vm/devices/project_device.hpp"
-#include "vm/devices/scene_device.hpp"
+#include "vm/builtin_command_devices.hpp"
 #include "vm/vm.hpp"
 
 namespace other {
@@ -20,11 +16,7 @@ namespace other {
     vm::load_control_table(&core_device, OTHER_CONTROL_TABLE_V000);
 
     OTHER_ASSERT(core_device.bus != nullptr, "Core device bus is null!");
-    core_device.bus->register_device(make_scope<core_command_device>());
-    core_device.bus->register_device(make_scope<event_device>());
-    core_device.bus->register_device(make_scope<asset_device>());
-    core_device.bus->register_device(make_scope<scene_device>());
-    core_device.bus->register_device(make_scope<project_device>());
+    register_builtin_command_devices(*core_device.bus);
 
     const bool vm_debug_mode_on = get_driver().get_config_value<bool>("driver.vm-debug-mode", false);
     vm::set_debug_mode(vm_debug_mode_on);
@@ -54,16 +46,9 @@ namespace other {
 
     {
       PROFILE_SECTION("vm_system::tick--execute_instructions");
-      uint32_t executed = 0;
-      while (executed < instruction_budget && !core_device.stopped &&
-             !vm::has_flag(&core_device, other_command_device::STOPPED)) {
-        vm::step(&core_device);
-        ++executed;
-
-        if (vm::has_flag(&core_device, other_command_device::VM_ERROR)) {
-          CORE_LOG_ERROR("VM encountered an error");
-          break;
-        }
+      const uint32_t executed = vm::run_frame(&core_device, instruction_budget);
+      if (executed > 0 && vm::has_flag(&core_device, other_command_device::VM_ERROR)) {
+        CORE_LOG_ERROR("VM encountered an error");
       }
     }
   }
@@ -91,6 +76,10 @@ namespace other {
   }
 
   void vm_system::execute_driver_command(const std::string& command) {
+  }
+
+  bool vm_system::idle() {
+    return vm::has_flag(&core_device, other_command_device::STOPPED) || vm::has_flag(&core_device, other_command_device::VM_ERROR);
   }
 
 }  // namespace other

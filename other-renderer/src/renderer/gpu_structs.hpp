@@ -1,16 +1,16 @@
 /**
  * \file renderer/gpu_structs.hpp
  **/
-#ifndef OTHER_RENDERER_GPU_STRUCTS_HPP
-#define OTHER_RENDERER_GPU_STRUCTS_HPP
+#ifndef OTHER_RENDERER_RENDERER_GPU_STRUCTS_HPP
+#define OTHER_RENDERER_RENDERER_GPU_STRUCTS_HPP
 
 #include <glm/glm.hpp>
 
 #include "core/defines.hpp"
 
-#include "glm/fwd.hpp"
-
 #include "model/animation_limits.hpp"
+
+#include "glm/fwd.hpp"
 
 namespace other {
   namespace gpu {
@@ -180,4 +180,4 @@ namespace other {
   }  // namespace gpu
 }  // namespace other
 
-#endif  // OTHER_RENDERER_GPU_STRUCTS_HPP
+#endif  // OTHER_RENDERER_RENDERER_GPU_STRUCTS_HPP

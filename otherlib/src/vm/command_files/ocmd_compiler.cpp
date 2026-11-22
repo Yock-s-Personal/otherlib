@@ -103,12 +103,14 @@ namespace other {
     if (auto entry_def_itr = std::ranges::find_if(program.definitions, [](const auto& def) { return def.name == "entry"; });
         entry_def_itr != program.definitions.end()) {
       auto code_block_itr = std::ranges::find_if(ir.code_blocks, [&](const auto& blk) { return blk.name == entry_def_itr->value.text; });
+      /// the stop below is added per file, so the entry block must be in the file that names it
       if (code_block_itr == ir.code_blocks.end()) {
-        EMIT_TRACE(" - entry symbol {} not found", entry_def_itr->value.text);
-        program.definitions.erase(entry_def_itr);
+        throw ocmd_toolchain_error(COMPILER_UNDEFINED_LABEL, entry_def_itr->value.source_view,
+                                   std::format("entry point '{}' is not a block in this file", entry_def_itr->value.text));
       }
+
       // insert a stopdev at the end of the entry function
-      else if (code_block_itr->instructions.empty() || code_block_itr->instructions.back().opcode != canonical_opcode::STOPDEV_OP) {
+      if (code_block_itr->instructions.empty() || code_block_itr->instructions.back().opcode != canonical_opcode::STOPDEV_OP) {
         EMIT_TRACE(" - entry symbol {} resolved to code block {}", entry_def_itr->value.text, code_block_itr->name);
 
         /// if entry point ends in ret, remove it and stop the device instead
@@ -120,6 +122,11 @@ namespace other {
 
         code_block_itr->instructions.push_back({ .opcode = canonical_opcode::STOPDEV_OP });
       }
+    }
+    /// with no /entry a file run by itself starts at the top of its loose code, which is the last
+    ///  block. its closing ret would pop an empty call stack, so it becomes a stop as well
+    else if (code_block& loose_code = ir.code_blocks.back(); !loose_code.instructions.empty() && loose_code.instructions.back().opcode == canonical_opcode::RET_OP) {
+      loose_code.instructions.back() = { .opcode = canonical_opcode::STOPDEV_OP };
     }
 
     for (const auto& code_blk_ir : ir.code_blocks) {
@@ -156,6 +163,7 @@ namespace other {
             .name = obj_ir.name,
             .offset = static_cast<uint32_t>(current_offset),
             .size = static_cast<uint32_t>(obj_ir.data.size()),
+            .type = obj_ir.type,
           };
 
           size_t data_size = obj_ir.data.size();

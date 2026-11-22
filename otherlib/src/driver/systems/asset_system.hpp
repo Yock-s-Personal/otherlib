@@ -31,6 +31,8 @@ namespace other {
     void resolve_and_load_roots(std::span<const filepath> roots);
     /// structural watch signal (created/deleted/unknown path) routed to the resolver
     void file_changed(const filepath& path);
+    /// for a project that is about to unmount: nothing more is dispatched from its load plan
+    void cancel_load_plan();
 
     natural_t begin_asset_load(const filepath& asset_path);
     void begin_asset_unload(natural_t asset_id);
@@ -69,6 +71,10 @@ namespace other {
     bool watch_assets = false;
     double watch_interval = 0.25;
     double watch_accumulator = 0.0;
+
+    /// set by begin_full_unload; the all-assets-unloaded event is owed once it has drained
+    bool full_unload_requested = false;
+    bool full_unload_confirmed = false;
 
     void mount_mounts(driver_kernel* kernel);
     void push_watch_filters();

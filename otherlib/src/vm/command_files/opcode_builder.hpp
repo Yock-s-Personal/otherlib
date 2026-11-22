@@ -44,8 +44,10 @@ namespace other {
 
     ostd::vector<fixup_handle> jump_labels;
     ostd::vector<canonical_instruction> emitted_instructions;
+    /// one for each emitted instruction: where the raw instruction it came from was written
+    ostd::vector<source_location> emitted_origins;
 
-    void emit(const canonical_instruction& instr);
+    void emit(const canonical_instruction& instr, const source_location& origin);
   };
 
 }  // namespace other

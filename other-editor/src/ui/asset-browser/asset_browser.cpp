@@ -4,6 +4,7 @@
 #include "ui/asset-browser/asset_browser.hpp"
 
 #include "core/profiler.hpp"
+
 #include "theme/colors.hpp"
 
 namespace other {

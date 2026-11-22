@@ -22,6 +22,7 @@ namespace Other.Toolset
     private string name;
     private string working_directory;
     private string csproj_file_path;
+    private string build_log_path;
 
     Process? restore_process_handle = null;
     Process? build_process_handle = null;
@@ -33,6 +34,7 @@ namespace Other.Toolset
       name = string.Empty;
       working_directory = string.Empty;
       csproj_file_path = string.Empty;
+      build_log_path = string.Empty;
 
       settings = new Settings
       {
@@ -83,6 +85,12 @@ namespace Other.Toolset
       csproj_file_path = path.ToString()!;
     }
 
+    /// msbuild writes the build's errors to this file; the engine reads it after a failed build
+    public void SetBuildLogPath(NativeString path)
+    {
+      build_log_path = path.ToString()!;
+    }
+
     public void StartCsprojBuild()
     {
       string csproj_path = csproj_file_path;
@@ -101,10 +109,13 @@ namespace Other.Toolset
         RedirectStandardError = true
       };
 
+      /// a file logger, not redirected output: build servers outlive the build and would hold a pipe open
+      string log_argument = build_log_path.Length == 0 ? string.Empty : $" \"-flp:logfile={build_log_path};errorsonly;encoding=UTF-8\"";
+
       var build_process_start_info = new ProcessStartInfo
       {
         FileName = "dotnet.exe",
-        Arguments = $"build \"{csproj_path}\" -c {settings.config}",
+        Arguments = $"build \"{csproj_path}\" -c {settings.config}{log_argument}",
         // RedirectStandardOutput = true,
         // RedirectStandardError = true
       };
@@ -121,7 +132,18 @@ namespace Other.Toolset
         {
           StartInfo = build_process_start_info
         };
-        build_process_handle.Start();
+
+        try
+        {
+          build_process_handle.Start();
+        }
+        catch (Exception e)
+        {
+          /// no process means no msbuild log, so the reason goes where the engine looks for errors
+          build_process_handle.Dispose();
+          build_process_handle = null;
+          WriteBuildLog($"Could not start 'dotnet build': {e.Message}");
+        }
         return;
       }
       else
@@ -216,6 +238,24 @@ namespace Other.Toolset
       }
 
       return build_process_handle.ExitCode;
+    }
+
+    private void WriteBuildLog(string message)
+    {
+      Console.WriteLine($"Error: {message}");
+      if (build_log_path.Length == 0)
+      {
+        return;
+      }
+
+      try
+      {
+        System.IO.File.WriteAllText(build_log_path, message);
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Error: could not write build log '{build_log_path}': {e.Message}");
+      }
     }
   }
 }

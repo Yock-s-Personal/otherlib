@@ -1,8 +1,8 @@
 /**
  * \file cli/tool_registry.hpp
  **/
-#ifndef OTHER_CLI_TOOL_REGISTRY_HPP
-#define OTHER_CLI_TOOL_REGISTRY_HPP
+#ifndef OTHER_CLI_CLI_TOOL_REGISTRY_HPP
+#define OTHER_CLI_CLI_TOOL_REGISTRY_HPP
 
 #include <memory>
 #include <vector>
@@ -45,7 +45,7 @@ namespace other {
     tool_registry& default_tool_registry();
 
     /// registers the dev/source-tree tools (run, build, test, install, package); idempotent so
-    ///  both the dev cli and driver boot can call it — the SDK user cli never does
+    ///  both the dev cli and driver boot can call it - the SDK user cli never does
     void register_dev_tools(tool_registry& registry);
 
     /// splits a raw command line into whitespace-separated arguments; segments wrapped in
@@ -60,4 +60,4 @@ namespace other {
   }  // namespace cli
 }  // namespace other
 
-#endif  // OTHER_CLI_TOOL_REGISTRY_HPP
+#endif  // OTHER_CLI_CLI_TOOL_REGISTRY_HPP

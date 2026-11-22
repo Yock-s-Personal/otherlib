@@ -4,8 +4,9 @@
 #ifndef OTHER_EDITOR_EDITOR_DRIVER_HPP
 #define OTHER_EDITOR_EDITOR_DRIVER_HPP
 
-#include "driver/driver.hpp"
 #include "data-structures/std_container.hpp"
+
+#include "driver/driver.hpp"
 
 #include "edit_stack.hpp"
 #include "editor_context.hpp"
@@ -32,7 +33,12 @@ namespace other {
     void on_scene_deactivated(natural_t scene_id) override;
     void on_begin_frame(render_data* data) override;
 
+    void on_shutdown_request() override;
     void on_shutdown() override;
+
+    /// writes the active scene to the file it was loaded from. false when there is no scene,
+    ///  it has no file, or the write failed; the log says which
+    bool save_active_scene();
 
     struct mouse_state {
       glm::vec2 position = { 0, 0 };
@@ -48,7 +54,6 @@ namespace other {
     bool move_toggled_on = false;
 
     void update_input();
-    void save_active_scene();
 
     void on_create_project() override;
 

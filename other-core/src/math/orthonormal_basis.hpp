@@ -1,5 +1,5 @@
 /**
- * @file math/orthonormal_basis.hpp
+ * \file math/orthonormal_basis.hpp
  */
 #ifndef OTHER_CORE_MATH_ORTHONORMAL_BASIS_HPP
 #define OTHER_CORE_MATH_ORTHONORMAL_BASIS_HPP
@@ -40,7 +40,6 @@ OTHER_REFLECT(
   other::orthonormal_basis,
   field(i, other::attr::serializable()),
   field(j, other::attr::serializable()),
-  field(k, other::attr::serializable())
-)
+  field(k, other::attr::serializable()))
 
 #endif  // OTHER_CORE_MATH_ORTHONORMAL_BASIS_HPP

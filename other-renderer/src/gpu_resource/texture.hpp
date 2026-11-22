@@ -1,15 +1,15 @@
 /**
- * \file renderer/texture.hpp
+ * \file gpu_resource/texture.hpp
  **/
 #ifndef OTHER_RENDERER_GPU_RESOURCE_TEXTURE_HPP
 #define OTHER_RENDERER_GPU_RESOURCE_TEXTURE_HPP
 
 #include <glm/glm.hpp>
 
-#include "gpu_resource/imgui_fwd.hpp"
 #include "math/definitions.hpp"
 #include "serialization/reflection.hpp"
 
+#include "gpu_resource/imgui_fwd.hpp"
 #include "gpu_resource/renderer_resource.hpp"
 
 namespace other {

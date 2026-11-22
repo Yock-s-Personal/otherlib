@@ -5,14 +5,19 @@
 
 #include <filesystem>
 
+#include <asio/asio.hpp>
 #include <spdlog/sinks/stdout_color_sinks.h>
 
 #include "core/logger_sinks.hpp"
+#include "event/event_system.hpp"
+#include "file/filesystem.hpp"
 #include "memory/arena.hpp"
 #include "serialization/scene_serializer.hpp"
 
+#include "tools/compile_cli_tool.hpp"
 #include "tools/material_cli_tool.hpp"
 #include "tools/model_cli_tool.hpp"
+#include "tools/vm_cli_tool.hpp"
 
 namespace other {
   namespace cli {
@@ -34,7 +39,7 @@ namespace other {
         log->set_config(&cli_config);
         log->create_logger("other-core-log", spdlog::level::warn);
 
-        /// console only at warn — a cli tool must not scatter log files around
+        /// console only at warn - a cli tool must not scatter log files around
         log_sink console_sink = {
           1,
           "console-sink",
@@ -49,6 +54,20 @@ namespace other {
       if (subsystem<arena>::inert) {
         subsystem<arena>::inert = false;
         OTHER_ASSERT(subsystem<arena>::get() != nullptr, "failed to initialize the cli arena");
+      }
+
+      /// a tool that finds files the way the engine does (through a mount, or from the engine's
+      ///  root) needs the file system. it starts with no mounts; a tool adds the ones it needs
+      if (subsystem<file_system>::inert) {
+        subsystem<file_system>::inert = false;
+        file_system* fs = subsystem<file_system>::get();
+        OTHER_ASSERT(fs != nullptr, "failed to initialize the cli file system");
+
+        /// a mount reports changes to its folder through the event system, and cannot be made
+        ///  without one. nothing listens here, and nothing runs the context
+        static asio::io_context io;
+        static event_system events(io);
+        fs->initialize_file_events(events);
       }
     }
 
@@ -211,6 +230,12 @@ namespace other {
       }
       if (registry.find_tool("material") == nullptr) {
         registry.add_tool(std::make_unique<material_tool>());
+      }
+      if (registry.find_tool("vm") == nullptr) {
+        registry.add_tool(std::make_unique<vm_tool>());
+      }
+      if (registry.find_tool("compile") == nullptr) {
+        registry.add_tool(std::make_unique<compile_tool>());
       }
     }
 

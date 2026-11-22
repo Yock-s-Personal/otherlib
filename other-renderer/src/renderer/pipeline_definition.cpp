@@ -344,6 +344,7 @@ namespace other {
     // since we validated it we should be free to assert almost everywhere
 
     pipeline_definition definition;
+    definition.source_path = std::filesystem::absolute(pl_def_path);
     auto name = pipeline_table.at_path("name");
     auto version = pipeline_table.at_path("version");
     if (!name || !version) {
@@ -528,13 +529,6 @@ namespace other {
         }
         if (seed_texture_path && seed_texture_path.is_string()) {
           tex.seed_texture_path = seed_texture_path.as_string()->get();
-          if (!std::filesystem::exists(tex.seed_texture_path.value())) {
-            tex.seed_texture_path = std::filesystem::absolute(tex.seed_texture_path.value());
-            if (!std::filesystem::exists(tex.seed_texture_path.value())) {
-              CORE_LOG_ERROR("Texture 'seed_texture_path' file does not exist: {}", tex.seed_texture_path.value().string());
-              tex.seed_texture_path = std::nullopt;
-            }
-          }
         }
 
         std::stringstream ss;
@@ -644,13 +638,13 @@ namespace other {
       }
     }
 
-    /// [materials.layout] — the material block this pipeline's shaders read; the engine
+    /// [materials.layout] - the material block this pipeline's shaders read; the engine
     ///  computes std430 offsets + element size from the declaration, retiring the hand-maintained value
     void parse_materials_section(pipeline_definition& into_def, const toml::table& pipeline_table) {
       PROFILE_SECTION("parse_materials_section");
       auto params = pipeline_table.at_path("materials.layout.params");
       if (!params) {
-        return;  /// no layout declared — this pipeline draws without materials
+        return;  /// no layout declared - this pipeline draws without materials
       }
       OTHER_ASSERT(params.is_array_of_tables(), "materials.layout.params must be an array of tables");
 
@@ -1191,7 +1185,7 @@ namespace other {
             ///  validated against it so the TOML can never drift from the shader ABI again
             const uint32_t derived = into_def.materials->element_size * into_def.materials->instance_capacity;
             OTHER_ASSERT(binding_element_size == 0 || binding_element_size == derived,
-                         "binding '{}': element_size {} does not match the [materials.layout]-derived size {} — delete the key, it is computed now",
+                         "binding '{}': element_size {} does not match the [materials.layout]-derived size {} - delete the key, it is computed now",
                          binding_name, binding_element_size, derived);
             binding_element_size = derived;
           }

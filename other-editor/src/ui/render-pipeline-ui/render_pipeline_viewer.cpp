@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "core/profiler.hpp"
+
 #include "ui/inspector_widgets.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_widgets.hpp"
 

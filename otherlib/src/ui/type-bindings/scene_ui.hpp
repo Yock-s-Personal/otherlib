@@ -20,7 +20,6 @@
 #include "ui/ui_node.hpp"
 #include "ui/ui_window.hpp"
 
-
 // IMGUI_REFLECT(other::scene, storage);
 
 namespace other {

@@ -204,6 +204,27 @@ namespace other {
     }
   }
 
+  bool driver_ui::any_window_open() const {
+    for (const auto& win : builtin_windows) {
+      if (win.open) {
+        return true;
+      }
+    }
+    for (const auto& [id, win] : custom_windows) {
+      if (win.open) {
+        return true;
+      }
+    }
+
+    auto* env = subsystem<scripting_environment>::get();
+    OTHER_ASSERT(env != nullptr, "Scripting environment not found");
+    script_object* reg = env->get_object(window_registry_id);
+    if (reg == nullptr || reg->dotnet_object == nullptr) {
+      return false;
+    }
+    return reg->dotnet_object->invoke<nbool32>("AnyWindowOpen");
+  }
+
   bool driver_ui::is_window_open(const std::string_view window_name) const {
     natural_t hash = FNV(window_name);
 

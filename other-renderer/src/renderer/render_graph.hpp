@@ -1,8 +1,8 @@
 /**
  * \file renderer/render_graph.hpp
  **/
-#ifndef OTHER_RENDERER_RENDER_GRAPH_HPP
-#define OTHER_RENDERER_RENDER_GRAPH_HPP
+#ifndef OTHER_RENDERER_RENDERER_RENDER_GRAPH_HPP
+#define OTHER_RENDERER_RENDERER_RENDER_GRAPH_HPP
 
 #include <cstdint>
 #include <map>
@@ -25,7 +25,7 @@ namespace other {
     /// \todo can we use core/graph.hpp instead? rendering passes/resources may complicate it
     struct graph {
       ostd::map<natural_t, frame_node> nodes;
-      ostd::map<natural_t, std::set<natural_t>> edges;
+      ostd::map<natural_t, ostd::set<natural_t>> edges;
     };
 
     using pass_executor = std::function<void(pass_context&)>;
@@ -123,4 +123,4 @@ OTHER_REFLECT(
 //   other::render_graph
 // )
 
-#endif  // OTHER_RENDERER_RENDER_GRAPH_HPP
+#endif  // OTHER_RENDERER_RENDERER_RENDER_GRAPH_HPP

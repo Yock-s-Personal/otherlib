@@ -11,6 +11,7 @@
 #include "vm/command_files/lexer.hpp"
 #include "vm/command_files/token.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
+#include "vm/diagnostics/ocmd_trace_sink.hpp"
 #include "vm/vm_tests.hpp"
 
 namespace other {
@@ -168,6 +169,20 @@ namespace other {
     diagnostic_engine diag;
     const auto tokens = ocmd_lexer{ "tag \"unterminated" }.tokenize(&diag);
     EXPECT_TRUE(tokens.empty());
+  }
+
+  TEST_F(vm_tests, lexer_leaves_no_sink_registered_after_a_lex_error) {
+    diagnostic_engine diag;
+    const auto tokens = ocmd_lexer{ "tag \"unterminated" }.tokenize(&diag);
+    ASSERT_TRUE(tokens.empty());
+
+    /// the lexer's sink lived on its stack, so its name has to be free again once it has returned
+    ocmd_trace_sink probe;
+    const natural_t id = diag.register_sink("lexer-error-sink", &probe);
+    EXPECT_NE(id, 0u);
+    if (id != 0) {
+      diag.remove_sink(id);
+    }
   }
 
   TEST_F(vm_tests, lexer_identifier_with_hyphen) {

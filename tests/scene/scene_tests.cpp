@@ -5,9 +5,30 @@
 
 #include <map>
 
+#include "dotnet/dotnet_object.hpp"
+#include "script/script_object.hpp"
+#include "script/scripting_environment.hpp"
+
+#include "object/script_component.hpp"
 #include "scene/scene.hpp"
 
 namespace other {
+  namespace {
+
+    script_object* script_object_of(scene& s, natural_t object_id) {
+      const script_component* script = s.try_get_component<script_component>(object_id);
+      if (script == nullptr || script->script_object_id < 0) {
+        return nullptr;
+      }
+      return subsystem<scripting_environment>::get()->get_object(script->script_object_id);
+    }
+
+    dotnet_object* managed_object_of(scene& s, natural_t object_id) {
+      script_object* obj = script_object_of(s, object_id);
+      return obj != nullptr ? obj->dotnet_object : nullptr;
+    }
+
+  }  // namespace
 
   TEST_F(scene_tests, create_scene_object) {
     scene scene1;
@@ -169,6 +190,79 @@ namespace other {
     EXPECT_EQ(scene.name, "Vector Scene");
 
     scene_object& _ = scene.create_object("Object in Vector Scene");
+  }
+
+  /// a deactivated scene keeps its objects, so every scene the project has activated is live
+  ///  at once; the second scene to use a name used to get no managed object for it
+  TEST_F(scene_tests, live_scenes_can_share_object_names) {
+    scene first("First Scene");
+    scene_object& first_floor = first.create_object("Floor");
+    dotnet_object* first_managed = managed_object_of(first, first_floor.id);
+    ASSERT_NE(first_managed, nullptr);
+    const natural_t first_handle = first_managed->handle;
+
+    {
+      scene second("Second Scene");
+      scene_object& second_floor = second.create_object("Floor");
+      dotnet_object* second_managed = managed_object_of(second, second_floor.id);
+      ASSERT_NE(second_managed, nullptr) << "the second scene's 'Floor' lost its managed object to the first";
+      EXPECT_NE(second_managed->handle, first_handle);
+      EXPECT_NE(second_managed->managed_object, nullptr);
+    }
+
+    /// tearing the second scene down must leave the first scene's object alone
+    dotnet_object* survivor = managed_object_of(first, first_floor.id);
+    ASSERT_NE(survivor, nullptr);
+    EXPECT_EQ(survivor->handle, first_handle);
+    EXPECT_NE(survivor->managed_object, nullptr);
+  }
+
+  /// the editor names every new object "New Object"; the second one used to get no managed object
+  TEST_F(scene_tests, objects_in_one_scene_can_share_a_name) {
+    scene s("Twin Scene");
+    scene_object& first = s.create_object("New Object");
+    scene_object& second = s.create_object("New Object");
+
+    dotnet_object* first_managed = managed_object_of(s, first.id);
+    dotnet_object* second_managed = managed_object_of(s, second.id);
+    ASSERT_NE(first_managed, nullptr);
+    ASSERT_NE(second_managed, nullptr);
+    EXPECT_NE(first_managed->handle, second_managed->handle);
+
+    s.destroy_object(first.id);
+    dotnet_object* survivor = managed_object_of(s, second.id);
+    ASSERT_NE(survivor, nullptr);
+    EXPECT_EQ(survivor, second_managed);
+    EXPECT_NE(survivor->managed_object, nullptr);
+  }
+
+  TEST_F(scene_tests, rename_object_updates_the_script_object_label) {
+    scene s("Rename Scene");
+    scene_object& object = s.create_object("Before");
+
+    script_object* script_obj = script_object_of(s, object.id);
+    ASSERT_NE(script_obj, nullptr);
+    ASSERT_NE(script_obj->dotnet_object, nullptr);
+    EXPECT_EQ(script_obj->name, "Before");
+    const natural_t handle = script_obj->dotnet_object->handle;
+
+    s.rename_object(object.id, "After");
+    EXPECT_EQ(object.name, "After");
+    EXPECT_EQ(script_obj->name, "After");
+    EXPECT_EQ(script_obj->dotnet_object->object_name, "After");
+    /// a rename relabels the managed object, it does not replace it
+    EXPECT_EQ(script_obj->dotnet_object->handle, handle);
+
+    /// renaming onto a name another object holds is allowed
+    scene_object& other_object = s.create_object("Taken");
+    s.rename_object(object.id, "Taken");
+    EXPECT_EQ(object.name, "Taken");
+    EXPECT_NE(managed_object_of(s, other_object.id), nullptr);
+    EXPECT_NE(managed_object_of(s, object.id), nullptr);
+
+    /// an empty name is refused
+    s.rename_object(object.id, "");
+    EXPECT_EQ(object.name, "Taken");
   }
 
 }  // namespace other

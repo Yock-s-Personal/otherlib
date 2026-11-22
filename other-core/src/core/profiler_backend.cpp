@@ -6,8 +6,9 @@
  *  never embed a client (whose static destructor would deadlock FreeLibrary's loader lock
  *  against its own worker-thread joins)
  **/
-#include "core/profiler.hpp"
 #include "core/profiler_backend.hpp"
+
+#include "core/profiler.hpp"
 
 #ifdef OTHER_INCLUDE_PROFILING
 
@@ -32,9 +33,9 @@ namespace other {
       ///  field under TRACY_ON_DEMAND (0.14) and may grow again
       zone_ctx to_ctx(TracyCZoneCtx ctx) {
         zone_ctx res{ ctx.id, ctx.active, 0 };
-#ifdef TRACY_ON_DEMAND
+  #ifdef TRACY_ON_DEMAND
         res.connection_id = ctx.connectionId;
-#endif
+  #endif
         return res;
       }
 
@@ -42,9 +43,9 @@ namespace other {
         TracyCZoneCtx res;
         res.id = ctx.id;
         res.active = ctx.active;
-#ifdef TRACY_ON_DEMAND
+  #ifdef TRACY_ON_DEMAND
         res.connectionId = ctx.connection_id;
-#endif
+  #endif
         return res;
       }
 
@@ -113,13 +114,25 @@ namespace other {
       }
 
       constexpr profiler_backend kDirectTable{
-        direct_zone_begin, table_zone_end, table_zone_text, table_memory_alloc,
-        table_memory_free, table_frame_mark, table_message, table_plot,
+        direct_zone_begin,
+        table_zone_end,
+        table_zone_text,
+        table_memory_alloc,
+        table_memory_free,
+        table_frame_mark,
+        table_message,
+        table_plot,
       };
 
       constexpr profiler_backend kCopyingTable{
-        copying_zone_begin, table_zone_end, table_zone_text, table_memory_alloc,
-        table_memory_free, copying_frame_mark, table_message, copying_plot,
+        copying_zone_begin,
+        table_zone_end,
+        table_zone_text,
+        table_memory_alloc,
+        table_memory_free,
+        copying_frame_mark,
+        table_message,
+        copying_plot,
       };
 
     }  // namespace

@@ -9,6 +9,14 @@
 #include "script/script_object.hpp"
 
 namespace other {
+  namespace {
+
+    /// a behavior's slot is labelled after its parent, so a rename has to rebuild it
+    std::string behavior_object_name(const std::string_view parent_name, const std::string_view behavior_name) {
+      return std::format("{}__behavior__{}", parent_name, behavior_name);
+    }
+
+  }  // namespace
 
   void scripting_environment::initialize_script_environment(const config_table& configuration) {
     PROFILE_SECTION("scripting_environment::initialize-script-environment");
@@ -160,6 +168,37 @@ namespace other {
     obj->dotnet_object->invoke<>("ResetNativeHandle");
   }
 
+  void scripting_environment::rename_object(integer_t id, const std::string_view name) {
+    OTHER_ASSERT(!name.empty(), "Script object name cannot be empty.");
+    PROFILE_SECTION("scripting_environment::rename_object");
+    script_object* obj = get_object(id);
+    OTHER_ASSERT(obj != nullptr, "Script object with ID {} does not exist.", id);
+    if (obj->name == name) {
+      return;
+    }
+
+    CORE_LOG_DEBUG("[script {}] renaming [{}] to [{}]", id, obj->name, name);
+    obj->name = name;
+    if (obj->dotnet_object != nullptr) {
+      obj->dotnet_object->object_name = obj->name;
+    }
+
+    for (const script_object::behavior_handle& handle : obj->behavior_handles) {
+      if (handle.script_object_id < 0) {
+        continue;
+      }
+
+      script_object* behavior = get_object(handle.script_object_id);
+      if (behavior == nullptr) {
+        continue;
+      }
+      behavior->name = behavior_object_name(obj->name, handle.type_name);
+      if (behavior->dotnet_object != nullptr) {
+        behavior->dotnet_object->object_name = behavior->name;
+      }
+    }
+  }
+
   void scripting_environment::rebind_dotnet_object(integer_t id, void* native_handle) {
     script_object* obj = get_object(id);
     OTHER_ASSERT(obj != nullptr, "Script object with ID {} does not exist.", id);
@@ -252,10 +291,15 @@ namespace other {
 
     script_object* parent = get_object(parent_id);
     OTHER_ASSERT(parent != nullptr, "Script object with ID {} does not exist.", parent_id);
-    OTHER_ASSERT(parent->dotnet_object != nullptr, "Script object with ID {} does not have a .NET object attached.", parent_id);
+    /// a parent can lack its managed object (type missing, constructor threw); the behavior is
+    ///  dropped with an error instead of taking the process down mid-load
+    if (parent->dotnet_object == nullptr) {
+      CORE_LOG_ERROR("Cannot attach behavior '{}' to '{}': script object with ID {} has no .NET object attached.", behavior_name, parent->name, parent_id);
+      return;
+    }
 
     /// re-applying a scene document to a surviving object (play-stop restore) re-adds
-    ///  behaviors that never detached — attach is idempotent per type
+    ///  behaviors that never detached - attach is idempotent per type
     auto existing = std::find_if(parent->behavior_handles.begin(), parent->behavior_handles.end(), [&behavior_name](const script_object::behavior_handle& handle) {
       return handle.type_name == behavior_name;
     });
@@ -269,14 +313,16 @@ namespace other {
     CORE_LOG_DEBUG("[script {}] attaching behavior '{}' to object '{}'", parent_id, behavior_name, parent->name);
 
     integer_t behavior_script_id = instantiate_dotnet_behavior(parent, behavior_name);
-    if (behavior_script_id < 0) {
-      return;
-    }
 
+    /// kept with an invalid id when the type is missing (the project assembly failed to build):
+    ///  a saved scene still names the behavior, and the next assembly refresh retries it
     parent->behavior_handles.push_back({
       .type_name = std::string(behavior_name),
       .script_object_id = behavior_script_id,
     });
+    if (behavior_script_id < 0) {
+      return;
+    }
 
     CORE_LOG_DEBUG("[script {}] behavior '{}' attached with script_object ID {}", parent_id, behavior_name, behavior_script_id);
   }
@@ -284,7 +330,7 @@ namespace other {
   integer_t scripting_environment::instantiate_dotnet_behavior(script_object* parent, const std::string_view behavior_name) {
     PROFILE_SECTION("scripting_environment::instantiate_dotnet_behavior");
     /// create a script_object slot for this behavior so we have a native-side handle
-    std::string behavior_obj_name = std::format("{}__behavior__{}", parent->name, behavior_name);
+    std::string behavior_obj_name = behavior_object_name(parent->name, behavior_name);
     integer_t behavior_script_id = create_object(behavior_obj_name);
 
     dotnet_object* behavior_dotnet_obj = dotnet.instantiate_managed_object(behavior_name, behavior_obj_name);
@@ -294,7 +340,7 @@ namespace other {
       return -1;
     }
 
-    /// the slot owns the managed object so destroy_object releases the name for reuse
+    /// the slot owns the managed object so destroy_object releases it with the parent
     get_object(behavior_script_id)->dotnet_object = behavior_dotnet_obj;
 
     parent->dotnet_object->invoke<>("AddNativeBehavior", behavior_dotnet_obj->managed_object);
@@ -306,7 +352,11 @@ namespace other {
 
     script_object* parent = get_object(parent_id);
     OTHER_ASSERT(parent != nullptr, "Script object with ID {} does not exist.", parent_id);
-    OTHER_ASSERT(parent->dotnet_object != nullptr, "Script object with ID {} does not have a .NET object attached.", parent_id);
+    /// nothing could have attached without a managed parent, so there is nothing to detach
+    if (parent->dotnet_object == nullptr) {
+      CORE_LOG_WARN("Cannot detach behavior '{}' from '{}': script object with ID {} has no .NET object attached.", behavior_name, parent->name, parent_id);
+      return;
+    }
 
     CORE_LOG_DEBUG("[script {}] detaching behavior '{}' from object '{}'", parent_id, behavior_name, parent->name);
 

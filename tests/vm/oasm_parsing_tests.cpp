@@ -187,6 +187,27 @@ namespace other {
     EXPECT_TRUE(ir.code_blocks.empty());
   }
 
+  TEST_F(vm_tests, oasm_parsing_leaves_no_sink_registered_after_a_parse_error) {
+    const std::string_view source = R"(
+    #data {
+      .answer : int32 = 42
+    $main:
+      ret
+    )";
+
+    diagnostic_engine diag;
+    const auto ir = detail::parse_source(source, &diag);
+    ASSERT_FALSE(ir.valid);
+
+    /// the parser's sink lived on its stack, so its name has to be free again once it has returned
+    ocmd_trace_sink probe;
+    const natural_t id = diag.register_sink("oasm-error-sink", &probe);
+    EXPECT_NE(id, 0u);
+    if (id != 0) {
+      diag.remove_sink(id);
+    }
+  }
+
   TEST_F(vm_tests, oasm_parsing_rejects_instruction_with_too_many_arguments) {
     const std::string_view source = R"(
     $main:

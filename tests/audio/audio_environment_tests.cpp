@@ -1,7 +1,7 @@
 /**
  * \file tests/audio/audio_environment_tests.cpp
  *
- * headless tests — every case runs in forced pump mode (noDevice, manually advanced),
+ * headless tests - every case runs in forced pump mode (noDevice, manually advanced),
  *  so results are deterministic with no audio hardware required
  **/
 #include <filesystem>
@@ -9,7 +9,6 @@
 #include <gtest/gtest.h>
 
 #include "audio/audio_environment.hpp"
-
 #include "audio/audio_test_fixtures.hpp"
 #include "other_test.hpp"
 

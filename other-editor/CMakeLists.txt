@@ -15,7 +15,10 @@ add_static_driver(other_editor
   src/ui/render-pipeline-ui/render_pipeline_widgets.cpp
   src/ui/render-pipeline-ui/render_pipeline_viewer.cpp
   src/ui/render-pipeline-ui/render_pipeline_editor.cpp
+  src/ui/project-compiler/project_compiler.cpp
   src/ui/project-creator/project_creator.cpp
+  src/ui/project-overview/project_overview.cpp
+  src/ui/scene-graph-editor/scene_graph_editor.cpp
   src/ui/viewport/viewport.cpp
 
   src/edit_stack.cpp
@@ -30,3 +33,10 @@ target_include_directories(other_editor
 
 add_subdirectory(plugins)
 add_subdirectory(dotnet)
+
+install(TARGETS other_editor RUNTIME DESTINATION "${OTHER_INSTALL_BINDIR}/${OTHER_LIB_FAMILY}")
+install(
+  DIRECTORY "${CMAKE_BINARY_DIR}/other-editor/dotnet/${ASSEMBLY_CONFIG}/"
+  DESTINATION "${OTHER_INSTALL_ASSEMBLIES}"
+  FILES_MATCHING PATTERN "OtherEditorCs.*"
+)

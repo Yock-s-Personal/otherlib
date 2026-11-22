@@ -5,10 +5,10 @@
 
 #include <iostream>
 
-#include <Windows.h>
-
 #include <spdlog/common.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
+
+#include <Windows.h>
 
 #include "core/command_line.hpp"
 #include "core/config_table.hpp"
@@ -75,7 +75,8 @@ namespace other {
     return res;
   }
 
-  /// hardware faults die stackless — print one like asserts do
+#ifdef OTHER_ENVIRONMENT_WINDOWS
+  /// hardware faults die stackless - print one like asserts do
   ///  (stderr direct: faults can land after logger shutdown)
   static LONG WINAPI report_unhandled_seh(EXCEPTION_POINTERS* info) {
     const uint32_t code = info != nullptr && info->ExceptionRecord != nullptr ? info->ExceptionRecord->ExceptionCode : 0;
@@ -83,12 +84,17 @@ namespace other {
               << OTHER_STACKTRACE << std::endl;
     return EXCEPTION_CONTINUE_SEARCH;
   }
+#else
+#endif
 
   exit_code other_environment_program_entry_point(const command_line& cmd, const config_table& cfg, const std::string_view prof) {
     /// the exe image hosts the one tracy client; plugins reach it through the handshake
     profiling::initialize_host_backend();
     profiling::initialize_host_gpu_backend();
+#ifdef OTHER_ENVIRONMENT_WINDOWS
     SetUnhandledExceptionFilter(&report_unhandled_seh);
+#else
+#endif
     exit_code res = invoke_other_main(cmd, cfg, prof);
     CORE_LOG_INFO("Other Environment exit with code: {}", res);
     return res;
@@ -97,7 +103,7 @@ namespace other {
   int entry() {
     command_line empty_cmd;
     config_table default_config;
-    std::string default_profile = get_default_profile();
+    const std::string default_profile = get_default_profile();
     return other_environment_program_entry_point(empty_cmd, default_config, default_profile);
   }
 
@@ -113,7 +119,7 @@ namespace other {
       }
     }
 
-    std::string profile = get_subsystem_profile(&config);
+    const std::string profile = get_subsystem_profile(&config);
     return other_environment_program_entry_point(cmd, config, profile);
   }
 
@@ -146,6 +152,20 @@ namespace other {
       }
     }
 
+    if (cmd.config_file.empty()) {
+      if (const opt<filepath> adj = find_exe_adjacent_config(get_current_exe_full_path()); adj.has_value()) {
+        cmd.config_file = adj->string();
+        if (!cmd.working_directory.has_value()) {
+          std::error_code ec;
+          std::filesystem::current_path(adj->parent_path(), ec);
+          if (ec) {
+            std::println(std::cerr, "[ERROR]: Failed to set working directory to '{}': {}", adj->parent_path().string(), ec.message());
+            return std::make_tuple(false, config_table{}, cmd);
+          }
+        }
+      }
+    }
+
     config_table config = {};
     if (std::filesystem::exists(cmd.config_file)) {
       PROFILE_SECTION("other::entry--load-config");
@@ -164,6 +184,21 @@ namespace other {
 
     detail::finalize_configuration_table(config, cmd);
     return std::make_tuple(true, config, cmd);
+  }
+
+  opt<filepath> find_exe_adjacent_config(const filepath& exe_path) {
+    if (exe_path.empty()) {
+      return std::nullopt;
+    }
+
+    filepath candidate = exe_path;
+    candidate.replace_extension(".toml");
+
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(candidate, ec)) {
+      return std::nullopt;
+    }
+    return candidate;
   }
 
   namespace detail {

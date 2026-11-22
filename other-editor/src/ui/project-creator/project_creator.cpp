@@ -4,6 +4,7 @@
 #include "ui/project-creator/project_creator.hpp"
 
 #include "core/profiler.hpp"
+
 #include "ui/inspector_widgets.hpp"
 #include "ui/project-creator/project_creator_widgets.hpp"
 

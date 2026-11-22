@@ -1,8 +1,8 @@
 /**
  * \file core/arena_buffer.hpp
  **/
-#ifndef OTHER_CORE_ARENA_BUFFER_HPP
-#define OTHER_CORE_ARENA_BUFFER_HPP
+#ifndef OTHER_CORE_CORE_ARENA_BUFFER_HPP
+#define OTHER_CORE_CORE_ARENA_BUFFER_HPP
 
 #include <numeric>
 
@@ -12,7 +12,6 @@
 #include "core/profiler.hpp"
 #include "data-structures/std_container.hpp"
 #include "serialization//reflection.hpp"
-
 
 namespace other {
 
@@ -168,4 +167,4 @@ namespace other {
 
 }  // namespace other
 
-#endif  // OTHER_CORE_ARENA_BUFFER_HPP
+#endif  // OTHER_CORE_CORE_ARENA_BUFFER_HPP

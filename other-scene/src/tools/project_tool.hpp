@@ -25,6 +25,11 @@ namespace other {
 
     const filepath& get_dotnet_project_path() const { return dotnet_project_path; }
 
+    /// errors-only msbuild log of a csproj's last build; under obj/, which the asset watcher skips
+    static filepath build_log_path(const filepath& csproj_path);
+    /// empty when the last build wrote no errors or never ran
+    static std::string read_build_log(const filepath& csproj_path);
+
    private:
     filepath dotnet_project_path;
   };

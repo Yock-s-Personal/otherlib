@@ -1,13 +1,13 @@
 /**
  * \file ui/asset-browser/asset_browser_tree_node.hpp
  **/
-#ifndef OTHERLIB_UI_ASSET_BROWSER_TREE_NODE_HPP
-#define OTHERLIB_UI_ASSET_BROWSER_TREE_NODE_HPP
+#ifndef OTHER_EDITOR_UI_ASSET_BROWSER_ASSET_BROWSER_TREE_NODE_HPP
+#define OTHER_EDITOR_UI_ASSET_BROWSER_ASSET_BROWSER_TREE_NODE_HPP
+
+#include "data-structures/std_container.hpp"
 
 #include "ui/asset-browser/asset_browser_widgets.hpp"
-#include "data-structures/std_container.hpp"
 #include "ui/ui_node.hpp"
-
 
 namespace other {
 
@@ -45,4 +45,4 @@ namespace other {
   }  // namespace ui
 }  // namespace other
 
-#endif  // OTHERLIB_UI_ASSET_BROWSER_TREE_NODE_HPP
+#endif  // OTHER_EDITOR_UI_ASSET_BROWSER_ASSET_BROWSER_TREE_NODE_HPP

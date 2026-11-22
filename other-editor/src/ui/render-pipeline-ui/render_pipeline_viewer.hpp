@@ -4,8 +4,8 @@
 #ifndef OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_VIEWER_HPP
 #define OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_VIEWER_HPP
 
-#include "event/event_system.hpp"
 #include "data-structures/std_container.hpp"
+#include "event/event_system.hpp"
 
 #include "renderer/pipeline_definition.hpp"
 #include "renderer/renderer.hpp"

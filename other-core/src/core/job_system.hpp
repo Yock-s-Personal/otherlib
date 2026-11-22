@@ -15,7 +15,7 @@
 namespace asio {
   class io_context;
   class thread_pool;
-}
+}  // namespace asio
 
 namespace other {
 

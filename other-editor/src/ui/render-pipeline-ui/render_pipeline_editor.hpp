@@ -1,11 +1,12 @@
 /**
  * \file ui/render-pipeline-ui/render_pipeline_editor.hpp
  **/
-#ifndef OTHER_EDITOR_UI_RENDER_PIPELINE_EDITOR_HPP
-#define OTHER_EDITOR_UI_RENDER_PIPELINE_EDITOR_HPP
+#ifndef OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_EDITOR_HPP
+#define OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_EDITOR_HPP
+
+#include "data-structures/std_container.hpp"
 
 #include "ui/node-editor/node_editor_display.hpp"
-#include "data-structures/std_container.hpp"
 #include "ui/node_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_widgets.hpp"
 #include "ui/ui_window.hpp"
@@ -64,4 +65,4 @@ namespace other {
   }  // namespace ui
 }  // namespace other
 
-#endif  // OTHER_EDITOR_UI_RENDER_PIPELINE_EDITOR_HPP
+#endif  // OTHER_EDITOR_UI_RENDER_PIPELINE_UI_RENDER_PIPELINE_EDITOR_HPP

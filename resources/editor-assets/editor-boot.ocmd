@@ -1,0 +1,2 @@
+# boots the editor into the test project
+project load "test-project"

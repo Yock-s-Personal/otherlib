@@ -220,12 +220,12 @@ namespace other {
       return;
     }
     sink->submit(streams.meshes, debug_mesh_instance{
-                                                   .mesh_handle = h,
-                                                   .model = model,
-                                                   .color = tint,
-                                                   .submesh_index = 0,
-                                                   .flags = static_cast<uint32_t>(wireframe ? debug_mesh_instance::DEBUG_MESH_WIREFRAME : debug_mesh_instance::DEBUG_MESH_NONE),
-                                                 });
+                                   .mesh_handle = h,
+                                   .model = model,
+                                   .color = tint,
+                                   .submesh_index = 0,
+                                   .flags = static_cast<uint32_t>(wireframe ? debug_mesh_instance::DEBUG_MESH_WIREFRAME : debug_mesh_instance::DEBUG_MESH_NONE),
+                                 });
   }
 
 }  // namespace other

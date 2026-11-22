@@ -22,7 +22,6 @@ target_sources(otherlib
     src/driver/driver_system.cpp
     src/driver/systems/network_system.cpp
     src/driver/systems/job_driver_system.cpp
-    src/driver/systems/peer_mesh_system.cpp
     src/driver/systems/event_driver_system.cpp
     src/driver/systems/input_driver_system.cpp
     src/driver/systems/asset_system.cpp
@@ -38,13 +37,13 @@ target_sources(otherlib
     src/driver/subsystem_registry.cpp
     src/driver/driver.cpp
 
-    src/network/session/network_session.cpp
-    src/network/session/replication.cpp
-    src/network/session/scene_ops.cpp
-
     # src/object/...
 
     src/project/project.cpp
+    src/project/script_assembly.cpp
+    src/project/pipeline_collector.cpp
+    src/project/project_compiler.cpp
+    src/project/compile_session.cpp
 
     src/render/default_pass_executor_resolver.cpp
 
@@ -100,6 +99,10 @@ target_sources(otherlib
     src/vm/command_files/ocmd_compiler.cpp
     src/vm/command_files/ocmd_linker.cpp
     src/vm/command_files/ocmd_toolchain.cpp
+    src/vm/command_files/ocmd_debug_info.cpp
+    src/vm/command_language/command_lexer.cpp
+    src/vm/command_language/command_parser.cpp
+    src/vm/command_language/command_lowering.cpp
     src/vm/devices/core_command_device.cpp
     src/vm/devices/event_device.cpp
     src/vm/devices/asset_device.cpp
@@ -112,17 +115,21 @@ target_sources(otherlib
     src/vm/instruction.cpp
     src/vm/opcode.cpp
     src/vm/command_bus.cpp
+    src/vm/builtin_command_devices.cpp
     src/vm/control_table.cpp
     src/vm/vm_type.cpp
     src/vm/other_device.cpp
     src/vm/decompiler.cpp
+    src/vm/hooks.cpp
+    src/vm/project_program.cpp
     src/vm/vm.cpp
 
-    src/tools/build_tool.cpp
     src/tools/environment_console.cpp
     src/tools/scene_cli_tool.cpp
     src/tools/model_cli_tool.cpp
     src/tools/material_cli_tool.cpp
+    src/tools/vm_cli_tool.cpp
+    src/tools/compile_cli_tool.cpp
 
     src/ui/script/script_property_widget.cpp
     src/ui/type-bindings/value_ui.cpp
@@ -131,6 +138,8 @@ target_sources(otherlib
     src/ui/console/console_widgets.cpp
     src/ui/console/console_input_node.cpp
     src/ui/console/console_history_node.cpp
+    src/ui/console/console_log_layout.cpp
+    src/ui/console/console_log_pane.cpp
     src/ui/console/console.cpp
     src/ui/menu-bar/menu_item.cpp
     src/ui/menu-bar/menu.cpp

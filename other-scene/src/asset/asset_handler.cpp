@@ -25,6 +25,23 @@ namespace other {
   void asset_handler::begin_unload() {
     PROFILE_SECTION("asset_handler::begin_unload");
     remove_after_unload = true;
+    cancel_plan();
+
+    /// loads still in flight are unloaded as they settle. left alone they finish into
+    ///  loaded_assets after this pass and all_assets_unloaded never comes true
+    for (const auto& [id, context] : asset_pipelines) {
+      switch (get_asset_state(id)) {
+        case asset_state::LOADING:
+        case asset_state::REFRESHING_UNLOAD:
+        case asset_state::REFRESHING_LOAD:
+          pending_unloads.push(id);
+          break;
+
+        default:
+          break;
+      }
+    }
+
     for (auto it = loaded_assets.begin(); it != loaded_assets.end();) {
       /// add unloading pipelines for each asset to be unloaded
       natural_t asset_id = it->first;
@@ -141,6 +158,14 @@ namespace other {
     execute_plan();
   }
 
+  void asset_handler::cancel_plan() {
+    PROFILE_SECTION("asset_handler::cancel_plan");
+    /// a slot that is not pending never dispatches its parents, so nothing resolves a
+    ///  virtual path once the project mount is gone. the snapshot stays: unload handlers
+    ///  still ask in_snapshot during teardown
+    plan.pending.assign(plan.pending.size(), false);
+  }
+
   natural_t asset_handler::load_asset(const filepath& file_path, load_completion_callback on_complete) {
     PROFILE_SECTION("asset_handler::load_asset");
 
@@ -193,8 +218,8 @@ namespace other {
                                                                         .path_hash = hash,
                                                                         .load_path = file_path,
                                                                         // clang-format off
-                                                                .virtual_path = std::format("{}{}{}/{}", default_mount, file_system::kPathSeparator, 
-                                                                                asset::get_filesystem_directory(asset_type), name),
+                                                                        .virtual_path = std::format("{}{}{}/{}", default_mount, file_system::kPathSeparator, 
+                                                                                                      asset::get_filesystem_directory(asset_type), name),
                                                                         // clang-format on
                                                                         .absolute_path = std::filesystem::absolute(absolute_path),
                                                                       },

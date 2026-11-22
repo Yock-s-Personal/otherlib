@@ -16,7 +16,7 @@ namespace other {
       natural_t type_hash = 0;
       void* comp_ptr = nullptr;
     };
-    std::set<size_t> registered_component_types;
+    ostd::set<size_t> registered_component_types;
     ostd::unordered_map<size_t, component_data> components;
 
     template <typename T>
@@ -43,4 +43,4 @@ namespace other {
 
 }  // namespace other
 
-#endif  // OTHER_SCENE_OBJECT_COMPONENT_REGISTRY_HPP
+#endif  // OTHER_SCENE_OBJECT_OBJECT_COMPONENT_REGISTRY_HPP

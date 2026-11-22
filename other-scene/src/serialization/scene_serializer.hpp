@@ -1,14 +1,10 @@
 /**
  * \file serialization/scene_serializer.hpp
- *
- * scene <-> scene_document <-> (.oscn toml | .oscnb binary); the binary form doubles as the in-memory
- * snapshot wire format (capture/restore_snapshot) used by play/stop restore, undo/redo, and replication
  **/
 #ifndef OTHER_SCENE_SERIALIZATION_SCENE_SERIALIZER_HPP
 #define OTHER_SCENE_SERIALIZATION_SCENE_SERIALIZER_HPP
 
 #include "core/defines.hpp"
-
 #include "serialization/component_codec.hpp"
 #include "serialization/scene_document.hpp"
 
@@ -29,7 +25,7 @@ namespace other {
     /// -- live scene <-> document -------------------------------------------
 
     /// walks the scene tree depth-first (parents before children); the root object is
-    /// not captured — scenes construct their own root
+    /// not captured - scenes construct their own root
     scene_document capture_scene(scene& s, const codec_services& services);
 
     /// instantiates the document's objects into @p s via normal creation APIs (entt construct signals
@@ -63,8 +59,12 @@ namespace other {
     bool save_scene_document(const scene_document& doc, const filepath& path);
 
     /// every asset reference the document's component payloads carry, as stored (hook script is
-    /// separate: scene_document::script); engine-free — this is what manifest parsing rides
+    /// separate: scene_document::script); engine-free - this is what manifest parsing rides
     ostd::vector<component_asset_ref> collect_scene_asset_refs(const scene_document& doc);
+
+    /// passes every one of those references through rewrite and stores what it returns.
+    /// returns how many changed; engine-free
+    size_t rewrite_scene_asset_refs(scene_document& doc, const asset_path_rewrite_fn& rewrite);
 
   }  // namespace serialization
 }  // namespace other

@@ -4,15 +4,16 @@
  * the oecli scene tool: compile/decompile/info over hermetic temp files, in-process
  * through the same registry the executable and in-environment hosts use.
  **/
-#include <gtest/gtest.h>
-
 #include <fstream>
 
-#include "other_test.hpp"
+#include <gtest/gtest.h>
+
+#include "serialization/scene_serializer.hpp"
+
+#include "tools/scene_cli_tool.hpp"
 
 #include "cli/tool_registry.hpp"
-#include "serialization/scene_serializer.hpp"
-#include "tools/scene_cli_tool.hpp"
+#include "other_test.hpp"
 
 namespace other {
 
@@ -26,8 +27,12 @@ namespace other {
 
       ctx = {};
       ctx.working_directory = test_root;
-      ctx.out = [this](std::string_view message) { output += std::format("{}\n", message); };
-      ctx.err = [this](std::string_view message) { errors += std::format("{}\n", message); };
+      ctx.out = [this](std::string_view message) {
+        output += std::format("{}\n", message);
+      };
+      ctx.err = [this](std::string_view message) {
+        errors += std::format("{}\n", message);
+      };
 
       cli::register_environment_tools(registry);
     }

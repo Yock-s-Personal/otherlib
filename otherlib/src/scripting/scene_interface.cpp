@@ -6,7 +6,6 @@
 #include <filesystem>
 
 #include "core/profiler.hpp"
-
 #include "serialization/reflection.hpp"
 
 #include "script/scripting_environment.hpp"
@@ -50,10 +49,7 @@ namespace other {
   void scene_interface::set_object_name(scene* scene, natural_t id, const std::string_view name) {
     OTHER_ASSERT(scene != nullptr, "Scene pointer is null in scene_interface::set_object_name");
 
-    scene_object* object = &scene->get_object(id);
-    OTHER_ASSERT(object != nullptr, "Scene object pointer is null in scene_interface::set_object_name");
-
-    object->name = name;
+    scene->rename_object(id, name);
   }
 
   void scene_interface::add_tag_to_object(scene* scene, natural_t id, const std::string_view tag) {

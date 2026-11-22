@@ -5,6 +5,7 @@
 #define OTHER_EDITOR_EDITOR_SELECTION_HPP
 
 #include <glm/glm.hpp>
+
 #include "data-structures/std_container.hpp"
 
 #include "renderer/draw_command.hpp"

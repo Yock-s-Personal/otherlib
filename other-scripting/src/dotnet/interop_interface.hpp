@@ -24,8 +24,16 @@ namespace other {
   /// NativeFunctionManager
   using discover_binding_points = void (*)();
   using cleanup_binding_points = void (*)();
-  using bind_native_function = void (*)(native_string, void*);
-  using register_internal_call = void (*)(native_string, void*);
+  /// what the managed binder made of a native function handed to it
+  enum class binding_result : int32_t {
+    BOUND = 0,
+    NO_FIELD = 1,
+    NOT_UNMANAGED_CDECL = 2,
+    SIGNATURE_DIFFERS = 3,
+  };
+  /// name, function, the function's signature as binding_signature.hpp writes it
+  using bind_native_function = int32_t (*)(native_string, void*, native_string);
+  using register_internal_call = int32_t (*)(native_string, void*, native_string);
   using validate_binding_points = nbool32 (*)();
 
   /// NativeObjectManager

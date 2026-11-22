@@ -67,15 +67,15 @@ namespace OtherCsBindings
         Console.WriteLine($"Logger not initialized, cannot log message: {message_string}");
         return;
       }
-      NativeString message_native = message_string;
       unsafe
       {
-        NativeLogMessage(native_handle, message_native, (Int32)level);
+        using var message_utf8 = new Utf8Arg(message_string, stackalloc byte[Utf8Arg.StackSize]);
+        NativeLogMessage(native_handle, message_utf8.Pointer, (Int32)level);
       }
     }
 
     [NativeFunction("LogMessage", false)] // this is manually bound by host before entry
-    internal static unsafe delegate*<IntPtr, NativeString, Int32, void> NativeLogMessage;
+    internal static unsafe delegate* unmanaged[Cdecl]<IntPtr, byte*, Int32, void> NativeLogMessage;
 
 
     // private NativeFunction

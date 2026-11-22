@@ -3,6 +3,8 @@
  **/
 #include "scripting/main_thread_only.hpp"
 
+#include <string>
+
 #include "core/logger.hpp"
 
 namespace other {
@@ -13,6 +15,12 @@ namespace other {
         return;
       }
       CORE_LOG_ERROR("[SCRIPT] '{}' was called from a thread that is not the main thread. The engine can only be called from the main thread: the call was not made, and later ones from other threads will not be either.", name);
+    }
+
+    const char* returned_string(const std::string_view text) {
+      static std::string buffer;
+      buffer.assign(text);
+      return buffer.c_str();
     }
 
   }  // namespace bindings

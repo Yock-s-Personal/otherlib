@@ -14,29 +14,29 @@ namespace Other
   public static class Draw
   {
     [NativeFunction("DrawLine")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawLine;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawLine;
     [NativeFunction("DrawTriangle")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawTriangle;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawTriangle;
     [NativeFunction("DrawPoint")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, NativeBool32, void> NativeDrawPoint;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, NativeBool32, void> NativeDrawPoint;
     [NativeFunction("DrawRay")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawRay;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawRay;
     [NativeFunction("DrawArrow")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawArrow;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawArrow;
     [NativeFunction("DrawSphere")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawSphere;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawSphere;
     [NativeFunction("DrawAABB")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawAABB;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawAABB;
     [NativeFunction("DrawOBB")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawOBB;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawOBB;
     [NativeFunction("DrawFrustum")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawFrustum;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawFrustum;
     [NativeFunction("DrawTransform")]
-    internal static unsafe delegate*<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawTransform;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawTransform;
     [NativeFunction("DrawMesh")]
-    internal static unsafe delegate*<ulong, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, NativeBool32, void> NativeDrawMesh;
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, NativeBool32, void> NativeDrawMesh;
     [NativeFunction("DrawGrid")]
-    internal static unsafe delegate*<ulong, NativeBool32, void> NativeDrawGrid;
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, NativeBool32, void> NativeDrawGrid;
 
     public static void Line(Vec3 a, Vec3 b, Vec4 color, DrawTarget target = DrawTarget.Scene)
     {
@@ -60,9 +60,7 @@ namespace Other
       {
         return;
       }
-      float scale = length / mag;
-      Vec3 end = new Vec3(origin.X + direction.X * scale, origin.Y + direction.Y * scale, origin.Z + direction.Z * scale);
-      unsafe { NativeDrawRay(origin.X, origin.Y, origin.Z, end.X, end.Y, end.Z, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawRay(origin.X, origin.Y, origin.Z, direction.X, direction.Y, direction.Z, length, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
     }
 
     public static void Arrow(Vec3 origin, Vec3 direction, float length, Vec4 color, DrawTarget target = DrawTarget.Scene)

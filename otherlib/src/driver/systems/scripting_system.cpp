@@ -10,6 +10,7 @@
 
 #include "driver/driver.hpp"
 #include "scripting/bindings.hpp"
+#include "scripting/dotnet_bindings/event_bindings.hpp"
 #include "tools/environment_console.hpp"
 
 namespace other {
@@ -105,6 +106,7 @@ namespace other {
   void scripting_system::tick(driver_kernel* kernel, double dt) {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scripting_system::tick");
+    bindings::deliver_queued_script_events();
     if (environment_console::is_initialized()) {
       PROFILE_SECTION("scripting_system::tick--environment_console");
       environment_console::poll();

@@ -295,7 +295,7 @@ namespace other {
     friend class driver_state_machine;
     friend void bind_otherlib_driver_lua_functions(lua_host& lua_host, driver* host_driver);
     friend void bindings::native_driver_request_shutdown();
-    friend native_string bindings::native_driver_get_project_name();
+    friend const char* bindings::native_driver_get_project_name();
 
     struct running_state {
       std::mutex mutex;

@@ -65,8 +65,13 @@ namespace other {
       set_user_data(event_id, value{ data });
     }
 
-    void add_listener(const std::string_view name, event::handler callback);
-    void add_listener(natural_t id, event::handler callback);
+    /// what add_listener gives back: names one listener of one event. 0 is no listener
+    using listener_id = natural_t;
+
+    listener_id add_listener(const std::string_view name, event::handler callback);
+    listener_id add_listener(natural_t id, event::handler callback);
+    /// a listener already called for a trigger in progress still finishes that call
+    void remove_listener(natural_t event_id, listener_id listener);
 
     void cancel_all();
 
@@ -81,10 +86,15 @@ namespace other {
 
     mutable std::recursive_mutex events_mutex;
 
+    struct listener_entry {
+      listener_id id = 0;
+      event::handler callback;
+    };
     struct event_ctx {
       event ev;
-      ostd::vector<event::handler> listeners;
+      ostd::vector<listener_entry> listeners;
     };
+    listener_id next_listener_id = 1;
     struct timer_storage;
     ostd::vector<event_ctx> registered_events;
     scope<timer_storage> timers;

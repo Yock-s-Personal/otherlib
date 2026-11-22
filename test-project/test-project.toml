@@ -17,6 +17,9 @@ cs_project = "test-project/TestProject.csproj"
 # [physics]
 # backend = "box3d"
 
+# [networking]
+# session-host = "manet-sample"
+
 [scene-graph]
 starting-scene = "SpinningDonut"
 scenes = [

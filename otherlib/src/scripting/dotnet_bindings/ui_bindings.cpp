@@ -13,74 +13,62 @@
 namespace other {
   namespace bindings {
 
-    bool native_begin_window(native_string title, int32_t flags) {
-      std::string title_str = title;
-      return ImGui::Begin(title_str.c_str(), nullptr, static_cast<ImGuiWindowFlags>(flags));
+    nbool32 native_begin_window(const char* title, int32_t flags) {
+      return ImGui::Begin(title, nullptr, static_cast<ImGuiWindowFlags>(flags));
     }
 
     void native_end_window() {
       ImGui::End();
     }
 
-    bool native_begin_child(native_string str_id, ImVec2 size, bool border, int32_t flags) {
-      std::string id = str_id;
-      return ImGui::BeginChild(id.c_str(), size, border, static_cast<ImGuiChildFlags>(flags));
+    nbool32 native_begin_child(const char* str_id, float width, float height, int32_t child_flags, int32_t window_flags) {
+      return ImGui::BeginChild(str_id, ImVec2(width, height), static_cast<ImGuiChildFlags>(child_flags), static_cast<ImGuiWindowFlags>(window_flags));
     }
 
     void native_end_child() {
       ImGui::EndChild();
     }
 
-    void native_ui_text(native_string text) {
-      std::string text_str = text;
-      ImGui::TextUnformatted(text_str.c_str());
+    void native_ui_text(const char* text) {
+      ImGui::TextUnformatted(text);
     }
 
-    void native_ui_text_colored(float r, float g, float b, float a, native_string text) {
-      std::string text_str = text;
-      ImGui::TextColored(ImVec4(r, g, b, a), "%s", text_str.c_str());
+    void native_ui_text_colored(float r, float g, float b, float a, const char* text) {
+      ImGui::TextColored(ImVec4(r, g, b, a), "%s", text);
     }
 
-    void native_ui_text_wrapped(native_string text) {
-      std::string text_str = text;
-      ImGui::TextWrapped("%s", text_str.c_str());
+    void native_ui_text_wrapped(const char* text) {
+      ImGui::TextWrapped("%s", text);
     }
 
-    void native_ui_label_text(native_string label, native_string text) {
-      std::string label_str = label;
-      std::string text_str = text;
-      ImGui::LabelText(label_str.c_str(), "%s", text_str.c_str());
+    void native_ui_label_text(const char* label, const char* text) {
+      ImGui::LabelText(label, "%s", text);
     }
 
-    nbool32 native_ui_button(native_string label, float width, float height) {
-      std::string label_str = label;
-      return ImGui::Button(label_str.c_str(), ImVec2(width, height));
+    nbool32 native_ui_button(const char* label, float width, float height) {
+      return ImGui::Button(label, ImVec2(width, height));
     }
 
-    nbool32 native_ui_small_button(native_string label) {
-      std::string label_str = label;
-      return ImGui::SmallButton(label_str.c_str());
+    nbool32 native_ui_small_button(const char* label) {
+      return ImGui::SmallButton(label);
     }
 
-    nbool32 native_ui_invisible_button(native_string str_id, float width, float height) {
-      std::string id = str_id;
-      return ImGui::InvisibleButton(id.c_str(), ImVec2(width, height));
+    nbool32 native_ui_invisible_button(const char* str_id, float width, float height) {
+      return ImGui::InvisibleButton(str_id, ImVec2(width, height));
     }
 
-    nbool32 native_ui_checkbox(native_string label, nbool32* value) {
-      std::string label_str = label;
+    nbool32 native_ui_checkbox(const char* label, nbool32* value) {
       bool v = *value;
-      bool changed = ImGui::Checkbox(label_str.c_str(), &v);
+      bool changed = ImGui::Checkbox(label, &v);
       *value = v;
       return changed;
     }
 
-    nbool32 native_ui_radio_button(native_string label, nbool32 active) {
-      std::string label_str = label;
-      return ImGui::RadioButton(label_str.c_str(), (bool)active);
+    nbool32 native_ui_radio_button(const char* label, nbool32 active) {
+      return ImGui::RadioButton(label, (bool)active);
     }
 
-    void native_ui_progress_bar(float fraction, float width, float height, native_string overlay) {
+    void native_ui_progress_bar(float fraction, float width, float height, const char* overlay) {
       std::string overlay_str = overlay;
       const char* overlay_ptr = overlay_str.empty() ? nullptr : overlay_str.c_str();
       ImGui::ProgressBar(fraction, ImVec2(width, height), overlay_ptr);
@@ -114,131 +102,105 @@ namespace other {
       ImGui::Dummy(ImVec2(width, height));
     }
 
-    nbool32 native_ui_input_text(native_string label, native_string buffer, int32_t buffer_size, int32_t flags) {
-      std::string label_str = label;
-      std::string buffer_str = buffer;
-      char* buf = (char*)(const char*)buffer_str.c_str();
-      return ImGui::InputText(label_str.c_str(), buf, buffer_size, static_cast<ImGuiInputTextFlags>(flags));
+    nbool32 native_ui_input_text(const char* label, char* buffer, int32_t buffer_size, int32_t flags) {
+      return ImGui::InputText(label, buffer, static_cast<size_t>(buffer_size), static_cast<ImGuiInputTextFlags>(flags));
     }
 
-    nbool32 native_ui_input_text_multiline(native_string label, native_string buffer, int32_t buffer_size, float width, float height, int32_t flags) {
-      std::string label_str = label;
-      std::string buffer_str = buffer;
-      char* buf = (char*)(const char*)buffer_str.c_str();
-      return ImGui::InputTextMultiline(label_str.c_str(), buf, buffer_size, ImVec2(width, height), static_cast<ImGuiInputTextFlags>(flags));
+    nbool32 native_ui_input_text_multiline(const char* label, char* buffer, int32_t buffer_size, float width, float height, int32_t flags) {
+      return ImGui::InputTextMultiline(label, buffer, static_cast<size_t>(buffer_size), ImVec2(width, height), static_cast<ImGuiInputTextFlags>(flags));
     }
 
-    nbool32 native_ui_input_float(native_string label, float* value, float step, float step_fast, int32_t decimal_precision) {
-      std::string label_str = label;
+    nbool32 native_ui_input_float(const char* label, float* value, float step, float step_fast, int32_t decimal_precision) {
       std::string format = std::format("%.{}f", decimal_precision);
-      return ImGui::InputFloat(label_str.c_str(), value, step, step_fast, format.c_str());
+      return ImGui::InputFloat(label, value, step, step_fast, format.c_str());
     }
 
-    nbool32 native_ui_input_float2(native_string label, float* values) {
-      std::string label_str = label;
-      return ImGui::InputFloat2(label_str.c_str(), values);
+    nbool32 native_ui_input_float2(const char* label, float* values) {
+      return ImGui::InputFloat2(label, values);
     }
 
-    nbool32 native_ui_input_float3(native_string label, float* values) {
-      std::string label_str = label;
-      return ImGui::InputFloat3(label_str.c_str(), values);
+    nbool32 native_ui_input_float3(const char* label, float* values) {
+      return ImGui::InputFloat3(label, values);
     }
 
-    nbool32 native_ui_input_float4(native_string label, float* values) {
-      std::string label_str = label;
-      return ImGui::InputFloat4(label_str.c_str(), values);
+    nbool32 native_ui_input_float4(const char* label, float* values) {
+      return ImGui::InputFloat4(label, values);
     }
 
-    nbool32 native_ui_input_int(native_string label, int32_t* value, int32_t step, int32_t step_fast) {
-      std::string label_str = label;
-      return ImGui::InputInt(label_str.c_str(), value, step, step_fast);
+    nbool32 native_ui_input_int(const char* label, int32_t* value, int32_t step, int32_t step_fast) {
+      return ImGui::InputInt(label, value, step, step_fast);
     }
 
-    nbool32 native_ui_drag_float(native_string label, float* value, float speed, float min_val, float max_val) {
-      std::string label_str = label;
-      return ImGui::DragFloat(label_str.c_str(), value, speed, min_val, max_val);
+    nbool32 native_ui_drag_float(const char* label, float* value, float speed, float min_val, float max_val) {
+      return ImGui::DragFloat(label, value, speed, min_val, max_val);
     }
 
-    nbool32 native_ui_drag_float3(native_string label, float* values, float speed, float min_val, float max_val) {
-      std::string label_str = label;
-      return ImGui::DragFloat3(label_str.c_str(), values, speed, min_val, max_val);
+    nbool32 native_ui_drag_float3(const char* label, float* values, float speed, float min_val, float max_val) {
+      return ImGui::DragFloat3(label, values, speed, min_val, max_val);
     }
 
-    nbool32 native_ui_slider_float(native_string label, float* value, float min_val, float max_val) {
-      std::string label_str = label;
-      return ImGui::SliderFloat(label_str.c_str(), value, min_val, max_val);
+    nbool32 native_ui_slider_float(const char* label, float* value, float min_val, float max_val) {
+      return ImGui::SliderFloat(label, value, min_val, max_val);
     }
 
-    nbool32 native_ui_slider_int(native_string label, int32_t* value, int32_t min_val, int32_t max_val) {
-      std::string label_str = label;
-      return ImGui::SliderInt(label_str.c_str(), value, min_val, max_val);
+    nbool32 native_ui_slider_int(const char* label, int32_t* value, int32_t min_val, int32_t max_val) {
+      return ImGui::SliderInt(label, value, min_val, max_val);
     }
 
-    nbool32 native_ui_color_edit3(native_string label, float* col) {
-      std::string label_str = label;
-      return ImGui::ColorEdit3(label_str.c_str(), col);
+    nbool32 native_ui_color_edit3(const char* label, float* col) {
+      return ImGui::ColorEdit3(label, col);
     }
 
-    nbool32 native_ui_color_edit4(native_string label, float* col) {
-      std::string label_str = label;
-      return ImGui::ColorEdit4(label_str.c_str(), col);
+    nbool32 native_ui_color_edit4(const char* label, float* col) {
+      return ImGui::ColorEdit4(label, col);
     }
 
-    nbool32 native_ui_tree_node(native_string label) {
-      std::string label_str = label;
-      return ImGui::TreeNode(label_str.c_str());
+    nbool32 native_ui_tree_node(const char* label) {
+      return ImGui::TreeNode(label);
     }
 
-    nbool32 native_ui_tree_node_ex(native_string label, int32_t flags) {
-      std::string label_str = label;
-      return ImGui::TreeNodeEx(label_str.c_str(), static_cast<ImGuiTreeNodeFlags>(flags));
+    nbool32 native_ui_tree_node_ex(const char* label, int32_t flags) {
+      return ImGui::TreeNodeEx(label, static_cast<ImGuiTreeNodeFlags>(flags));
     }
 
     void native_ui_tree_pop() {
       ImGui::TreePop();
     }
 
-    nbool32 native_ui_collapsing_header(native_string label, int32_t flags) {
-      std::string label_str = label;
-      return ImGui::CollapsingHeader(label_str.c_str(), static_cast<ImGuiTreeNodeFlags>(flags));
+    nbool32 native_ui_collapsing_header(const char* label, int32_t flags) {
+      return ImGui::CollapsingHeader(label, static_cast<ImGuiTreeNodeFlags>(flags));
     }
 
-    nbool32 native_ui_selectable(native_string label, nbool32 selected, int32_t flags) {
-      std::string label_str = label;
-      return ImGui::Selectable(label_str.c_str(), (bool)selected, static_cast<ImGuiSelectableFlags>(flags));
+    nbool32 native_ui_selectable(const char* label, nbool32 selected, int32_t flags) {
+      return ImGui::Selectable(label, (bool)selected, static_cast<ImGuiSelectableFlags>(flags));
     }
 
-    nbool32 native_ui_begin_combo(native_string label, native_string preview_value, int32_t flags) {
-      std::string label_str = label;
-      std::string preview_str = preview_value;
-      return ImGui::BeginCombo(label_str.c_str(), preview_str.c_str(), static_cast<ImGuiComboFlags>(flags));
+    nbool32 native_ui_begin_combo(const char* label, const char* preview_value, int32_t flags) {
+      return ImGui::BeginCombo(label, preview_value, static_cast<ImGuiComboFlags>(flags));
     }
 
     void native_ui_end_combo() {
       ImGui::EndCombo();
     }
 
-    nbool32 native_ui_begin_listbox(native_string label, float width, float height) {
-      std::string label_str = label;
-      return ImGui::BeginListBox(label_str.c_str(), ImVec2(width, height));
+    nbool32 native_ui_begin_listbox(const char* label, float width, float height) {
+      return ImGui::BeginListBox(label, ImVec2(width, height));
     }
 
     void native_ui_end_listbox() {
       ImGui::EndListBox();
     }
 
-    nbool32 native_ui_begin_tab_bar(native_string str_id, int32_t flags) {
-      std::string id = str_id;
-      return ImGui::BeginTabBar(id.c_str(), static_cast<ImGuiTabBarFlags>(flags));
+    nbool32 native_ui_begin_tab_bar(const char* str_id, int32_t flags) {
+      return ImGui::BeginTabBar(str_id, static_cast<ImGuiTabBarFlags>(flags));
     }
 
     void native_ui_end_tab_bar() {
       ImGui::EndTabBar();
     }
 
-    nbool32 native_ui_begin_tab_item(native_string label, int32_t flags) {
-      std::string label_str = label;
-      return ImGui::BeginTabItem(label_str.c_str(), nullptr, static_cast<ImGuiTabItemFlags>(flags));
+    nbool32 native_ui_begin_tab_item(const char* label, int32_t flags) {
+      return ImGui::BeginTabItem(label, nullptr, static_cast<ImGuiTabItemFlags>(flags));
     }
 
     void native_ui_end_tab_item() {
@@ -261,35 +223,30 @@ namespace other {
       ImGui::EndMainMenuBar();
     }
 
-    nbool32 native_ui_begin_menu(native_string label, nbool32 enabled) {
-      std::string label_str = label;
-      return ImGui::BeginMenu(label_str.c_str(), (bool)enabled);
+    nbool32 native_ui_begin_menu(const char* label, nbool32 enabled) {
+      return ImGui::BeginMenu(label, (bool)enabled);
     }
 
     void native_ui_end_menu() {
       ImGui::EndMenu();
     }
 
-    nbool32 native_ui_menu_item(native_string label, native_string shortcut, nbool32 selected, nbool32 enabled) {
-      std::string label_str = label;
+    nbool32 native_ui_menu_item(const char* label, const char* shortcut, nbool32 selected, nbool32 enabled) {
       std::string shortcut_str = shortcut;
       const char* shortcut_ptr = shortcut_str.empty() ? nullptr : shortcut_str.c_str();
-      return ImGui::MenuItem(label_str.c_str(), shortcut_ptr, (bool)selected, (bool)enabled);
+      return ImGui::MenuItem(label, shortcut_ptr, (bool)selected, (bool)enabled);
     }
 
-    void native_ui_open_popup(native_string str_id) {
-      std::string id = str_id;
-      ImGui::OpenPopup(id.c_str());
+    void native_ui_open_popup(const char* str_id) {
+      ImGui::OpenPopup(str_id);
     }
 
-    nbool32 native_ui_begin_popup(native_string str_id, int32_t flags) {
-      std::string id = str_id;
-      return ImGui::BeginPopup(id.c_str(), static_cast<ImGuiWindowFlags>(flags));
+    nbool32 native_ui_begin_popup(const char* str_id, int32_t flags) {
+      return ImGui::BeginPopup(str_id, static_cast<ImGuiWindowFlags>(flags));
     }
 
-    nbool32 native_ui_begin_popup_modal(native_string name, int32_t flags) {
-      std::string name_str = name;
-      return ImGui::BeginPopupModal(name_str.c_str(), nullptr, static_cast<ImGuiWindowFlags>(flags));
+    nbool32 native_ui_begin_popup_modal(const char* name, int32_t flags) {
+      return ImGui::BeginPopupModal(name, nullptr, static_cast<ImGuiWindowFlags>(flags));
     }
 
     void native_ui_end_popup() {
@@ -300,9 +257,8 @@ namespace other {
       ImGui::CloseCurrentPopup();
     }
 
-    nbool32 native_ui_begin_table(native_string str_id, int32_t columns, int32_t flags) {
-      std::string id = str_id;
-      return ImGui::BeginTable(id.c_str(), columns, static_cast<ImGuiTableFlags>(flags));
+    nbool32 native_ui_begin_table(const char* str_id, int32_t columns, int32_t flags) {
+      return ImGui::BeginTable(str_id, columns, static_cast<ImGuiTableFlags>(flags));
     }
 
     void native_ui_end_table() {
@@ -321,9 +277,8 @@ namespace other {
       return ImGui::TableSetColumnIndex(column_n);
     }
 
-    void native_ui_table_setup_column(native_string label, int32_t flags, float init_width_or_weight) {
-      std::string label_str = label;
-      ImGui::TableSetupColumn(label_str.c_str(), static_cast<ImGuiTableColumnFlags>(flags), init_width_or_weight);
+    void native_ui_table_setup_column(const char* label, int32_t flags, float init_width_or_weight) {
+      ImGui::TableSetupColumn(label, static_cast<ImGuiTableColumnFlags>(flags), init_width_or_weight);
     }
 
     void native_ui_table_headers_row() {
@@ -404,9 +359,8 @@ namespace other {
       ImGui::PopItemWidth();
     }
 
-    void native_ui_push_id_str(native_string str_id) {
-      std::string id = str_id;
-      ImGui::PushID(id.c_str());
+    void native_ui_push_id_str(const char* str_id) {
+      ImGui::PushID(str_id);
     }
 
     void native_ui_push_id_int(int32_t int_id) {
@@ -417,9 +371,8 @@ namespace other {
       ImGui::PopID();
     }
 
-    void native_ui_set_tooltip(native_string text) {
-      std::string text_str = text;
-      ImGui::SetTooltip("%s", text_str.c_str());
+    void native_ui_set_tooltip(const char* text) {
+      ImGui::SetTooltip("%s", text);
     }
 
     nbool32 native_ui_begin_tooltip() {
@@ -434,9 +387,8 @@ namespace other {
       return ImGui::BeginDragDropSource(static_cast<ImGuiDragDropFlags>(flags));
     }
 
-    nbool32 native_ui_set_drag_drop_payload(native_string type, void* data, int32_t size) {
-      std::string type_str = type;
-      return ImGui::SetDragDropPayload(type_str.c_str(), data, size);
+    nbool32 native_ui_set_drag_drop_payload(const char* type, void* data, int32_t size) {
+      return ImGui::SetDragDropPayload(type, data, size);
     }
 
     void native_ui_end_drag_drop_source() {

@@ -1,209 +1,210 @@
 using OtherCsBindings;
 using Other.Core;
 using System;
+using System.Buffers;
 
 namespace Other
 {
   public static class UIBindings
   {
     [NativeFunction("BeginWindow")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeBeginWindow;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginWindow;
 
     [NativeFunction("EndWindow")]
-    internal static unsafe delegate*<void> NativeEndWindow;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndWindow;
 
     [NativeFunction("BeginChild")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeBeginChild;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float, float, int, int, NativeBool32> NativeBeginChild;
     [NativeFunction("EndChild")]
-    internal static unsafe delegate*<void> NativeEndChild;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndChild;
     [NativeFunction("UIText")]
-    internal static unsafe delegate*<NativeString, void> NativeText;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeText;
     [NativeFunction("UITextColored")]
-    internal static unsafe delegate*<float, float, float, float, NativeString, void> NativeTextColored;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, byte*, void> NativeTextColored;
     [NativeFunction("UITextWrapped")]
-    internal static unsafe delegate*<NativeString, void> NativeTextWrapped;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeTextWrapped;
     [NativeFunction("UILabelText")]
-    internal static unsafe delegate*<NativeString, NativeString, void> NativeLabelText;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, void> NativeLabelText;
     [NativeFunction("UIButton")]
-    internal static unsafe delegate*<NativeString, float, float, NativeBool32> NativeButton;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float, float, NativeBool32> NativeButton;
     [NativeFunction("UISmallButton")]
-    internal static unsafe delegate*<NativeString, NativeBool32> NativeSmallButton;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32> NativeSmallButton;
     [NativeFunction("UIInvisibleButton")]
-    internal static unsafe delegate*<NativeString, float, float, NativeBool32> NativeInvisibleButton;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float, float, NativeBool32> NativeInvisibleButton;
     [NativeFunction("UICheckbox")]
-    internal static unsafe delegate*<NativeString, NativeBool32*, NativeBool32> NativeCheckbox;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32*, NativeBool32> NativeCheckbox;
     [NativeFunction("UIRadioButton")]
-    internal static unsafe delegate*<NativeString, NativeBool32, NativeBool32> NativeRadioButton;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32, NativeBool32> NativeRadioButton;
     [NativeFunction("UIProgressBar")]
-    internal static unsafe delegate*<float, float, float, NativeString, void> NativeProgressBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, byte*, void> NativeProgressBar;
     [NativeFunction("UISeparator")]
-    internal static unsafe delegate*<void> NativeSeparator;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeSeparator;
     [NativeFunction("UISameLine")]
-    internal static unsafe delegate*<float, float, void> NativeSameLine;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, void> NativeSameLine;
     [NativeFunction("UISpacing")]
-    internal static unsafe delegate*<void> NativeSpacing;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeSpacing;
     [NativeFunction("UIIndent")]
-    internal static unsafe delegate*<float, void> NativeIndent;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativeIndent;
     [NativeFunction("UIUnindent")]
-    internal static unsafe delegate*<float, void> NativeUnindent;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativeUnindent;
     [NativeFunction("UINewLine")]
-    internal static unsafe delegate*<void> NativeNewLine;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeNewLine;
     [NativeFunction("UIDummy")]
-    internal static unsafe delegate*<float, float, void> NativeDummy;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, void> NativeDummy;
     [NativeFunction("UIInputText")]
-    internal static unsafe delegate*<NativeString, NativeString, int, NativeBool32> NativeInputText;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, int, int, NativeBool32> NativeInputText;
     [NativeFunction("UIInputTextMultiline")]
-    internal static unsafe delegate*<NativeString, NativeString, int, NativeBool32> NativeInputTextMultiline;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, int, float, float, int, NativeBool32> NativeInputTextMultiline;
     [NativeFunction("UIInputFloat")]
-    internal static unsafe delegate*<NativeString, float*, float, float, int, NativeBool32> NativeInputFloat;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, int, NativeBool32> NativeInputFloat;
     [NativeFunction("UIInputFloat2")]
-    internal static unsafe delegate*<NativeString, float*, NativeBool32> NativeInputFloat2;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, NativeBool32> NativeInputFloat2;
     [NativeFunction("UIInputFloat3")]
-    internal static unsafe delegate*<NativeString, float*, NativeBool32> NativeInputFloat3;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, NativeBool32> NativeInputFloat3;
     [NativeFunction("UIInputFloat4")]
-    internal static unsafe delegate*<NativeString, float*, NativeBool32> NativeInputFloat4;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, NativeBool32> NativeInputFloat4;
     [NativeFunction("UIInputInt")]
-    internal static unsafe delegate*<NativeString, int*, int, int, NativeBool32> NativeInputInt;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int*, int, int, NativeBool32> NativeInputInt;
     [NativeFunction("UIDragFloat")]
-    internal static unsafe delegate*<NativeString, float*, float, float, float, NativeBool32> NativeDragFloat;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, float, NativeBool32> NativeDragFloat;
     [NativeFunction("UIDragFloat3")]
-    internal static unsafe delegate*<NativeString, float*, float, float, float, NativeBool32> NativeDragFloat3;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, float, NativeBool32> NativeDragFloat3;
     [NativeFunction("UISliderFloat")]
-    internal static unsafe delegate*<NativeString, float*, float, float, NativeBool32> NativeSliderFloat;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, NativeBool32> NativeSliderFloat;
     [NativeFunction("UISliderInt")]
-    internal static unsafe delegate*<NativeString, int*, int, int, NativeBool32> NativeSliderInt;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int*, int, int, NativeBool32> NativeSliderInt;
     [NativeFunction("UIColorEdit3")]
-    internal static unsafe delegate*<NativeString, float*, NativeBool32> NativeColorEdit3;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, NativeBool32> NativeColorEdit3;
     [NativeFunction("UIColorEdit4")]
-    internal static unsafe delegate*<NativeString, float*, NativeBool32> NativeColorEdit4;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, NativeBool32> NativeColorEdit4;
     [NativeFunction("UITreeNode")]
-    internal static unsafe delegate*<NativeString, NativeBool32> NativeTreeNode;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32> NativeTreeNode;
     [NativeFunction("UITreeNodeEx")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeTreeNodeEx;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeTreeNodeEx;
     [NativeFunction("UITreePop")]
-    internal static unsafe delegate*<void> NativeTreePop;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeTreePop;
     [NativeFunction("UICollapsingHeader")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeCollapsingHeader;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeCollapsingHeader;
     [NativeFunction("UISelectable")]
-    internal static unsafe delegate*<NativeString, NativeBool32, int, NativeBool32> NativeSelectable;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32, int, NativeBool32> NativeSelectable;
     [NativeFunction("UIBeginCombo")]
-    internal static unsafe delegate*<NativeString, NativeString, int, NativeBool32> NativeBeginCombo;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, int, NativeBool32> NativeBeginCombo;
     [NativeFunction("UIEndCombo")]
-    internal static unsafe delegate*<void> NativeEndCombo;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndCombo;
     [NativeFunction("UIBeginListBox")]
-    internal static unsafe delegate*<NativeString, float, float, NativeBool32> NativeBeginListBox;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float, float, NativeBool32> NativeBeginListBox;
     [NativeFunction("UIEndListBox")]
-    internal static unsafe delegate*<void> NativeEndListBox;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndListBox;
     [NativeFunction("UIBeginTabBar")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeBeginTabBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginTabBar;
     [NativeFunction("UIEndTabBar")]
-    internal static unsafe delegate*<void> NativeEndTabBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndTabBar;
     [NativeFunction("UIBeginTabItem")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeBeginTabItem;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginTabItem;
     [NativeFunction("UIEndTabItem")]
-    internal static unsafe delegate*<void> NativeEndTabItem;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndTabItem;
     [NativeFunction("UIBeginMenuBar")]
-    internal static unsafe delegate*<NativeBool32> NativeBeginMenuBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeBeginMenuBar;
     [NativeFunction("UIEndMenuBar")]
-    internal static unsafe delegate*<void> NativeEndMenuBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndMenuBar;
     [NativeFunction("UIBeginMainMenuBar")]
-    internal static unsafe delegate*<NativeBool32> NativeBeginMainMenuBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeBeginMainMenuBar;
     [NativeFunction("UIEndMainMenuBar")]
-    internal static unsafe delegate*<void> NativeEndMainMenuBar;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndMainMenuBar;
     [NativeFunction("UIBeginMenu")]
-    internal static unsafe delegate*<NativeString, NativeBool32, NativeBool32> NativeBeginMenu;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, NativeBool32, NativeBool32> NativeBeginMenu;
     [NativeFunction("UIEndMenu")]
-    internal static unsafe delegate*<void> NativeEndMenu;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndMenu;
     [NativeFunction("UIMenuItem")]
-    internal static unsafe delegate*<NativeString, NativeString, NativeBool32, NativeBool32, NativeBool32> NativeMenuItem;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, NativeBool32, NativeBool32, NativeBool32> NativeMenuItem;
     [NativeFunction("UIOpenPopup")]
-    internal static unsafe delegate*<NativeString, void> NativeOpenPopup;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeOpenPopup;
     [NativeFunction("UIBeginPopup")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeBeginPopup;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopup;
     [NativeFunction("UIBeginPopupModal")]
-    internal static unsafe delegate*<NativeString, int, NativeBool32> NativeBeginPopupModal;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopupModal;
     [NativeFunction("UIEndPopup")]
-    internal static unsafe delegate*<void> NativeEndPopup;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndPopup;
     [NativeFunction("UICloseCurrentPopup")]
-    internal static unsafe delegate*<void> NativeCloseCurrentPopup;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeCloseCurrentPopup;
     [NativeFunction("UIBeginTable")]
-    internal static unsafe delegate*<NativeString, int, int, NativeBool32> NativeBeginTable;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, int, NativeBool32> NativeBeginTable;
     [NativeFunction("UIEndTable")]
-    internal static unsafe delegate*<void> NativeEndTable;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndTable;
     [NativeFunction("UITableNextRow")]
-    internal static unsafe delegate*<int, float, void> NativeTableNextRow;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, float, void> NativeTableNextRow;
     [NativeFunction("UITableNextColumn")]
-    internal static unsafe delegate*<NativeBool32> NativeTableNextColumn;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeTableNextColumn;
     [NativeFunction("UITableSetColumnIndex")]
-    internal static unsafe delegate*<int, NativeBool32> NativeTableSetColumnIndex;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeTableSetColumnIndex;
     [NativeFunction("UITableSetupColumn")]
-    internal static unsafe delegate*<NativeString, int, float, void> NativeTableSetupColumn;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, float, void> NativeTableSetupColumn;
     [NativeFunction("UITableHeadersRow")]
-    internal static unsafe delegate*<void> NativeTableHeadersRow;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeTableHeadersRow;
     [NativeFunction("UIGetContentRegionAvail")]
-    internal static unsafe delegate*<float*, float*, void> NativeGetContentRegionAvail;
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetContentRegionAvail;
     [NativeFunction("UIGetWindowSize")]
-    internal static unsafe delegate*<float*, float*, void> NativeGetWindowSize;
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetWindowSize;
     [NativeFunction("UIGetWindowPos")]
-    internal static unsafe delegate*<float*, float*, void> NativeGetWindowPos;
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetWindowPos;
     [NativeFunction("UISetNextWindowSize")]
-    internal static unsafe delegate*<float, float, int, void> NativeSetNextWindowSize;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, int, void> NativeSetNextWindowSize;
     [NativeFunction("UISetNextWindowPos")]
-    internal static unsafe delegate*<float, float, int, void> NativeSetNextWindowPos;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, int, void> NativeSetNextWindowPos;
     [NativeFunction("UIIsItemHovered")]
-    internal static unsafe delegate*<NativeBool32> NativeIsItemHovered;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeIsItemHovered;
     [NativeFunction("UIIsItemClicked")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsItemClicked;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsItemClicked;
     [NativeFunction("UIIsItemActive")]
-    internal static unsafe delegate*<NativeBool32> NativeIsItemActive;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeIsItemActive;
     [NativeFunction("UIIsWindowFocused")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsWindowFocused;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsWindowFocused;
     [NativeFunction("UIIsWindowHovered")]
-    internal static unsafe delegate*<int, NativeBool32> NativeIsWindowHovered;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsWindowHovered;
     [NativeFunction("UIPushStyleColor")]
-    internal static unsafe delegate*<int, float, float, float, float, void> NativePushStyleColor;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, float, float, float, float, void> NativePushStyleColor;
     [NativeFunction("UIPopStyleColor")]
-    internal static unsafe delegate*<int, void> NativePopStyleColor;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, void> NativePopStyleColor;
     [NativeFunction("UIPushStyleVarFloat")]
-    internal static unsafe delegate*<int, float, void> NativePushStyleVarFloat;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, float, void> NativePushStyleVarFloat;
     [NativeFunction("UIPushStyleVarVec2")]
-    internal static unsafe delegate*<int, float, float, void> NativePushStyleVarVec2;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, float, float, void> NativePushStyleVarVec2;
     [NativeFunction("UIPopStyleVar")]
-    internal static unsafe delegate*<int, void> NativePopStyleVar;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, void> NativePopStyleVar;
     [NativeFunction("UIPushItemWidth")]
-    internal static unsafe delegate*<float, void> NativePushItemWidth;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativePushItemWidth;
     [NativeFunction("UIPopItemWidth")]
-    internal static unsafe delegate*<void> NativePopItemWidth;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativePopItemWidth;
     [NativeFunction("UIPushIDStr")]
-    internal static unsafe delegate*<NativeString, void> NativePushIDStr;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativePushIDStr;
     [NativeFunction("UIPushIDInt")]
-    internal static unsafe delegate*<int, void> NativePushIDInt;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, void> NativePushIDInt;
     [NativeFunction("UIPopID")]
-    internal static unsafe delegate*<void> NativePopID;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativePopID;
     [NativeFunction("UISetTooltip")]
-    internal static unsafe delegate*<NativeString, void> NativeSetTooltip;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeSetTooltip;
     [NativeFunction("UIBeginTooltip")]
-    internal static unsafe delegate*<NativeBool32> NativeBeginTooltip;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeBeginTooltip;
     [NativeFunction("UIEndTooltip")]
-    internal static unsafe delegate*<void> NativeEndTooltip;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndTooltip;
     [NativeFunction("UIBeginDragDropSource")]
-    internal static unsafe delegate*<NativeBool32> NativeBeginDragDropSource;
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeBeginDragDropSource;
     [NativeFunction("UISetDragDropPayload")]
-    internal static unsafe delegate*<IntPtr, void> NativeSetDragDropPayload;
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, IntPtr, int, NativeBool32> NativeSetDragDropPayload;
     [NativeFunction("UIEndDragDropSource")]
-    internal static unsafe delegate*<void> NativeEndDragDropSource;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndDragDropSource;
     [NativeFunction("UIBeginDragDropTarget")]
-    internal static unsafe delegate*<NativeBool32> NativeBeginDragDropTarget;
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeBeginDragDropTarget;
     [NativeFunction("UIEndDragDropTarget")]
-    internal static unsafe delegate*<void> NativeEndDragDropTarget;
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndDragDropTarget;
 
     public static bool BeginWindow(string title, int flags)
     {
-      NativeString title_native = title;
       bool open = false;
       unsafe
       {
-        NativeBool32 result = NativeBeginWindow(title_native, flags);
+        using var title_utf8 = new Utf8Arg(title, stackalloc byte[Utf8Arg.StackSize]);
+        NativeBool32 result = NativeBeginWindow(title_utf8.Pointer, flags);
         open = result;
       }
       return open;
@@ -219,14 +220,17 @@ namespace Other
 
     public static bool BeginChild(string name, int flags)
     {
-      NativeString name_native = name;
-      bool open = false;
+      return BeginChild(name, 0, 0, 0, flags);
+    }
+
+    /// a size of 0 on an axis takes what is left of it; the two sets of flags are ImGui's own
+    public static bool BeginChild(string name, float width, float height, int child_flags = 0, int window_flags = 0)
+    {
       unsafe
       {
-        NativeBool32 result = NativeBeginChild(name_native, flags);
-        open = result;
+        using var name_utf8 = new Utf8Arg(name, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginChild(name_utf8.Pointer, width, height, child_flags, window_flags);
       }
-      return open;
     }
 
     public static void EndChild()
@@ -239,55 +243,71 @@ namespace Other
 
     public static void Text(string text)
     {
-      unsafe { NativeText(text); }
+      unsafe
+      {
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeText(text_utf8.Pointer);
+      }
     }
 
     public static void TextColored(float r, float g, float b, float a, string text)
     {
       unsafe { 
-        NativeString str = text;
-        NativeTextColored(r, g, b, a, str); 
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeTextColored(r, g, b, a, text_utf8.Pointer); 
       }
     }
 
     public static void TextColored(Vec4 color, string text)
     {
       unsafe { 
-        NativeString str = text;
-        NativeTextColored(color.X, color.Y, color.Z, color.W, str); 
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeTextColored(color.X, color.Y, color.Z, color.W, text_utf8.Pointer); 
       }
     }
 
     public static void TextWrapped(string text)
     {
       unsafe { 
-        NativeString str = text;
-        NativeTextWrapped(str); 
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeTextWrapped(text_utf8.Pointer); 
       }
     }
 
     public static void LabelText(string label, string text)
     {
       unsafe { 
-        NativeString label_str = label;
-        NativeString text_str = text;
-        NativeLabelText(label_str, text_str); 
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeLabelText(label_utf8.Pointer, text_utf8.Pointer); 
       }
     }
 
     public static bool Button(string label, float width = 0, float height = 0)
     {
-      unsafe { return NativeButton(label, width, height); }
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeButton(label_utf8.Pointer, width, height);
+      }
     }
 
     public static bool SmallButton(string label)
     {
-      unsafe { return NativeSmallButton(label); }
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeSmallButton(label_utf8.Pointer);
+      }
     }
 
     public static bool InvisibleButton(string str_id, float width, float height)
     {
-      unsafe { return NativeInvisibleButton(str_id, width, height); }
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeInvisibleButton(str_id_utf8.Pointer, width, height);
+      }
     }
 
     public static bool Checkbox(string label, ref bool value)
@@ -295,7 +315,8 @@ namespace Other
       unsafe
       {
         NativeBool32 nb = value;
-        bool changed = NativeCheckbox(label, &nb);
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        bool changed = NativeCheckbox(label_utf8.Pointer, &nb);
         value = nb;
         return changed;
       }
@@ -303,12 +324,20 @@ namespace Other
 
     public static bool RadioButton(string label, bool active)
     {
-      unsafe { return NativeRadioButton(label, active); }
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeRadioButton(label_utf8.Pointer, active);
+      }
     }
 
     public static void ProgressBar(float fraction, float width = -1, float height = 0, string overlay = "")
     {
-      unsafe { NativeProgressBar(fraction, width, height, overlay); }
+      unsafe
+      {
+        using var overlay_utf8 = new Utf8Arg(overlay, stackalloc byte[Utf8Arg.StackSize]);
+        NativeProgressBar(fraction, width, height, overlay_utf8.Pointer);
+      }
     }
 
     public static void Separator() { unsafe { NativeSeparator(); } }
@@ -319,29 +348,59 @@ namespace Other
     public static void NewLine() { unsafe { NativeNewLine(); } }
     public static void Dummy(float width, float height) { unsafe { NativeDummy(width, height); } }
 
-    public static bool InputText(string label, string text, int max_length)
+    /// max_length is in bytes of UTF-8. true when the text was edited this frame
+    public static bool InputText(string label, ref string text, int max_length, int flags = 0)
     {
-      NativeString label_native = label;
-      NativeString text_native = text;
-      unsafe
+      byte[] buffer = ArrayPool<byte>.Shared.Rent(max_length + 1);
+      try
       {
-        NativeBool32 result = NativeInputTextMultiline(label_native, text_native, max_length);
-        return result;
+        Span<byte> edited = buffer.AsSpan(0, max_length + 1);
+        Utf8Arg.Fill(text, edited);
+        unsafe
+        {
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          fixed (byte* ptr = edited)
+          {
+            bool changed = NativeInputText(label_utf8.Pointer, ptr, edited.Length, flags);
+            if (changed)
+            {
+              text = Utf8Arg.Read(edited);
+            }
+            return changed;
+          }
+        }
+      }
+      finally
+      {
+        ArrayPool<byte>.Shared.Return(buffer);
       }
     }
 
-    public static bool InputTextMultiline(string label, ref string text, int max_length)
+    /// max_length is in bytes of UTF-8. true when the text was edited this frame
+    public static bool InputTextMultiline(string label, ref string text, int max_length, float width = 0, float height = 0, int flags = 0)
     {
-      NativeString label_native = label;
-      NativeString text_native = text;
-      unsafe
+      byte[] buffer = ArrayPool<byte>.Shared.Rent(max_length + 1);
+      try
       {
-        NativeBool32 result = NativeInputTextMultiline(label_native, text_native, max_length);
-        if (result) 
+        Span<byte> edited = buffer.AsSpan(0, max_length + 1);
+        Utf8Arg.Fill(text, edited);
+        unsafe
         {
-          text = text_native;
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          fixed (byte* ptr = edited)
+          {
+            bool changed = NativeInputTextMultiline(label_utf8.Pointer, ptr, edited.Length, width, height, flags);
+            if (changed)
+            {
+              text = Utf8Arg.Read(edited);
+            }
+            return changed;
+          }
         }
-        return result;
+      }
+      finally
+      {
+        ArrayPool<byte>.Shared.Return(buffer);
       }
     }
 
@@ -349,8 +408,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (float* ptr = &value)
-          return NativeInputFloat(label, ptr, step, step_fast, decimal_precision);
+          return NativeInputFloat(label_utf8.Pointer, ptr, step, step_fast, decimal_precision);
       }
     }
 
@@ -358,8 +418,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (float* ptr = values)
-          return NativeInputFloat2(label, ptr);
+          return NativeInputFloat2(label_utf8.Pointer, ptr);
       }
     }
 
@@ -367,8 +428,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (float* ptr = values)
-          return NativeInputFloat3(label, ptr);
+          return NativeInputFloat3(label_utf8.Pointer, ptr);
       }
     }
 
@@ -379,7 +441,8 @@ namespace Other
       {
         fixed (float* ptr = arr)
         {
-          bool changed = NativeInputFloat3(label, ptr);
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          bool changed = NativeInputFloat3(label_utf8.Pointer, ptr);
           if (changed) value = new Vec3(arr[0], arr[1], arr[2]);
           return changed;
         }
@@ -390,8 +453,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (float* ptr = values)
-          return NativeInputFloat4(label, ptr);
+          return NativeInputFloat4(label_utf8.Pointer, ptr);
       }
     }
 
@@ -399,8 +463,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (int* ptr = &value)
-          return NativeInputInt(label, ptr, step, step_fast);
+          return NativeInputInt(label_utf8.Pointer, ptr, step, step_fast);
       }
     }
 
@@ -408,8 +473,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (float* ptr = &value)
-          return NativeDragFloat(label, ptr, speed, min, max);
+          return NativeDragFloat(label_utf8.Pointer, ptr, speed, min, max);
       }
     }
 
@@ -420,7 +486,8 @@ namespace Other
       {
         fixed (float* ptr = arr)
         {
-          bool changed = NativeDragFloat3(label, ptr, speed, min, max);
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          bool changed = NativeDragFloat3(label_utf8.Pointer, ptr, speed, min, max);
           if (changed) value = new Vec3(arr[0], arr[1], arr[2]);
           return changed;
         }
@@ -431,8 +498,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (float* ptr = &value)
-          return NativeSliderFloat(label, ptr, min, max);
+          return NativeSliderFloat(label_utf8.Pointer, ptr, min, max);
       }
     }
 
@@ -440,8 +508,9 @@ namespace Other
     {
       unsafe
       {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
         fixed (int* ptr = &value)
-          return NativeSliderInt(label, ptr, min, max);
+          return NativeSliderInt(label_utf8.Pointer, ptr, min, max);
       }
     }
 
@@ -452,7 +521,8 @@ namespace Other
       {
         fixed (float* ptr = arr)
         {
-          bool changed = NativeColorEdit3(label, ptr);
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          bool changed = NativeColorEdit3(label_utf8.Pointer, ptr);
           if (changed) color = new Vec3(arr[0], arr[1], arr[2]);
           return changed;
         }
@@ -466,52 +536,157 @@ namespace Other
       {
         fixed (float* ptr = arr)
         {
-          bool changed = NativeColorEdit4(label, ptr);
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          bool changed = NativeColorEdit4(label_utf8.Pointer, ptr);
           if (changed) color = new Vec4(arr[0], arr[1], arr[2], arr[3]);
           return changed;
         }
       }
     }
 
-    public static bool TreeNode(string label) { unsafe { return NativeTreeNode(label); } }
-    public static bool TreeNodeEx(string label, int flags = 0) { unsafe { return NativeTreeNodeEx(label, flags); } }
+    public static bool TreeNode(string label)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeTreeNode(label_utf8.Pointer);
+      }
+    }
+    public static bool TreeNodeEx(string label, int flags = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeTreeNodeEx(label_utf8.Pointer, flags);
+      }
+    }
     public static void TreePop() { unsafe { NativeTreePop(); } }
-    public static bool CollapsingHeader(string label, int flags = 0) { unsafe { return NativeCollapsingHeader(label, flags); } }
+    public static bool CollapsingHeader(string label, int flags = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeCollapsingHeader(label_utf8.Pointer, flags);
+      }
+    }
 
-    public static bool Selectable(string label, bool selected = false, int flags = 0) { unsafe { return NativeSelectable(label, selected, flags); } }
-    public static bool BeginCombo(string label, string preview_value, int flags = 0) { unsafe { return NativeBeginCombo(label, preview_value, flags); } }
+    public static bool Selectable(string label, bool selected = false, int flags = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeSelectable(label_utf8.Pointer, selected, flags);
+      }
+    }
+    public static bool BeginCombo(string label, string preview_value, int flags = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        using var preview_value_utf8 = new Utf8Arg(preview_value, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginCombo(label_utf8.Pointer, preview_value_utf8.Pointer, flags);
+      }
+    }
     public static void EndCombo() { unsafe { NativeEndCombo(); } }
-    public static bool BeginListBox(string label, float width = 0, float height = 0) { unsafe { return NativeBeginListBox(label, width, height); } }
+    public static bool BeginListBox(string label, float width = 0, float height = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginListBox(label_utf8.Pointer, width, height);
+      }
+    }
     public static void EndListBox() { unsafe { NativeEndListBox(); } }
 
-    public static bool BeginTabBar(string str_id, int flags = 0) { unsafe { return NativeBeginTabBar(str_id, flags); } }
+    public static bool BeginTabBar(string str_id, int flags = 0)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginTabBar(str_id_utf8.Pointer, flags);
+      }
+    }
     public static void EndTabBar() { unsafe { NativeEndTabBar(); } }
-    public static bool BeginTabItem(string label, int flags = 0) { unsafe { return NativeBeginTabItem(label, flags); } }
+    public static bool BeginTabItem(string label, int flags = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginTabItem(label_utf8.Pointer, flags);
+      }
+    }
     public static void EndTabItem() { unsafe { NativeEndTabItem(); } }
 
     public static bool BeginMenuBar() { unsafe { return NativeBeginMenuBar(); } }
     public static void EndMenuBar() { unsafe { NativeEndMenuBar(); } }
     public static bool BeginMainMenuBar() { unsafe { return NativeBeginMainMenuBar(); } }
     public static void EndMainMenuBar() { unsafe { NativeEndMainMenuBar(); } }
-    public static bool BeginMenu(string label, bool enabled = true) { unsafe { return NativeBeginMenu(label, enabled); } }
+    public static bool BeginMenu(string label, bool enabled = true)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginMenu(label_utf8.Pointer, enabled);
+      }
+    }
     public static void EndMenu() { unsafe { NativeEndMenu(); } }
     public static bool MenuItem(string label, string shortcut = "", bool selected = false, bool enabled = true)
     {
-      unsafe { return NativeMenuItem(label, shortcut, selected, enabled); }
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        using var shortcut_utf8 = new Utf8Arg(shortcut, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeMenuItem(label_utf8.Pointer, shortcut_utf8.Pointer, selected, enabled);
+      }
     }
 
-    public static void OpenPopup(string str_id) { unsafe { NativeOpenPopup(str_id); } }
-    public static bool BeginPopup(string str_id, int flags = 0) { unsafe { return NativeBeginPopup(str_id, flags); } }
-    public static bool BeginPopupModal(string name, int flags = 0) { unsafe { return NativeBeginPopupModal(name, flags); } }
+    public static void OpenPopup(string str_id)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
+        NativeOpenPopup(str_id_utf8.Pointer);
+      }
+    }
+    public static bool BeginPopup(string str_id, int flags = 0)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginPopup(str_id_utf8.Pointer, flags);
+      }
+    }
+    public static bool BeginPopupModal(string name, int flags = 0)
+    {
+      unsafe
+      {
+        using var name_utf8 = new Utf8Arg(name, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginPopupModal(name_utf8.Pointer, flags);
+      }
+    }
     public static void EndPopup() { unsafe { NativeEndPopup(); } }
     public static void CloseCurrentPopup() { unsafe { NativeCloseCurrentPopup(); } }
 
-    public static bool BeginTable(string str_id, int columns, int flags = 0) { unsafe { return NativeBeginTable(str_id, columns, flags); } }
+    public static bool BeginTable(string str_id, int columns, int flags = 0)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginTable(str_id_utf8.Pointer, columns, flags);
+      }
+    }
     public static void EndTable() { unsafe { NativeEndTable(); } }
     public static void TableNextRow(int flags = 0, float min_row_height = 0) { unsafe { NativeTableNextRow(flags, min_row_height); } }
     public static bool TableNextColumn() { unsafe { return NativeTableNextColumn(); } }
     public static bool TableSetColumnIndex(int column_n) { unsafe { return NativeTableSetColumnIndex(column_n); } }
-    public static void TableSetupColumn(string label, int flags = 0, float init_width = 0) { unsafe { NativeTableSetupColumn(label, flags, init_width); } }
+    public static void TableSetupColumn(string label, int flags = 0, float init_width = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        NativeTableSetupColumn(label_utf8.Pointer, flags, init_width);
+      }
+    }
     public static void TableHeadersRow() { unsafe { NativeTableHeadersRow(); } }
 
     public static Vec2 GetContentRegionAvail()
@@ -554,16 +729,39 @@ namespace Other
     public static void PushItemWidth(float width) { unsafe { NativePushItemWidth(width); } }
     public static void PopItemWidth() { unsafe { NativePopItemWidth(); } }
 
-    public static void PushID(string str_id) { unsafe { NativePushIDStr(str_id); } }
+    public static void PushID(string str_id)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
+        NativePushIDStr(str_id_utf8.Pointer);
+      }
+    }
     public static void PushID(int int_id) { unsafe { NativePushIDInt(int_id); } }
     public static void PopID() { unsafe { NativePopID(); } }
 
-    public static void SetTooltip(string text) { unsafe { NativeSetTooltip(text); } }
+    public static void SetTooltip(string text)
+    {
+      unsafe
+      {
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeSetTooltip(text_utf8.Pointer);
+      }
+    }
     public static bool BeginTooltip() { unsafe { return NativeBeginTooltip(); } }
     public static void EndTooltip() { unsafe { NativeEndTooltip(); } }
 
-    public static bool BeginDragDropSource() { unsafe { return NativeBeginDragDropSource(); } }
-    public static void SetDragDropPayload(IntPtr payload) { unsafe { NativeSetDragDropPayload(payload); } }
+    public static bool BeginDragDropSource(int flags = 0) { unsafe { return NativeBeginDragDropSource(flags); } }
+
+    /// type names what is carried, so a target can tell whether it wants it; ImGui copies the bytes
+    public static bool SetDragDropPayload(string type, IntPtr data, int size)
+    {
+      unsafe
+      {
+        using var type_utf8 = new Utf8Arg(type, stackalloc byte[Utf8Arg.StackSize]);
+        return NativeSetDragDropPayload(type_utf8.Pointer, data, size);
+      }
+    }
     public static void EndDragDropSource() { unsafe { NativeEndDragDropSource(); } }
     public static bool BeginDragDropTarget() { unsafe { return NativeBeginDragDropTarget(); } }
     public static void EndDragDropTarget() { unsafe { NativeEndDragDropTarget(); } }

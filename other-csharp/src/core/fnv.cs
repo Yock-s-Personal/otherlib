@@ -8,10 +8,8 @@ namespace Other
     {
       unsafe
       {
-        var ns = new NativeString(str);
-        ulong result = OtherABI.NativeFnvHash(ns);
-        ns.Dispose();
-        return result;
+        using var str_utf8 = new Utf8Arg(str, stackalloc byte[Utf8Arg.StackSize]);
+        return OtherABI.NativeFnvHash(str_utf8.Pointer);
       }
     }
   }

@@ -3,6 +3,9 @@
  **/
 #include "scripting/dotnet_bindings/component_bindings.hpp"
 
+#include <algorithm>
+#include <cstring>
+
 #include "core/profiler.hpp"
 #include "thread/thread_safety.hpp"
 
@@ -17,6 +20,7 @@
 #include "driver/driver.hpp"
 #include "scripting/dotnet_bindings/driver_bindings.hpp"
 #include "scripting/dotnet_bindings/scene_bindings.hpp"
+#include "scripting/main_thread_only.hpp"
 
 #include "audio/audio_environment.hpp"
 
@@ -40,9 +44,8 @@ namespace other {
       std::memcpy(out_matrix, &world[0][0], sizeof(float) * 16);
     }
 
-    void native_render_component_get_num_vertices(natural_t object_id, int32_t* out_vertex_count) {
+    int32_t native_render_component_get_num_vertices(natural_t object_id) {
       ASSERT_MAIN_THREAD();
-      OTHER_ASSERT(out_vertex_count != nullptr, "Output vertex count pointer is null.");
 
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
@@ -50,56 +53,56 @@ namespace other {
       if (active_scene->has_component<render_component>(object_id)) {
         render_component* comp = active_scene->get_component<render_component>(object_id);
         OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
-        OTHER_ASSERT(comp->obj_model.source != nullptr, "Render component's model source is null for object with ID {}", object_id);
-        *out_vertex_count = comp->obj_model.source->get_num_vertices();
-      } else {
-        *out_vertex_count = 0;
+        /// a model is loaded in the background: until it is there, it has nothing to count
+        if (comp->obj_model.source != nullptr) {
+          return static_cast<int32_t>(comp->obj_model.source->get_num_vertices());
+        }
       }
+      return 0;
     }
 
-    void native_render_component_get_num_indices(natural_t object_id, int32_t* out_index_count) {
+    int32_t native_render_component_get_num_indices(natural_t object_id) {
       ASSERT_MAIN_THREAD();
-      OTHER_ASSERT(out_index_count != nullptr, "Output index count pointer is null.");
 
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
 
-      if (active_scene->has_component<render_component>(object_id)) {
-        render_component* comp = active_scene->get_component<render_component>(object_id);
-        OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
-        OTHER_ASSERT(comp->obj_model.source != nullptr, "Render component's model source is null for object with ID {}", object_id);
-        *out_index_count = comp->obj_model.source->get_num_indices();
-      } else {
-        *out_index_count = 0;
-      }
-    }
-
-    native_string native_render_component_get_mesh_name(natural_t object_id) {
-      ASSERT_MAIN_THREAD();
-      scene* active_scene = detail::get_active_scene_checked();
-      OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
-
-      native_string result;
       if (active_scene->has_component<render_component>(object_id)) {
         render_component* comp = active_scene->get_component<render_component>(object_id);
         OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
         if (comp->obj_model.source != nullptr) {
-          result = native_string{ comp->obj_model.source->get_name() };
+          return static_cast<int32_t>(comp->obj_model.source->get_num_indices());
+        }
+      }
+      return 0;
+    }
+
+    const char* native_render_component_get_mesh_name(natural_t object_id) {
+      ASSERT_MAIN_THREAD();
+      scene* active_scene = detail::get_active_scene_checked();
+      OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
+
+      std::string result;
+      if (active_scene->has_component<render_component>(object_id)) {
+        render_component* comp = active_scene->get_component<render_component>(object_id);
+        OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
+        if (comp->obj_model.source != nullptr) {
+          result = comp->obj_model.source->get_name();
         } else {
           /// no-op
         }
       } else {
         /// no-op
       }
-      return result;
+      return returned_string(result);
     }
 
-    native_string native_render_component_get_material_path(natural_t object_id) {
+    const char* native_render_component_get_material_path(natural_t object_id) {
       ASSERT_MAIN_THREAD();
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
 
-      native_string result;
+      std::string result;
       if (active_scene->has_component<render_component>(object_id)) {
         render_component* comp = active_scene->get_component<render_component>(object_id);
         OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
@@ -108,16 +111,16 @@ namespace other {
           OTHER_ASSERT(d != nullptr, "Driver is null in native_render_component_get_material_path.");
           asset* mat_asset = d->get_asset(comp->material_asset_id);
           if (mat_asset != nullptr) {
-            result = native_string{ mat_asset->load_path.generic_string() };
+            result = mat_asset->load_path.generic_string();
           }
         }
       } else {
         /// no-op
       }
-      return result;
+      return returned_string(result);
     }
 
-    void native_render_component_set_material_path(natural_t object_id, native_string path) {
+    void native_render_component_set_material_path(natural_t object_id, const char* path) {
       ASSERT_MAIN_THREAD();
       PROFILE_SECTION("native_render_component_set_material_path");
       scene* active_scene = detail::get_active_scene_checked();
@@ -149,12 +152,12 @@ namespace other {
       comp->last_material_asset_id = material_id;
     }
 
-    native_string native_animation_component_get_clip_path(natural_t object_id) {
+    const char* native_animation_component_get_clip_path(natural_t object_id) {
       ASSERT_MAIN_THREAD();
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
 
-      native_string result;
+      std::string result;
       if (active_scene->has_component<animation_component>(object_id)) {
         animation_component* comp = active_scene->get_component<animation_component>(object_id);
         OTHER_ASSERT(comp != nullptr, "Animation component not found for object with ID {}", object_id);
@@ -163,16 +166,16 @@ namespace other {
           OTHER_ASSERT(d != nullptr, "Driver is null in native_animation_component_get_clip_path.");
           asset* clip_asset = d->get_asset(comp->animation_asset_id);
           if (clip_asset != nullptr) {
-            result = native_string{ clip_asset->load_path.generic_string() };
+            result = clip_asset->load_path.generic_string();
           }
         }
       } else {
         /// no-op
       }
-      return result;
+      return returned_string(result);
     }
 
-    void native_animation_component_set_clip_path(natural_t object_id, native_string path) {
+    void native_animation_component_set_clip_path(natural_t object_id, const char* path) {
       ASSERT_MAIN_THREAD();
       PROFILE_SECTION("native_animation_component_set_clip_path");
       scene* active_scene = detail::get_active_scene_checked();
@@ -552,12 +555,12 @@ namespace other {
       }
     }
 
-    native_string native_audio_source_get_clip_path(natural_t object_id) {
+    const char* native_audio_source_get_clip_path(natural_t object_id) {
       ASSERT_MAIN_THREAD();
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
 
-      native_string result;
+      std::string result;
       if (active_scene->has_component<audio_source_component>(object_id)) {
         audio_source_component* comp = active_scene->get_component<audio_source_component>(object_id);
         OTHER_ASSERT(comp != nullptr, "Audio source component not found for object with ID {}", object_id);
@@ -566,14 +569,14 @@ namespace other {
           OTHER_ASSERT(d != nullptr, "Driver is null in native_audio_source_get_clip_path.");
           asset* clip_asset = d->get_asset(comp->clip_asset_id);
           if (clip_asset != nullptr) {
-            result = native_string{ clip_asset->load_path.generic_string() };
+            result = clip_asset->load_path.generic_string();
           }
         }
       }
-      return result;
+      return returned_string(result);
     }
 
-    void native_audio_source_set_clip_path(natural_t object_id, native_string path) {
+    void native_audio_source_set_clip_path(natural_t object_id, const char* path) {
       ASSERT_MAIN_THREAD();
       PROFILE_SECTION("native_audio_source_set_clip_path");
       scene* active_scene = detail::get_active_scene_checked();
@@ -603,7 +606,7 @@ namespace other {
       comp->clip_asset_id = clip_id;
     }
 
-    void native_audio_play_one_shot(native_string path, float x, float y, float z, float volume, float pitch, uint32_t bus) {
+    void native_audio_play_one_shot(const char* path, float x, float y, float z, float volume, float pitch, uint32_t bus) {
       ASSERT_MAIN_THREAD();
       PROFILE_SECTION("native_audio_play_one_shot");
       if (subsystem<audio_environment>::inert) {
@@ -678,25 +681,35 @@ namespace other {
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene != nullptr, "Active scene is null.");
 
-      if (active_scene->has_component<render_component>(object_id)) {
-        render_component* comp = active_scene->get_component<render_component>(object_id);
-        OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
-        OTHER_ASSERT(comp->obj_model.source != nullptr, "Render component's model source is null for object with ID {}", object_id);
+      /// on the way in the two counts say how many vertices and triangles the caller has room
+      ///  for; on the way out, how many were written. a model can change between a script
+      ///  asking for its size and asking for its data
+      const size_t vertex_room = static_cast<size_t>(std::max(*out_num_vertices, 0));
+      const size_t triangle_room = static_cast<size_t>(std::max(*out_num_indices, 0));
+      *out_num_vertices = 0;
+      *out_num_indices = 0;
 
-        const std::span<const vertex> vertices = comp->obj_model.source->source_data().vertices;
-        const std::span<const index> indices = comp->obj_model.source->source_data().indices;
-
-        *out_num_vertices = static_cast<int32_t>(vertices.size());
-        *out_num_indices = static_cast<int32_t>(indices.size());
-        std::memcpy(out_vertex_data, vertices.data(), sizeof(vertex) * vertices.size());
-        std::memcpy(out_index_data, indices.data(), sizeof(index) * indices.size());
-      } else {
-        *out_num_vertices = 0;
-        *out_num_indices = 0;
+      if (!active_scene->has_component<render_component>(object_id)) {
+        return;
       }
+      render_component* comp = active_scene->get_component<render_component>(object_id);
+      OTHER_ASSERT(comp != nullptr, "Render component not found for object with ID {}", object_id);
+      if (comp->obj_model.source == nullptr) {
+        return;
+      }
+
+      const std::span<const vertex> vertices = comp->obj_model.source->source_data().vertices;
+      const std::span<const index> indices = comp->obj_model.source->source_data().indices;
+      const size_t vertex_count = std::min(vertices.size(), vertex_room);
+      const size_t triangle_count = std::min(indices.size(), triangle_room);
+
+      std::memcpy(out_vertex_data, vertices.data(), sizeof(vertex) * vertex_count);
+      std::memcpy(out_index_data, indices.data(), sizeof(index) * triangle_count);
+      *out_num_vertices = static_cast<int32_t>(vertex_count);
+      *out_num_indices = static_cast<int32_t>(triangle_count);
     }
 
-    void native_render_component_upload_mesh(natural_t object_id, native_string name, const float* vertex_data, const int32_t* vertex_count, const int32_t* index_data, const int32_t* index_count) {
+    void native_render_component_upload_mesh(natural_t object_id, const char* name, const float* vertex_data, const int32_t* vertex_count, const int32_t* index_data, const int32_t* index_count) {
       ASSERT_MAIN_THREAD();
       OTHER_ASSERT(vertex_data != nullptr, "Vertex data pointer is null.");
       OTHER_ASSERT(index_data != nullptr, "Index data pointer is null.");

@@ -10,9 +10,9 @@
 namespace other {
   namespace bindings {
 
-    native_string native_get_program_files_folder(native_string app_name_str);
-    native_string native_get_app_data_folder(native_string app_name_str, nbool32 create_flag);
-    native_string native_get_install_folder();
+    const char* native_get_program_files_folder(const char* app_name_str);
+    const char* native_get_app_data_folder(const char* app_name_str, nbool32 create_flag);
+    const char* native_get_install_folder();
 
   }  // namespace bindings
 }  // namespace other

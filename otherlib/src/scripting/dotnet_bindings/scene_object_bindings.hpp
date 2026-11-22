@@ -12,7 +12,7 @@ namespace other {
   namespace bindings {
 
     void native_get_object_id(void* object_ptr, natural_t* out_id);
-    void native_validate_object_handle(natural_t scene_id, natural_t object_id, int32_t generation, nbool32* out_is_valid);
+    nbool32 native_validate_object_handle(natural_t object_id, uint32_t generation, uint32_t scene_id);
 
   }  // namespace bindings
 }  // namespace other

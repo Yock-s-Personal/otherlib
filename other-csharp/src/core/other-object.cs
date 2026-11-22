@@ -26,7 +26,7 @@ namespace Other.Core
 
 
     [NativeFunction("GetObjectID")]
-    internal static unsafe delegate*<nint, UInt64*, void> NativeGetObjectID;
+    internal static unsafe delegate* unmanaged[Cdecl]<nint, UInt64*, void> NativeGetObjectID;
 
     public UInt64 ObjectID
     {

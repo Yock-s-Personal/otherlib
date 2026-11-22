@@ -6,7 +6,7 @@ namespace Other
   public class SceneObject : Core.OtherObject
   {
     [NativeFunction("GetWorldMatrix")]
-    unsafe private static delegate*<UInt64, float*, void> NativeGetWorldMatrix;
+    unsafe private static delegate* unmanaged[Cdecl]<UInt64, float*, void> NativeGetWorldMatrix;
 
     private SceneObjectHandle handle;
     public SceneObjectHandle ObjectHandle => handle;

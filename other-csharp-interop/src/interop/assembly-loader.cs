@@ -389,8 +389,10 @@ namespace OtherCsBindings
         return;
       }
 
+      AssemblyUnload.Raise(asm);
       FreeAssemblyHandles(asm_id);
       TypeInterface.EvictAssemblyFromCaches(asm);
+      NativeFunctionManager.ForgetAssembly(asm);
 
       if (assembly_alcs.Remove(asm_id, out var alc))
       {

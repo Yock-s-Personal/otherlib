@@ -14,6 +14,7 @@
 #include "serialization/reflection.hpp"
 
 #include "bindings/native_logger.hpp"
+#include "dotnet/binding_signature.hpp"
 #include "dotnet/interop_interface.hpp"
 #include "dotnet/native_string.hpp"
 #include "script/scripting_environment.hpp"
@@ -585,7 +586,9 @@ namespace other {
     {
       /// logging has to happen first
       native_scoped_string function_name = native_string::new_str("OtherCsBindings.Logger+NativeLogMessage, OtherCsBindings");
-      interop().register_internal_call(function_name, (void*)&bindings::native_log_message);
+      native_scoped_string signature = native_string::new_str(bindings::signature_of(&bindings::native_log_message));
+      const int32_t result = interop().register_internal_call(function_name, reinterpret_cast<void*>(&bindings::native_log_message), signature);
+      OTHER_ASSERT(result == static_cast<int32_t>(binding_result::BOUND), "The logger's binding was refused by the managed side ({}); its two declarations disagree.", result);
     }
   }
 

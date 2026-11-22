@@ -14,6 +14,7 @@
 #include "scene/scene.hpp"
 
 #include "driver/driver.hpp"
+#include "scripting/main_thread_only.hpp"
 
 namespace other {
   namespace detail {
@@ -104,7 +105,7 @@ namespace other {
       return detail::bindings;
     }
 
-    bool oe_validate_handle(uint64_t obj_id, uint32_t generation, uint32_t scene_id) {
+    nbool32 oe_validate_handle(uint64_t obj_id, uint32_t generation, uint32_t scene_id) {
       scene* s = detail::get_active_scene();
       if (s == nullptr || !s->has_object(obj_id)) {
         return false;
@@ -113,7 +114,7 @@ namespace other {
       return obj.generation == generation;
     }
 
-    bool oe_has_component(uint64_t obj_id, uint64_t comp_id) {
+    nbool32 oe_has_component(uint64_t obj_id, uint64_t comp_id) {
       scene* s = detail::get_active_scene();
       if (s == nullptr || !s->has_object(obj_id)) {
         return false;
@@ -125,7 +126,7 @@ namespace other {
       return desc->has_fn(s, obj_id);
     }
 
-    bool oe_add_component(uint64_t obj_id, uint64_t comp_id) {
+    nbool32 oe_add_component(uint64_t obj_id, uint64_t comp_id) {
       PROFILE_SECTION("oe_add_component");
       scene* s = detail::get_active_scene();
       if (s == nullptr || !s->has_object(obj_id)) {
@@ -135,10 +136,10 @@ namespace other {
       if (desc == nullptr || desc->add_fn == nullptr) {
         return false;
       }
-      return desc->add_fn(s, obj_id);
+      return desc->add_fn(s, obj_id) != nullptr;
     }
 
-    bool oe_remove_component(uint64_t obj_id, uint64_t comp_id) {
+    nbool32 oe_remove_component(uint64_t obj_id, uint64_t comp_id) {
       PROFILE_SECTION("oe_remove_component");
       scene* s = detail::get_active_scene();
       if (s == nullptr || !s->has_object(obj_id)) {
@@ -151,23 +152,28 @@ namespace other {
       return desc->remove_fn(s, obj_id);
     }
 
-    bool oe_get_field_bool(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, bool* out) {
+    nbool32 oe_get_field_bool(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, nbool32* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::OEBOOL || field->read_fn == nullptr) {
         return false;
       }
-      return field->read_fn(comp, out);
+      /// the field is one byte; what crosses is four
+      bool stored = false;
+      const bool read = field->read_fn(comp, &stored);
+      *out = stored;
+      return read;
     }
 
-    bool oe_set_field_bool(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, bool value) {
+    nbool32 oe_set_field_bool(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, nbool32 value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::OEBOOL || field->write_fn == nullptr) {
         return false;
       }
-      return field->write_fn(comp, &value);
+      bool stored = value != 0;
+      return field->write_fn(comp, &stored);
     }
 
-    bool oe_get_field_i32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int32_t* out) {
+    nbool32 oe_get_field_i32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int32_t* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::INT32 || field->read_fn == nullptr) {
         return false;
@@ -175,7 +181,7 @@ namespace other {
       return field->read_fn(comp, out);
     }
 
-    bool oe_set_field_i32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int32_t value) {
+    nbool32 oe_set_field_i32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int32_t value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::INT32 || field->write_fn == nullptr) {
         return false;
@@ -183,7 +189,7 @@ namespace other {
       return field->write_fn(comp, &value);
     }
 
-    bool oe_get_field_u32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint32_t* out) {
+    nbool32 oe_get_field_u32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint32_t* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::UINT32 || field->read_fn == nullptr) {
         return false;
@@ -191,7 +197,7 @@ namespace other {
       return field->read_fn(comp, out);
     }
 
-    bool oe_set_field_u32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint32_t value) {
+    nbool32 oe_set_field_u32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint32_t value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::UINT32 || field->write_fn == nullptr) {
         return false;
@@ -199,7 +205,7 @@ namespace other {
       return field->write_fn(comp, &value);
     }
 
-    bool oe_get_field_i64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int64_t* out) {
+    nbool32 oe_get_field_i64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int64_t* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::INT64 || field->read_fn == nullptr) {
         return false;
@@ -207,7 +213,7 @@ namespace other {
       return field->read_fn(comp, out);
     }
 
-    bool oe_set_field_i64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int64_t value) {
+    nbool32 oe_set_field_i64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, int64_t value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::INT64 || field->write_fn == nullptr) {
         return false;
@@ -215,7 +221,7 @@ namespace other {
       return field->write_fn(comp, &value);
     }
 
-    bool oe_get_field_u64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint64_t* out) {
+    nbool32 oe_get_field_u64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint64_t* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::UINT64 || field->read_fn == nullptr) {
         return false;
@@ -223,7 +229,7 @@ namespace other {
       return field->read_fn(comp, out);
     }
 
-    bool oe_set_field_u64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint64_t value) {
+    nbool32 oe_set_field_u64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, uint64_t value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::UINT64 || field->write_fn == nullptr) {
         return false;
@@ -231,7 +237,7 @@ namespace other {
       return field->write_fn(comp, &value);
     }
 
-    bool oe_get_field_f32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* out) {
+    nbool32 oe_get_field_f32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::FLOAT || field->read_fn == nullptr) {
         return false;
@@ -239,7 +245,7 @@ namespace other {
       return field->read_fn(comp, out);
     }
 
-    bool oe_set_field_f32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float value) {
+    nbool32 oe_set_field_f32(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::FLOAT || field->write_fn == nullptr) {
         return false;
@@ -247,7 +253,7 @@ namespace other {
       return field->write_fn(comp, &value);
     }
 
-    bool oe_get_field_f64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, double* out) {
+    nbool32 oe_get_field_f64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, double* out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::DOUBLE || field->read_fn == nullptr) {
         return false;
@@ -255,7 +261,7 @@ namespace other {
       return field->read_fn(comp, out);
     }
 
-    bool oe_set_field_f64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, double value) {
+    nbool32 oe_set_field_f64(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, double value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::DOUBLE || field->write_fn == nullptr) {
         return false;
@@ -263,7 +269,7 @@ namespace other {
       return field->write_fn(comp, &value);
     }
 
-    bool oe_get_field_vec2(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y) {
+    nbool32 oe_get_field_vec2(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::VEC2 || field->read_fn == nullptr) {
         return false;
@@ -277,7 +283,7 @@ namespace other {
       return true;
     }
 
-    bool oe_set_field_vec2(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y) {
+    nbool32 oe_set_field_vec2(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::VEC2 || field->write_fn == nullptr) {
         return false;
@@ -286,7 +292,7 @@ namespace other {
       return field->write_fn(comp, &v);
     }
 
-    bool oe_get_field_vec3(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y, float* z) {
+    nbool32 oe_get_field_vec3(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y, float* z) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::VEC3 || field->read_fn == nullptr) {
         return false;
@@ -301,7 +307,7 @@ namespace other {
       return true;
     }
 
-    bool oe_set_field_vec3(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y, float z) {
+    nbool32 oe_set_field_vec3(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y, float z) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::VEC3 || field->write_fn == nullptr) {
         return false;
@@ -310,7 +316,7 @@ namespace other {
       return field->write_fn(comp, &v);
     }
 
-    bool oe_get_field_vec4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y, float* z, float* w) {
+    nbool32 oe_get_field_vec4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y, float* z, float* w) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::VEC4 || field->read_fn == nullptr) {
         return false;
@@ -326,7 +332,7 @@ namespace other {
       return true;
     }
 
-    bool oe_set_field_vec4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y, float z, float w) {
+    nbool32 oe_set_field_vec4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y, float z, float w) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::VEC4 || field->write_fn == nullptr) {
         return false;
@@ -335,7 +341,7 @@ namespace other {
       return field->write_fn(comp, &v);
     }
 
-    bool oe_get_field_quat(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y, float* z, float* w) {
+    nbool32 oe_get_field_quat(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* x, float* y, float* z, float* w) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::QUATERNION || field->read_fn == nullptr) {
         return false;
@@ -351,7 +357,7 @@ namespace other {
       return true;
     }
 
-    bool oe_set_field_quat(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y, float z, float w) {
+    nbool32 oe_set_field_quat(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float x, float y, float z, float w) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::QUATERNION || field->write_fn == nullptr) {
         return false;
@@ -360,7 +366,7 @@ namespace other {
       return field->write_fn(comp, &q);
     }
 
-    bool oe_get_field_mat4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* out_16) {
+    nbool32 oe_get_field_mat4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, float* out_16) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::MAT4 || field->read_fn == nullptr) {
         return false;
@@ -373,7 +379,7 @@ namespace other {
       return true;
     }
 
-    bool oe_set_field_mat4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, const float* in_16) {
+    nbool32 oe_set_field_mat4(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, const float* in_16) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::MAT4 || field->write_fn == nullptr) {
         return false;
@@ -383,7 +389,7 @@ namespace other {
       return field->write_fn(comp, &m);
     }
 
-    bool oe_get_field_string(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, native_string* out) {
+    nbool32 oe_get_field_string(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, const char** out) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::STRING || field->read_fn == nullptr) {
         return false;
@@ -392,11 +398,11 @@ namespace other {
       if (!field->read_fn(comp, &str)) {
         return false;
       }
-      *out = native_string::new_str(str);
+      *out = bindings::returned_string(str);
       return true;
     }
 
-    bool oe_set_field_string(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, native_string value) {
+    nbool32 oe_set_field_string(uint64_t obj_id, uint64_t comp_id, uint64_t field_id, const char* value) {
       auto [comp, field] = detail::resolve_field(obj_id, comp_id, field_id);
       if (field == nullptr || field->type != value_type::STRING || field->write_fn == nullptr) {
         return false;

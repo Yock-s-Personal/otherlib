@@ -20,21 +20,21 @@ namespace other {
   }  // namespace detail
   namespace bindings {
 
-    natural_t native_scene_create_object(native_string name, float x, float y, float z);
+    natural_t native_scene_create_object(const char* name, float x, float y, float z);
     void native_scene_destroy_object(natural_t id);
     nbool32 native_scene_has_object(natural_t id);
-    native_string native_scene_get_object_name(natural_t id);
-    void native_scene_set_object_name(natural_t id, native_string name);
+    const char* native_scene_get_object_name(natural_t id);
+    void native_scene_set_object_name(natural_t id, const char* name);
     void native_scene_get_object_ids(natural_t* out_ids, int32_t* out_count, int32_t max_count);
     natural_t native_scene_get_object_count();
-    natural_t native_scene_find_object_by_name(native_string name);
+    natural_t native_scene_find_object_by_name(const char* name);
 
     natural_t native_scene_get_parent_id(natural_t id);
     void native_scene_get_children_ids(natural_t id, natural_t* out_ids, int32_t* out_count, int32_t max_count);
 
-    nbool32 native_scene_object_has_tag(natural_t id, native_string tag);
-    void native_scene_add_object_tag(natural_t id, native_string tag);
-    void native_scene_remove_object_tag(natural_t id, native_string tag);
+    nbool32 native_scene_object_has_tag(natural_t id, const char* tag);
+    void native_scene_add_object_tag(natural_t id, const char* tag);
+    void native_scene_remove_object_tag(natural_t id, const char* tag);
 
     nbool32 native_scene_get_object_visible(natural_t id);
     void native_scene_set_object_visible(natural_t id, nbool32 visible);

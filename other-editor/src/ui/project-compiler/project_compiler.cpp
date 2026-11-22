@@ -340,6 +340,17 @@ namespace other {
         if (ImGui::SmallButton("Copy path")) {
           ImGui::SetClipboardText(package.c_str());
         }
+        if (!report->left_out.empty()) {
+          const std::string left_out = std::format("{} file(s) that nothing in the project uses were left out ({}). Name the ones the game loads by path in [package] keep.",
+                                                   report->left_out.size(), readable_size(report->left_out_bytes));
+          ImGui::TextWrapped("%s", left_out.c_str());
+          if (ImGui::BeginChild("##left-out", ImVec2(0.f, kListHeight), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeY)) {
+            for (const std::string& name : report->left_out) {
+              ImGui::TextUnformatted(name.c_str());
+            }
+          }
+          ImGui::EndChild();
+        }
       } else {
         error_text("The project was not packaged.");
       }

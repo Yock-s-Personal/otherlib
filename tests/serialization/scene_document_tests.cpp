@@ -288,4 +288,57 @@ name = "B"
     EXPECT_DOUBLE_EQ(position->get(2)->value_or<double>(0.0), 6.0);
   }
 
+  TEST_F(scene_document_tests, asset_paths_are_rewritten_and_every_other_field_is_kept) {
+    constexpr std::string_view kScene =
+      "[scene]\n"
+      "schema-version = 1\n"
+      "name = \"refs\"\n"
+      "\n"
+      "[[objects]]\n"
+      "id = 1\n"
+      "name = \"Crate\"\n"
+      "[objects.components.render]\n"
+      "model_asset_id = \"cwd://resources/models/crate.fbx\"\n"
+      "material_asset_id = \"game/assets/materials/crate.omat\"\n"
+      "visible = false\n"
+      "tint = [ 0.25, 0.5, 0.75, 1.0 ]\n"
+      "[objects.components.audio-source]\n"
+      "clip_asset_id = \"cwd://resources/audio/thud.wav\"\n";
+    scene_parse_result parsed = parse_scene_toml(kScene);
+    ASSERT_TRUE(parsed.success()) << parsed.error;
+    const scene_document original = *parsed.document;
+
+    const auto paths_of = [](const scene_document& doc) -> ostd::vector<std::string> {
+      ostd::vector<std::string> paths = {};
+      for (const component_asset_ref& ref : collect_scene_asset_refs(doc)) {
+        paths.push_back(ref.path);
+      }
+      return paths;
+    };
+
+    /// a rewrite that changes nothing leaves every payload byte for byte as it was
+    scene_document doc = original;
+    EXPECT_EQ(rewrite_scene_asset_refs(doc, [](const std::string& path) -> std::string { return path; }), 0u);
+    ASSERT_EQ(doc.objects.size(), original.objects.size());
+    for (size_t c = 0; c < original.objects[0].components.size(); ++c) {
+      EXPECT_EQ(doc.objects[0].components[c].payload, original.objects[0].components[c].payload) << "component " << c;
+    }
+
+    /// two of the three paths change, and only they are counted
+    const size_t changed = rewrite_scene_asset_refs(doc, [](const std::string& path) -> std::string {
+      constexpr std::string_view kOld = "cwd://";
+      return path.starts_with(kOld) ? std::format("engine://{}", path.substr(kOld.size())) : path;
+    });
+    EXPECT_EQ(changed, 2u);
+    EXPECT_EQ(paths_of(doc), (ostd::vector<std::string>{ "engine://resources/models/crate.fbx", "game/assets/materials/crate.omat", "engine://resources/audio/thud.wav" }));
+
+    /// the fields beside them are as they were, through binary and back
+    scene_parse_result reread = parse_scene_binary(write_scene_binary(doc));
+    ASSERT_TRUE(reread.success()) << reread.error;
+    const std::string text = write_scene_toml(*reread.document);
+    EXPECT_TRUE(text.contains("model_asset_id = \"engine://resources/models/crate.fbx\"")) << text;
+    EXPECT_TRUE(text.contains("visible = false")) << text;
+    EXPECT_TRUE(text.contains("0.25, 0.5, 0.75")) << text;
+  }
+
 }  // namespace other

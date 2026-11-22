@@ -57,7 +57,15 @@ namespace other {
     filepath package_root;
     ostd::vector<std::string> errors;
     ostd::vector<std::string> warnings;
+    /// files of the project that are not in the package because nothing a compile can see
+    ///  uses them, as paths from the project's folder. [package] keep in the project file
+    ///  names the ones the game loads by path
+    ostd::vector<std::string> left_out;
+    uint64_t left_out_bytes = 0;
   };
+
+  /// a number of bytes as a person reads it: "182 bytes", "41.2 KB", "3.4 MB"
+  std::string readable_size(uint64_t bytes);
 
   /// marks a folder as one compile made, so compile will replace it and nothing else
   constexpr inline std::string_view kPackageMarker = ".other-package";

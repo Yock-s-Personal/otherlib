@@ -37,6 +37,9 @@ namespace other {
       asset::type type = asset::EMPTY;
     };
 
+    /// given an asset path as a document stores it, returns the path to store in its place
+    using asset_path_rewrite_fn = std::function<std::string(const std::string& path)>;
+
     struct component_codec {
       std::string_view key = "";           /// toml table key + binary hash source
       std::string_view display_name = "";  /// matches scene_system's component_registry name
@@ -57,6 +60,9 @@ namespace other {
       /// document-level, engine-free: append every non-empty asset path the payload
       /// carries (manifest parsing); null for codecs without asset reference members
       std::function<void(std::span<const uint8_t>, ostd::vector<component_asset_ref>&)> collect_asset_refs = nullptr;
+      /// document-level, engine-free: the payload again, with every non-empty asset path it
+      /// carries replaced by what rewrite returns for it; null as collect_asset_refs is
+      std::function<ostd::vector<uint8_t>(std::span<const uint8_t>, const asset_path_rewrite_fn&)> rewrite_asset_refs = nullptr;
     };
 
     /// registration order = document emission order; self-populates with the builtin
@@ -444,6 +450,39 @@ namespace other {
             }
           }
         });
+      };
+
+      codec.rewrite_asset_refs = [](std::span<const uint8_t> payload, const asset_path_rewrite_fn& rewrite) -> ostd::vector<uint8_t> {
+        ostd::vector<natural_t> reference_fields = {};
+        refl::util::for_each(refl::reflect<T>().members, [&](auto member) {
+          using member_descriptor_t = std::decay_t<decltype(member)>;
+          if constexpr (other::detail::should_serialize_member<member_descriptor_t>() && detail::is_asset_reference_member<member_descriptor_t>()) {
+            reference_fields.push_back(FNV(std::string{ member.name }));
+          }
+        });
+
+        /// every other field is copied as its bytes are, so nothing this build does not know
+        /// how to read is lost
+        ostd::vector<uint8_t> out = {};
+        size_t offset = 0;
+        while (offset < payload.size()) {
+          const size_t field_start = offset;
+          natural_t field_id = 0;
+          uint8_t tag = 0;
+          std::span<const uint8_t> body = {};
+          if (!field_codec::read_raw(payload, offset, field_id) || !field_codec::read_frame(payload, offset, tag, body)) {
+            /// truncated: left as it is for the reader to report
+            return ostd::vector<uint8_t>{ payload.begin(), payload.end() };
+          }
+          std::string path = "";
+          if (std::ranges::contains(reference_fields, field_id) && field_codec::decode_body(tag, body, path) && !path.empty()) {
+            field_codec::write_raw<natural_t>(field_id, out);
+            field_codec::encode_value(rewrite(path), out);
+          } else {
+            out.insert(out.end(), payload.begin() + field_start, payload.begin() + offset);
+          }
+        }
+        return out;
       };
 
       codec.payload_from_toml = [](const toml::table& table, ostd::vector<std::string>& warnings) -> ostd::vector<uint8_t> {

@@ -62,6 +62,10 @@ namespace other {
     /// separate: scene_document::script); engine-free - this is what manifest parsing rides
     ostd::vector<component_asset_ref> collect_scene_asset_refs(const scene_document& doc);
 
+    /// passes every one of those references through rewrite and stores what it returns.
+    /// returns how many changed; engine-free
+    size_t rewrite_scene_asset_refs(scene_document& doc, const asset_path_rewrite_fn& rewrite);
+
   }  // namespace serialization
 }  // namespace other
 

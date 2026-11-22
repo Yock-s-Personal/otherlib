@@ -3,6 +3,7 @@
  **/
 #include "project/project.hpp"
 
+#include <fstream>
 #include <string_view>
 
 #include <toml++/toml.hpp>
@@ -19,6 +20,7 @@
 #include "driver/driver.hpp"
 #include "driver/systems/asset_system.hpp"
 #include "driver/systems/project_system.hpp"
+#include "project/project_file_changes.hpp"
 
 namespace other {
   namespace detail {
@@ -70,6 +72,7 @@ namespace other {
     load_errors.clear();
     script_project_failure.reset();
     prebuilt_assembly.clear();
+    project_file_notice.reset();
 
     /// the project root mount anchors every canonical virtual path (=> stable_id) the
     //  resolver produces; it must exist before anything under it is registered or virtualized
@@ -101,6 +104,7 @@ namespace other {
 #elif defined(OTHER_PROJECT_FILE_TOML_FORMAT)
     CORE_LOG_DEBUG("Loading TOML project file '{}'", project_file_handle->virtual_path());
     std::string file_contents = project_file_handle->read_all_as_string();
+    loaded_file_text = file_contents;
     CORE_LOG_DEBUG("\n{}", file_contents);
 
     bool finish_load = false;
@@ -331,6 +335,53 @@ namespace other {
     attach_project_dll(script_asset_path);
     clear_script_failure();
     return true;
+  }
+
+  void project::refresh_from_file(const filepath& path) {
+    PROFILE_SECTION("project::refresh_from_file");
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+      CORE_LOG_WARN("[PROJECT] The project file '{}' changed on disk and cannot be opened.", path.string());
+      return;
+    }
+    const std::string text{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
+
+    const project_file_changes changes = compare_project_files(loaded_file_text, text);
+    if (changes.error.has_value()) {
+      CORE_LOG_ERROR("[PROJECT] The project file changed on disk: {}. The open project is as it was.", *changes.error);
+      project_file_notice = file_notice{ .error = *changes.error };
+      return;
+    }
+    const toml::table table = toml::parse(text);
+
+    /// taken as the file has them now, whatever they were at load
+    metadata on_disk = {};
+    detail::process_metadata(table, on_disk);
+    if (on_disk.name != project_metadata.name || on_disk.description != project_metadata.description || on_disk.author != project_metadata.author ||
+        on_disk.version != project_metadata.version) {
+      project_metadata = std::move(on_disk);
+      CORE_LOG_INFO("[PROJECT] The project file changed on disk: its metadata was read again.");
+    }
+
+    const std::string starting_scene = table.at_path("scene-graph.starting-scene").value_or(std::string{});
+    const auto named = std::ranges::find(scenes_in_project, starting_scene, &scene::name);
+    if (named != scenes_in_project.end() && named->scene_id != starting_scene_id) {
+      starting_scene_id = named->scene_id;
+      CORE_LOG_INFO("[PROJECT] The project file changed on disk: the starting scene is now '{}'.", starting_scene);
+    } else if (named == scenes_in_project.end() && !starting_scene.empty()) {
+      CORE_LOG_WARN("[PROJECT] The project file on disk names the starting scene '{}', which is not one of the open project's scenes.", starting_scene);
+    }
+
+    if (changes.needs_reopen.empty()) {
+      project_file_notice.reset();
+      return;
+    }
+    std::string parts;
+    for (const std::string& part : changes.needs_reopen) {
+      parts += std::format("{}{}", parts.empty() ? "" : ", ", part);
+    }
+    CORE_LOG_WARN("[PROJECT] The project file changed on disk in parts an open project does not read again ({}). Open the project again to apply them.", parts);
+    project_file_notice = file_notice{ .needs_reopen = changes.needs_reopen };
   }
 
   void project::add_loaded_scene(natural_t scene_id) {

@@ -12,7 +12,21 @@
 
 #include "dotnet/native_string.hpp"
 
+#include "cli/process.hpp"
+
 namespace other {
+  namespace {
+
+    /// no process means no msbuild log, so the reason goes where the engine looks for errors
+    int32_t build_never_started(const filepath& log_path, const std::string_view reason) {
+      const std::string message = std::format("Could not start 'dotnet build': {}", reason);
+      CORE_LOG_ERROR("{}", message);
+      std::ofstream log(log_path, std::ios::binary | std::ios::trunc);
+      log.write(message.data(), static_cast<std::streamsize>(message.size()));
+      return -1;
+    }
+
+  }  // namespace
 
   void project_tool::generate_dotnet_project(const filepath& csproj_path) {
     OTHER_ASSERT(!csproj_path.empty(), "Csproj path is empty in generate_dotnet_project.");
@@ -26,10 +40,10 @@ namespace other {
     dotnet_project_path = csproj_path;
   }
 
-  void project_tool::start_project_build(const filepath& csproj_path) {
-    OTHER_ASSERT(!csproj_path.empty(), "Dotnet project path is empty in start_project_build.");
+  int32_t project_tool::build_project(const filepath& csproj_path) {
+    OTHER_ASSERT(!csproj_path.empty(), "Dotnet project path is empty in build_project.");
     OTHER_ASSERT(std::filesystem::exists(csproj_path), "Dotnet project file '{}' does not exist.", csproj_path.string());
-    PROFILE_SECTION("project_tool::start_project_build");
+    PROFILE_SECTION("project_tool::build_project");
 
     /// removed first: a build that never starts must not leave the previous build's errors behind
     const filepath log_path = build_log_path(csproj_path);
@@ -37,33 +51,28 @@ namespace other {
     std::filesystem::create_directories(log_path.parent_path(), ec);
     std::filesystem::remove(log_path, ec);
 
-    std::string build_config = get_project_build_config_string();
-    native_string path = native_string::new_str(csproj_path.string());
-    native_string config = native_string::new_str(build_config);
-    native_string log = native_string::new_str(log_path.string());
+    const opt<filepath> dotnet = cli::find_program_on_path("dotnet");
+    if (!dotnet.has_value()) {
+      return build_never_started(log_path, "the .NET SDK was not found, 'dotnet' is not on the PATH");
+    }
 
-    invoke_tool_method("SetConfig", config);
-    invoke_tool_method("SetCsprojFilePath", path);
-    invoke_tool_method("SetBuildLogPath", log);
-    invoke_tool_method("StartCsprojBuild");
-
-    native_string::free_str(log);
-    native_string::free_str(config);
-    native_string::free_str(path);
-
-    dotnet_project_path = csproj_path;
-  }
-
-  bool project_tool::project_build_in_progress() const {
-    return invoke_tool_method<nbool32>("IsBuildInProgress");
-  }
-
-  void project_tool::cleanup_build() {
-    invoke_tool_method("CleanupBuild");
-  }
-
-  int32_t project_tool::get_build_result() const {
-    return invoke_tool_method<int32_t>("GetBuildResult");
+    const cli::process_result built = cli::launch_process({
+      .executable = *dotnet,
+      .arguments = {
+        "build",
+        csproj_path.string(),
+        "-c",
+        get_project_build_config_string(),
+        /// a file logger, not redirected output: build servers outlive the build and would hold a pipe open
+        std::format("-flp:logfile={};errorsonly;encoding=UTF-8", log_path.string()),
+      },
+      .wait_for_exit = true,
+      .new_console = false,
+    });
+    if (!built.started) {
+      return build_never_started(log_path, built.error);
+    }
+    return built.exit_code;
   }
 
   filepath project_tool::build_log_path(const filepath& csproj_path) {

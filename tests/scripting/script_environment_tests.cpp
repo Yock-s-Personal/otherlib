@@ -4,6 +4,9 @@
 #include "script_environment_tests.hpp"
 
 #include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <vector>
 
 #include "dotnet/dotnet_object.hpp"
 
@@ -337,6 +340,48 @@ namespace other {
     EXPECT_EQ(obj->dotnet_object->invoke<int>("CountBehaviors"), 1);
 
     env->destroy_object(id);
+  }
+
+  /// a build caught half way leaves a file that is not an assembly: that is a failed load
+  ///  which keeps nothing, so the finished file loads from the same path afterwards
+  TEST_F(script_environment_tests, a_file_that_is_not_an_assembly_fails_to_load_and_its_path_loads_later) {
+    auto* env = subsystem<scripting_environment>::get();
+    ASSERT_NE(env, nullptr);
+
+    std::ifstream in(testing_dll, std::ios::binary);
+    ASSERT_TRUE(in.is_open()) << testing_dll.string();
+    const std::vector<char> whole{ std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>() };
+    in.close();
+    ASSERT_GT(whole.size(), 1024u);
+
+    const filepath folder = std::filesystem::temp_directory_path() / "other-script-environment-tests";
+    std::filesystem::remove_all(folder);
+    std::filesystem::create_directories(folder);
+    const filepath rebuilt = folder / "DotnetTesting.dll";
+    const auto write = [&rebuilt, &whole](const size_t bytes) -> void {
+      std::ofstream out(rebuilt, std::ios::binary | std::ios::trunc);
+      out.write(whole.data(), static_cast<std::streamsize>(bytes));
+    };
+
+    write(whole.size() / 2);
+    EXPECT_EQ(env->load_dotnet_module(rebuilt.string()), nullptr);
+    /// and again: the first failure did not leave the path taken
+    EXPECT_EQ(env->load_dotnet_module(rebuilt.string()), nullptr);
+
+    /// an assembly's name loads once, so the fixture's copy gives its place to the rebuilt one
+    write(whole.size());
+    env->unload_dotnet_module(env->get_dotnet_module("DotnetTesting"));
+    const ref<assembly> reloaded = env->load_dotnet_module(rebuilt.string());
+    EXPECT_NE(reloaded, nullptr) << "the whole assembly did not load from the path a broken one was at";
+    if (reloaded != nullptr) {
+      EXPECT_EQ(env->call_static_dotnet_method<int>("TestObject", "StaticMethod", int{ 6 }), 36);
+      env->unload_dotnet_module(reloaded);
+    }
+    /// back where the fixture expects its copy, which TearDown unloads by its path
+    ASSERT_NE(env->load_dotnet_module(testing_dll.string()), nullptr);
+
+    std::error_code ec;
+    std::filesystem::remove_all(folder, ec);
   }
 
 }  // namespace other

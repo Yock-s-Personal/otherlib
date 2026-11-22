@@ -423,15 +423,17 @@ namespace other {
     on_file_event(event);
 
     switch (event.type) {
+      /// nothing is refreshed from here: the asset system holds each path until the file
+      ///  has stopped changing, and then calls handle_file_refresh
       case file_event::type::CREATED:
       case file_event::type::MODIFIED:
       case file_event::type::DELETED:
-        handle_file_refresh(event.path);
+        note_file_change(event.path);
         break;
 
       case file_event::type::RENAMED:
-        handle_file_refresh(*event.old_path);
-        handle_file_refresh(event.path);
+        note_file_change(*event.old_path);
+        note_file_change(event.path);
         break;
 
       default:
@@ -445,6 +447,14 @@ namespace other {
     return interfaces.register_interface_binding(interface_name, std::move(inteface_table));
   }
 
+  void driver::note_file_change(const filepath& path) {
+    if (!driver_kernel_ptr->has_core_system<asset_system>()) {
+      CORE_LOG_WARN("Asset system is not initialized, cannot handle file change for path: {}", path.string());
+      return;
+    }
+    driver_kernel_ptr->get_core_system<asset_system>().note_file_change(path);
+  }
+
   void driver::handle_file_refresh(const filepath& path) {
     PROFILE_SECTION("driver::handle_file_refresh");
     CORE_LOG_DEBUG("File refresh event for path: {}", path.string());
@@ -452,6 +462,16 @@ namespace other {
     if (!driver_kernel_ptr->has_core_system<asset_system>()) {
       CORE_LOG_WARN("Asset system is not initialized, cannot handle file refresh for path: {}", path.string());
       return;
+    }
+
+    /// the open project's own file is not an asset: the project re-reads it
+    if (driver_kernel_ptr->has_core_system<project_system>()) {
+      auto& projects = driver_kernel_ptr->get_core_system<project_system>();
+      std::error_code ec;
+      if (const opt<filepath>& project_file = projects.get_project_file(); project_file.has_value() && std::filesystem::equivalent(*project_file, path, ec)) {
+        projects.project_file_changed();
+        return;
+      }
     }
 
     auto& assets = driver_kernel_ptr->get_core_system<asset_system>();

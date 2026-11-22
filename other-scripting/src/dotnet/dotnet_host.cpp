@@ -132,12 +132,12 @@ namespace other {
     /// gc
     if (interop_functions.collect_garbage != nullptr) {
       OTHER_ASSERT(interop_functions.wait_for_pending_finalizers != nullptr, "Interop function wait_for_pending_finalizers is not initialized");
-      interop_functions.collect_garbage(0, gc_mode::DEFAULT, true, true);
-      interop_functions.wait_for_pending_finalizers();
+      interop().collect_garbage(0, gc_mode::DEFAULT, true, true);
+      interop().wait_for_pending_finalizers();
     }
 
-    interop_functions.cleanup_binding_points();
-    interop_functions.clear_methods();
+    interop().cleanup_binding_points();
+    interop().clear_methods();
 
     auto* type_cache = get_type_cache();
     OTHER_ASSERT(type_cache != nullptr, "Type cache is null");
@@ -191,7 +191,7 @@ namespace other {
     int32_t context_handle = -1;
     {
       native_scoped_string name_str = native_string::new_str(name);
-      context_handle = interop_functions.create_assembly_load_context(name_str);
+      context_handle = interop().create_assembly_load_context(name_str);
     }
 
     natural_t context_id = FNV(name);
@@ -220,7 +220,7 @@ namespace other {
       // interop_functions.collect_garbage(0, dotother::GCMode::DEFAULT, true, true);
       // interop_functions.wait_for_pending_finalizers();
 
-      interop_functions.unload_assembly_load_context(itr->second.dotnet_id);
+      interop().unload_assembly_load_context(itr->second.dotnet_id);
       itr->second.dotnet_id = -1;
 
       assembly_contexts.erase(itr);
@@ -278,7 +278,7 @@ namespace other {
     if (obj == nullptr) {
       return nullptr;
     }
-    obj->managed_object = interop_functions.create_object(type->dotnet_id, false, argv, arg_ts, argc);
+    obj->managed_object = interop().create_object(type->dotnet_id, false, argv, arg_ts, argc);
     if (obj->managed_object == nullptr) {
       CORE_LOG_ERROR("Failed to create managed object of type [{}]", type->full_name());
       remove_object(obj->handle);
@@ -298,7 +298,7 @@ namespace other {
       return;
     }
 
-    interop_functions.destroy_object(obj->managed_object);
+    interop().destroy_object(obj->managed_object);
     obj->managed_object = nullptr;
 
     [[maybe_unused]] auto _ = remove_object(obj->handle);
@@ -312,7 +312,7 @@ namespace other {
       return obj_itr;
     }
 
-    interop_functions.destroy_object(obj_itr->second.managed_object);
+    interop().destroy_object(obj_itr->second.managed_object);
     obj_itr->second.managed_object = nullptr;
 
     return remove_object(obj_itr->second.handle);
@@ -585,7 +585,7 @@ namespace other {
     {
       /// logging has to happen first
       native_scoped_string function_name = native_string::new_str("OtherCsBindings.Logger+NativeLogMessage, OtherCsBindings");
-      interop_functions.register_internal_call(function_name, (void*)&bindings::native_log_message);
+      interop().register_internal_call(function_name, (void*)&bindings::native_log_message);
     }
   }
 

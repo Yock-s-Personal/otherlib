@@ -32,6 +32,7 @@
 #include "scripting/dotnet_bindings/ui_bindings.hpp"
 #include "scripting/lua_bindings/bind_math_types_lua.hpp"
 #include "scripting/lua_bindings/bind_rendering_types_lua.hpp"
+#include "scripting/main_thread_only.hpp"
 #include "scripting/other_abi.hpp"
 #include "scripting/scene_interface.hpp"
 #include "tools/environment_console.hpp"
@@ -71,11 +72,14 @@ namespace other {
       binding_context(dotnet_host& h)
           : host(h) {}
 
-      template <typename Fn>
-      binding_context& bind(const std::string_view name, Fn fn) {
+      /// what C# gets is not Fn but the call that checks its thread first. name is a literal:
+      ///  it is kept for the error
+      template <auto Fn>
+      binding_context& bind(const std::string_view name) {
         PROFILE_SECTION("other::bindings::binding_context::bind");
+        main_thread_only<Fn>::name = name;
         native_scoped_string fn_name = native_string::new_str(name);
-        bind_function(host, fn_name, fn);
+        bind_function(host, fn_name, &main_thread_only<Fn>::call);
         return *this;
       }
     };
@@ -91,308 +95,308 @@ namespace other {
 
     bindings::binding_context{ dn_host }
       /// Filesystem.
-      .bind("GetProgramFilesFolder", bindings::native_get_program_files_folder)
-      .bind("GetAppDataFolder", bindings::native_get_app_data_folder)
-      .bind("GetInstallFolder", bindings::native_get_install_folder);
+      .bind<bindings::native_get_program_files_folder>("GetProgramFilesFolder")
+      .bind<bindings::native_get_app_data_folder>("GetAppDataFolder")
+      .bind<bindings::native_get_install_folder>("GetInstallFolder");
 
     bindings::binding_context{ dn_host }
       /// UI.
-      .bind("BeginWindow", bindings::native_begin_window)
-      .bind("EndWindow", bindings::native_end_window)
-      .bind("BeginChild", bindings::native_begin_child)
-      .bind("EndChild", bindings::native_end_child);
+      .bind<bindings::native_begin_window>("BeginWindow")
+      .bind<bindings::native_end_window>("EndWindow")
+      .bind<bindings::native_begin_child>("BeginChild")
+      .bind<bindings::native_end_child>("EndChild");
 
     bindings::binding_context{ dn_host }
       /// UI - Widgets.
-      .bind("UIText", bindings::native_ui_text)
-      .bind("UITextColored", bindings::native_ui_text_colored)
-      .bind("UITextWrapped", bindings::native_ui_text_wrapped)
-      .bind("UILabelText", bindings::native_ui_label_text)
-      .bind("UIButton", bindings::native_ui_button)
-      .bind("UISmallButton", bindings::native_ui_small_button)
-      .bind("UIInvisibleButton", bindings::native_ui_invisible_button)
-      .bind("UICheckbox", bindings::native_ui_checkbox)
-      .bind("UIRadioButton", bindings::native_ui_radio_button)
-      .bind("UIProgressBar", bindings::native_ui_progress_bar)
-      .bind("UISeparator", bindings::native_ui_separator)
-      .bind("UISameLine", bindings::native_ui_same_line)
-      .bind("UISpacing", bindings::native_ui_spacing)
-      .bind("UIIndent", bindings::native_ui_indent)
-      .bind("UIUnindent", bindings::native_ui_unindent)
-      .bind("UINewLine", bindings::native_ui_new_line)
-      .bind("UIDummy", bindings::native_ui_dummy);
+      .bind<bindings::native_ui_text>("UIText")
+      .bind<bindings::native_ui_text_colored>("UITextColored")
+      .bind<bindings::native_ui_text_wrapped>("UITextWrapped")
+      .bind<bindings::native_ui_label_text>("UILabelText")
+      .bind<bindings::native_ui_button>("UIButton")
+      .bind<bindings::native_ui_small_button>("UISmallButton")
+      .bind<bindings::native_ui_invisible_button>("UIInvisibleButton")
+      .bind<bindings::native_ui_checkbox>("UICheckbox")
+      .bind<bindings::native_ui_radio_button>("UIRadioButton")
+      .bind<bindings::native_ui_progress_bar>("UIProgressBar")
+      .bind<bindings::native_ui_separator>("UISeparator")
+      .bind<bindings::native_ui_same_line>("UISameLine")
+      .bind<bindings::native_ui_spacing>("UISpacing")
+      .bind<bindings::native_ui_indent>("UIIndent")
+      .bind<bindings::native_ui_unindent>("UIUnindent")
+      .bind<bindings::native_ui_new_line>("UINewLine")
+      .bind<bindings::native_ui_dummy>("UIDummy");
 
     bindings::binding_context{ dn_host }
       /// UI - Input Widgets.
-      .bind("UIInputText", bindings::native_ui_input_text)
-      .bind("UIInputTextMultiline", bindings::native_ui_input_text_multiline)
-      .bind("UIInputFloat", bindings::native_ui_input_float)
-      .bind("UIInputFloat2", bindings::native_ui_input_float2)
-      .bind("UIInputFloat3", bindings::native_ui_input_float3)
-      .bind("UIInputFloat4", bindings::native_ui_input_float4)
-      .bind("UIInputInt", bindings::native_ui_input_int)
-      .bind("UIDragFloat", bindings::native_ui_drag_float)
-      .bind("UIDragFloat3", bindings::native_ui_drag_float3)
-      .bind("UISliderFloat", bindings::native_ui_slider_float)
-      .bind("UISliderInt", bindings::native_ui_slider_int)
-      .bind("UIColorEdit3", bindings::native_ui_color_edit3)
-      .bind("UIColorEdit4", bindings::native_ui_color_edit4);
+      .bind<bindings::native_ui_input_text>("UIInputText")
+      .bind<bindings::native_ui_input_text_multiline>("UIInputTextMultiline")
+      .bind<bindings::native_ui_input_float>("UIInputFloat")
+      .bind<bindings::native_ui_input_float2>("UIInputFloat2")
+      .bind<bindings::native_ui_input_float3>("UIInputFloat3")
+      .bind<bindings::native_ui_input_float4>("UIInputFloat4")
+      .bind<bindings::native_ui_input_int>("UIInputInt")
+      .bind<bindings::native_ui_drag_float>("UIDragFloat")
+      .bind<bindings::native_ui_drag_float3>("UIDragFloat3")
+      .bind<bindings::native_ui_slider_float>("UISliderFloat")
+      .bind<bindings::native_ui_slider_int>("UISliderInt")
+      .bind<bindings::native_ui_color_edit3>("UIColorEdit3")
+      .bind<bindings::native_ui_color_edit4>("UIColorEdit4");
 
     bindings::binding_context{ dn_host }
       /// UI - Tree / Collapsing.
-      .bind("UITreeNode", bindings::native_ui_tree_node)
-      .bind("UITreeNodeEx", bindings::native_ui_tree_node_ex)
-      .bind("UITreePop", bindings::native_ui_tree_pop)
-      .bind("UICollapsingHeader", bindings::native_ui_collapsing_header);
+      .bind<bindings::native_ui_tree_node>("UITreeNode")
+      .bind<bindings::native_ui_tree_node_ex>("UITreeNodeEx")
+      .bind<bindings::native_ui_tree_pop>("UITreePop")
+      .bind<bindings::native_ui_collapsing_header>("UICollapsingHeader");
 
     bindings::binding_context{ dn_host }
       /// UI - Selectables / Lists.
-      .bind("UISelectable", bindings::native_ui_selectable)
-      .bind("UIBeginCombo", bindings::native_ui_begin_combo)
-      .bind("UIEndCombo", bindings::native_ui_end_combo)
-      .bind("UIBeginListBox", bindings::native_ui_begin_listbox)
-      .bind("UIEndListBox", bindings::native_ui_end_listbox);
+      .bind<bindings::native_ui_selectable>("UISelectable")
+      .bind<bindings::native_ui_begin_combo>("UIBeginCombo")
+      .bind<bindings::native_ui_end_combo>("UIEndCombo")
+      .bind<bindings::native_ui_begin_listbox>("UIBeginListBox")
+      .bind<bindings::native_ui_end_listbox>("UIEndListBox");
 
     bindings::binding_context{ dn_host }
       /// UI - Tabs.
-      .bind("UIBeginTabBar", bindings::native_ui_begin_tab_bar)
-      .bind("UIEndTabBar", bindings::native_ui_end_tab_bar)
-      .bind("UIBeginTabItem", bindings::native_ui_begin_tab_item)
-      .bind("UIEndTabItem", bindings::native_ui_end_tab_item);
+      .bind<bindings::native_ui_begin_tab_bar>("UIBeginTabBar")
+      .bind<bindings::native_ui_end_tab_bar>("UIEndTabBar")
+      .bind<bindings::native_ui_begin_tab_item>("UIBeginTabItem")
+      .bind<bindings::native_ui_end_tab_item>("UIEndTabItem");
 
     bindings::binding_context{ dn_host }
       /// UI - Menus.
-      .bind("UIBeginMenuBar", bindings::native_ui_begin_menu_bar)
-      .bind("UIEndMenuBar", bindings::native_ui_end_menu_bar)
-      .bind("UIBeginMainMenuBar", bindings::native_ui_begin_main_menu_bar)
-      .bind("UIEndMainMenuBar", bindings::native_ui_end_main_menu_bar)
-      .bind("UIBeginMenu", bindings::native_ui_begin_menu)
-      .bind("UIEndMenu", bindings::native_ui_end_menu)
-      .bind("UIMenuItem", bindings::native_ui_menu_item);
+      .bind<bindings::native_ui_begin_menu_bar>("UIBeginMenuBar")
+      .bind<bindings::native_ui_end_menu_bar>("UIEndMenuBar")
+      .bind<bindings::native_ui_begin_main_menu_bar>("UIBeginMainMenuBar")
+      .bind<bindings::native_ui_end_main_menu_bar>("UIEndMainMenuBar")
+      .bind<bindings::native_ui_begin_menu>("UIBeginMenu")
+      .bind<bindings::native_ui_end_menu>("UIEndMenu")
+      .bind<bindings::native_ui_menu_item>("UIMenuItem");
 
     bindings::binding_context{ dn_host }
       /// UI - Popups / Modals.
-      .bind("UIOpenPopup", bindings::native_ui_open_popup)
-      .bind("UIBeginPopup", bindings::native_ui_begin_popup)
-      .bind("UIBeginPopupModal", bindings::native_ui_begin_popup_modal)
-      .bind("UIEndPopup", bindings::native_ui_end_popup)
-      .bind("UICloseCurrentPopup", bindings::native_ui_close_current_popup);
+      .bind<bindings::native_ui_open_popup>("UIOpenPopup")
+      .bind<bindings::native_ui_begin_popup>("UIBeginPopup")
+      .bind<bindings::native_ui_begin_popup_modal>("UIBeginPopupModal")
+      .bind<bindings::native_ui_end_popup>("UIEndPopup")
+      .bind<bindings::native_ui_close_current_popup>("UICloseCurrentPopup");
 
     bindings::binding_context{ dn_host }
       /// UI - Tables.
-      .bind("UIBeginTable", bindings::native_ui_begin_table)
-      .bind("UIEndTable", bindings::native_ui_end_table)
-      .bind("UITableNextRow", bindings::native_ui_table_next_row)
-      .bind("UITableNextColumn", bindings::native_ui_table_next_column)
-      .bind("UITableSetColumnIndex", bindings::native_ui_table_set_column_index)
-      .bind("UITableSetupColumn", bindings::native_ui_table_setup_column)
-      .bind("UITableHeadersRow", bindings::native_ui_table_headers_row);
+      .bind<bindings::native_ui_begin_table>("UIBeginTable")
+      .bind<bindings::native_ui_end_table>("UIEndTable")
+      .bind<bindings::native_ui_table_next_row>("UITableNextRow")
+      .bind<bindings::native_ui_table_next_column>("UITableNextColumn")
+      .bind<bindings::native_ui_table_set_column_index>("UITableSetColumnIndex")
+      .bind<bindings::native_ui_table_setup_column>("UITableSetupColumn")
+      .bind<bindings::native_ui_table_headers_row>("UITableHeadersRow");
 
     bindings::binding_context{ dn_host }
       /// UI - Layout Queries.
-      .bind("UIGetContentRegionAvail", bindings::native_ui_get_content_region_avail)
-      .bind("UIGetWindowSize", bindings::native_ui_get_window_size)
-      .bind("UIGetWindowPos", bindings::native_ui_get_window_pos)
-      .bind("UISetNextWindowSize", bindings::native_ui_set_next_window_size)
-      .bind("UISetNextWindowPos", bindings::native_ui_set_next_window_pos)
-      .bind("UIIsItemHovered", bindings::native_ui_is_item_hovered)
-      .bind("UIIsItemClicked", bindings::native_ui_is_item_clicked)
-      .bind("UIIsItemActive", bindings::native_ui_is_item_active)
-      .bind("UIIsWindowFocused", bindings::native_ui_is_window_focused)
-      .bind("UIIsWindowHovered", bindings::native_ui_is_window_hovered);
+      .bind<bindings::native_ui_get_content_region_avail>("UIGetContentRegionAvail")
+      .bind<bindings::native_ui_get_window_size>("UIGetWindowSize")
+      .bind<bindings::native_ui_get_window_pos>("UIGetWindowPos")
+      .bind<bindings::native_ui_set_next_window_size>("UISetNextWindowSize")
+      .bind<bindings::native_ui_set_next_window_pos>("UISetNextWindowPos")
+      .bind<bindings::native_ui_is_item_hovered>("UIIsItemHovered")
+      .bind<bindings::native_ui_is_item_clicked>("UIIsItemClicked")
+      .bind<bindings::native_ui_is_item_active>("UIIsItemActive")
+      .bind<bindings::native_ui_is_window_focused>("UIIsWindowFocused")
+      .bind<bindings::native_ui_is_window_hovered>("UIIsWindowHovered");
 
     bindings::binding_context{ dn_host }
       /// UI - Style.
-      .bind("UIPushStyleColor", bindings::native_ui_push_style_color)
-      .bind("UIPopStyleColor", bindings::native_ui_pop_style_color)
-      .bind("UIPushStyleVarFloat", bindings::native_ui_push_style_var_float)
-      .bind("UIPushStyleVarVec2", bindings::native_ui_push_style_var_vec2)
-      .bind("UIPopStyleVar", bindings::native_ui_pop_style_var)
-      .bind("UIPushItemWidth", bindings::native_ui_push_item_width)
-      .bind("UIPopItemWidth", bindings::native_ui_pop_item_width);
+      .bind<bindings::native_ui_push_style_color>("UIPushStyleColor")
+      .bind<bindings::native_ui_pop_style_color>("UIPopStyleColor")
+      .bind<bindings::native_ui_push_style_var_float>("UIPushStyleVarFloat")
+      .bind<bindings::native_ui_push_style_var_vec2>("UIPushStyleVarVec2")
+      .bind<bindings::native_ui_pop_style_var>("UIPopStyleVar")
+      .bind<bindings::native_ui_push_item_width>("UIPushItemWidth")
+      .bind<bindings::native_ui_pop_item_width>("UIPopItemWidth");
 
     bindings::binding_context{ dn_host }
       /// UI - ID Stack.
-      .bind("UIPushIDStr", bindings::native_ui_push_id_str)
-      .bind("UIPushIDInt", bindings::native_ui_push_id_int)
-      .bind("UIPopID", bindings::native_ui_pop_id);
+      .bind<bindings::native_ui_push_id_str>("UIPushIDStr")
+      .bind<bindings::native_ui_push_id_int>("UIPushIDInt")
+      .bind<bindings::native_ui_pop_id>("UIPopID");
 
     bindings::binding_context{ dn_host }
       /// UI - Tooltips.
-      .bind("UISetTooltip", bindings::native_ui_set_tooltip)
-      .bind("UIBeginTooltip", bindings::native_ui_begin_tooltip)
-      .bind("UIEndTooltip", bindings::native_ui_end_tooltip);
+      .bind<bindings::native_ui_set_tooltip>("UISetTooltip")
+      .bind<bindings::native_ui_begin_tooltip>("UIBeginTooltip")
+      .bind<bindings::native_ui_end_tooltip>("UIEndTooltip");
 
     bindings::binding_context{ dn_host }
       /// UI - Drag and Drop.
-      .bind("UIBeginDragDropSource", bindings::native_ui_begin_drag_drop_source)
-      .bind("UISetDragDropPayload", bindings::native_ui_set_drag_drop_payload)
-      .bind("UIEndDragDropSource", bindings::native_ui_end_drag_drop_source)
-      .bind("UIBeginDragDropTarget", bindings::native_ui_begin_drag_drop_target)
-      .bind("UIEndDragDropTarget", bindings::native_ui_end_drag_drop_target);
+      .bind<bindings::native_ui_begin_drag_drop_source>("UIBeginDragDropSource")
+      .bind<bindings::native_ui_set_drag_drop_payload>("UISetDragDropPayload")
+      .bind<bindings::native_ui_end_drag_drop_source>("UIEndDragDropSource")
+      .bind<bindings::native_ui_begin_drag_drop_target>("UIBeginDragDropTarget")
+      .bind<bindings::native_ui_end_drag_drop_target>("UIEndDragDropTarget");
 
     bindings::binding_context{ dn_host }
       /// Scene
-      .bind("SceneCreateObject", bindings::native_scene_create_object)
-      .bind("SceneDestroyObject", bindings::native_scene_destroy_object)
-      .bind("SceneHasObject", bindings::native_scene_has_object)
-      .bind("SceneGetObjectName", bindings::native_scene_get_object_name)
-      .bind("SceneSetObjectName", bindings::native_scene_set_object_name)
-      .bind("SceneGetObjectIds", bindings::native_scene_get_object_ids)
-      .bind("SceneGetObjectCount", bindings::native_scene_get_object_count)
-      .bind("SceneFindObjectByName", bindings::native_scene_find_object_by_name)
+      .bind<bindings::native_scene_create_object>("SceneCreateObject")
+      .bind<bindings::native_scene_destroy_object>("SceneDestroyObject")
+      .bind<bindings::native_scene_has_object>("SceneHasObject")
+      .bind<bindings::native_scene_get_object_name>("SceneGetObjectName")
+      .bind<bindings::native_scene_set_object_name>("SceneSetObjectName")
+      .bind<bindings::native_scene_get_object_ids>("SceneGetObjectIds")
+      .bind<bindings::native_scene_get_object_count>("SceneGetObjectCount")
+      .bind<bindings::native_scene_find_object_by_name>("SceneFindObjectByName")
       /// Object Hierarchy.
-      .bind("SceneGetParentId", bindings::native_scene_get_parent_id)
-      .bind("SceneGetChildrenIds", bindings::native_scene_get_children_ids)
+      .bind<bindings::native_scene_get_parent_id>("SceneGetParentId")
+      .bind<bindings::native_scene_get_children_ids>("SceneGetChildrenIds")
       /// Object Tags.
-      .bind("SceneObjectHasTag", bindings::native_scene_object_has_tag)
-      .bind("SceneAddObjectTag", bindings::native_scene_add_object_tag)
-      .bind("SceneRemoveObjectTag", bindings::native_scene_remove_object_tag)
+      .bind<bindings::native_scene_object_has_tag>("SceneObjectHasTag")
+      .bind<bindings::native_scene_add_object_tag>("SceneAddObjectTag")
+      .bind<bindings::native_scene_remove_object_tag>("SceneRemoveObjectTag")
       /// Object Visibility.
-      .bind("SceneGetObjectVisible", bindings::native_scene_get_object_visible)
-      .bind("SceneSetObjectVisible", bindings::native_scene_set_object_visible);
+      .bind<bindings::native_scene_get_object_visible>("SceneGetObjectVisible")
+      .bind<bindings::native_scene_set_object_visible>("SceneSetObjectVisible");
 
     bindings::binding_context{ dn_host }
       /// Events.
-      .bind("EventRegister", bindings::native_event_register)
-      .bind("EventTrigger", bindings::native_event_trigger)
-      .bind("EventTriggerWithString", bindings::native_event_trigger_with_string);
+      .bind<bindings::native_event_register>("EventRegister")
+      .bind<bindings::native_event_trigger>("EventTrigger")
+      .bind<bindings::native_event_trigger_with_string>("EventTriggerWithString");
 
     bindings::binding_context{ dn_host }
       /// Input.
-      .bind("InputIsKeyDown", bindings::native_input_is_key_down)
-      .bind("InputIsKeyPressed", bindings::native_input_is_key_pressed)
-      .bind("InputIsMouseButtonDown", bindings::native_input_is_mouse_button_down)
-      .bind("InputIsMouseButtonClicked", bindings::native_input_is_mouse_button_clicked)
-      .bind("InputGetMousePosition", bindings::native_input_get_mouse_position)
-      .bind("InputGetMouseDelta", bindings::native_input_get_mouse_delta)
-      .bind("InputGetMouseWheel", bindings::native_input_get_mouse_wheel);
+      .bind<bindings::native_input_is_key_down>("InputIsKeyDown")
+      .bind<bindings::native_input_is_key_pressed>("InputIsKeyPressed")
+      .bind<bindings::native_input_is_mouse_button_down>("InputIsMouseButtonDown")
+      .bind<bindings::native_input_is_mouse_button_clicked>("InputIsMouseButtonClicked")
+      .bind<bindings::native_input_get_mouse_position>("InputGetMousePosition")
+      .bind<bindings::native_input_get_mouse_delta>("InputGetMouseDelta")
+      .bind<bindings::native_input_get_mouse_wheel>("InputGetMouseWheel");
 
     bindings::binding_context{ dn_host }
       /// Dynamic drawing (in-scene overlay or debug view).
-      .bind("DrawLine", bindings::native_draw_line)
-      .bind("DrawTriangle", bindings::native_draw_triangle)
-      .bind("DrawPoint", bindings::native_draw_point)
-      .bind("DrawRay", bindings::native_draw_ray)
-      .bind("DrawArrow", bindings::native_draw_arrow)
-      .bind("DrawAABB", bindings::native_draw_aabb)
-      .bind("DrawOBB", bindings::native_draw_obb)
-      .bind("DrawSphere", bindings::native_draw_sphere)
-      .bind("DrawFrustum", bindings::native_draw_frustum)
-      .bind("DrawTransform", bindings::native_draw_transform)
-      .bind("DrawMesh", bindings::native_draw_mesh)
-      .bind("DrawGrid", bindings::native_draw_grid);
+      .bind<bindings::native_draw_line>("DrawLine")
+      .bind<bindings::native_draw_triangle>("DrawTriangle")
+      .bind<bindings::native_draw_point>("DrawPoint")
+      .bind<bindings::native_draw_ray>("DrawRay")
+      .bind<bindings::native_draw_arrow>("DrawArrow")
+      .bind<bindings::native_draw_aabb>("DrawAABB")
+      .bind<bindings::native_draw_obb>("DrawOBB")
+      .bind<bindings::native_draw_sphere>("DrawSphere")
+      .bind<bindings::native_draw_frustum>("DrawFrustum")
+      .bind<bindings::native_draw_transform>("DrawTransform")
+      .bind<bindings::native_draw_mesh>("DrawMesh")
+      .bind<bindings::native_draw_grid>("DrawGrid");
 
     bindings::binding_context{ dn_host }
       /// Time.
-      .bind("TimeGetDeltaTime", bindings::native_time_get_delta_time)
-      .bind("TimeGetElapsedTime", bindings::native_time_get_elapsed_time)
-      .bind("TimeGetFrameCount", bindings::native_time_get_frame_count);
+      .bind<bindings::native_time_get_delta_time>("TimeGetDeltaTime")
+      .bind<bindings::native_time_get_elapsed_time>("TimeGetElapsedTime")
+      .bind<bindings::native_time_get_frame_count>("TimeGetFrameCount");
 
     bindings::binding_context{ dn_host }
       /// Driver / Application State.
-      .bind("DriverGetState", bindings::native_driver_get_state)
-      .bind("DriverRequestShutdown", bindings::native_driver_request_shutdown)
-      .bind("DriverGetProjectName", bindings::native_driver_get_project_name);
+      .bind<bindings::native_driver_get_state>("DriverGetState")
+      .bind<bindings::native_driver_request_shutdown>("DriverRequestShutdown")
+      .bind<bindings::native_driver_get_project_name>("DriverGetProjectName");
 
     bindings::binding_context{ dn_host }
       /// Configuration.
-      .bind("ConfigGetString", bindings::native_config_get_string)
-      .bind("ConfigGetInt", bindings::native_config_get_int)
-      .bind("ConfigGetFloat", bindings::native_config_get_float)
-      .bind("ConfigGetBool", bindings::native_config_get_bool);
+      .bind<bindings::native_config_get_string>("ConfigGetString")
+      .bind<bindings::native_config_get_int>("ConfigGetInt")
+      .bind<bindings::native_config_get_float>("ConfigGetFloat")
+      .bind<bindings::native_config_get_bool>("ConfigGetBool");
 
     // bindings::binding_context{ dn_host }
     /// Networking.
-    // .bind("NetworkIsConnected", bindings::native_network_is_connected)
-    // .bind("NetworkGetRole", bindings::native_network_get_role)
-    // .bind("NetworkLocalPeerId", bindings::native_network_local_peer_id)
-    // .bind("NetworkHost", bindings::native_network_host)
-    // .bind("NetworkJoin", bindings::native_network_join)
-    // .bind("NetworkLeave", bindings::native_network_leave)
-    // .bind("NetworkSendEvent", bindings::native_network_send_event)
-    // .bind("NetworkBroadcastEvent", bindings::native_network_broadcast_event)
-    // .bind("NetworkCopyEventPayload", bindings::native_network_copy_event_payload)
-    // .bind("NetworkSpawn", bindings::native_network_spawn)
-    // .bind("NetworkSyncComponent", bindings::native_network_sync_component)
-    // .bind("NetworkIsMine", bindings::native_network_is_mine)
-    // .bind("NetworkRequestOp", bindings::native_network_request_op)
-    // .bind("NetworkStageReplicated", bindings::native_network_stage_replicated)
-    // .bind("NetworkPeerCount", bindings::native_network_peer_count)
-    // .bind("NetworkPeerId", bindings::native_network_peer_id)
-    // .bind("NetworkPeerNode", bindings::native_network_peer_node)
-    // .bind("NetworkPeerName", bindings::native_network_peer_name)
-    // .bind("NetworkActorStagePayload", bindings::native_network_actor_stage_payload)
-    // .bind("NetworkActorSend", bindings::native_network_actor_send)
-    // .bind("NetworkActorOpenLink", bindings::native_network_actor_open_link)
-    // .bind("NetworkActorOpenListener", bindings::native_network_actor_open_listener)
-    // .bind("NetworkActorCloseLink", bindings::native_network_actor_close_link)
-    // .bind("NetworkHostSteam", bindings::native_network_host_steam)
-    // .bind("NetworkJoinLobby", bindings::native_network_join_lobby)
-    // .bind("SteamIsAvailable", bindings::native_steam_is_available)
-    // .bind("SteamPlayerId", bindings::native_steam_player_id)
-    // .bind("SteamPlayerName", bindings::native_steam_player_name)
-    // .bind("SteamOpenInviteDialog", bindings::native_steam_open_invite_dialog);
+    // .bind<bindings::native_network_is_connected>("NetworkIsConnected")
+    // .bind<bindings::native_network_get_role>("NetworkGetRole")
+    // .bind<bindings::native_network_local_peer_id>("NetworkLocalPeerId")
+    // .bind<bindings::native_network_host>("NetworkHost")
+    // .bind<bindings::native_network_join>("NetworkJoin")
+    // .bind<bindings::native_network_leave>("NetworkLeave")
+    // .bind<bindings::native_network_send_event>("NetworkSendEvent")
+    // .bind<bindings::native_network_broadcast_event>("NetworkBroadcastEvent")
+    // .bind<bindings::native_network_copy_event_payload>("NetworkCopyEventPayload")
+    // .bind<bindings::native_network_spawn>("NetworkSpawn")
+    // .bind<bindings::native_network_sync_component>("NetworkSyncComponent")
+    // .bind<bindings::native_network_is_mine>("NetworkIsMine")
+    // .bind<bindings::native_network_request_op>("NetworkRequestOp")
+    // .bind<bindings::native_network_stage_replicated>("NetworkStageReplicated")
+    // .bind<bindings::native_network_peer_count>("NetworkPeerCount")
+    // .bind<bindings::native_network_peer_id>("NetworkPeerId")
+    // .bind<bindings::native_network_peer_node>("NetworkPeerNode")
+    // .bind<bindings::native_network_peer_name>("NetworkPeerName")
+    // .bind<bindings::native_network_actor_stage_payload>("NetworkActorStagePayload")
+    // .bind<bindings::native_network_actor_send>("NetworkActorSend")
+    // .bind<bindings::native_network_actor_open_link>("NetworkActorOpenLink")
+    // .bind<bindings::native_network_actor_open_listener>("NetworkActorOpenListener")
+    // .bind<bindings::native_network_actor_close_link>("NetworkActorCloseLink")
+    // .bind<bindings::native_network_host_steam>("NetworkHostSteam")
+    // .bind<bindings::native_network_join_lobby>("NetworkJoinLobby")
+    // .bind<bindings::native_steam_is_available>("SteamIsAvailable")
+    // .bind<bindings::native_steam_player_id>("SteamPlayerId")
+    // .bind<bindings::native_steam_player_name>("SteamPlayerName")
+    // .bind<bindings::native_steam_open_invite_dialog>("SteamOpenInviteDialog");
 
     bindings::binding_context{ dn_host }
       /// OtherObject
-      .bind("ValidateObjectHandle", bindings::native_validate_object_handle)
-      .bind("GetObjectID", bindings::native_get_object_id);
+      .bind<bindings::native_validate_object_handle>("ValidateObjectHandle")
+      .bind<bindings::native_get_object_id>("GetObjectID");
 
     bindings::binding_context{ dn_host }
       /// Scene Object
-      .bind("GetWorldMatrix", bindings::native_transform_get_world_matrix);
+      .bind<bindings::native_transform_get_world_matrix>("GetWorldMatrix");
 
     bindings::binding_context{ dn_host }
       /// Component Helpers
-      .bind("GetNumVertices", bindings::native_render_component_get_num_vertices)
-      .bind("GetNumIndices", bindings::native_render_component_get_num_indices)
-      .bind("GetMeshName", bindings::native_render_component_get_mesh_name)
-      .bind("FetchMesh", bindings::native_render_component_fetch_mesh)
-      .bind("UploadMesh", bindings::native_render_component_upload_mesh)
-      .bind("GetMaterialPath", bindings::native_render_component_get_material_path)
-      .bind("SetMaterialPath", bindings::native_render_component_set_material_path)
-      .bind("GetAnimationClipPath", bindings::native_animation_component_get_clip_path)
-      .bind("SetAnimationClipPath", bindings::native_animation_component_set_clip_path)
-      .bind("GetAudioClipPath", bindings::native_audio_source_get_clip_path)
-      .bind("SetAudioClipPath", bindings::native_audio_source_set_clip_path)
-      .bind("GetPhysicsBodyType", bindings::native_physics_component_get_body_type)
-      .bind("SetPhysicsBodyType", bindings::native_physics_component_set_body_type)
-      .bind("GetPhysicsMass", bindings::native_physics_component_get_mass)
-      .bind("SetPhysicsMass", bindings::native_physics_component_set_mass)
-      .bind("GetPhysicsIsTrigger", bindings::native_physics_component_get_is_trigger)
-      .bind("SetPhysicsIsTrigger", bindings::native_physics_component_set_is_trigger)
-      .bind("GetPhysicsLinearVelocity", bindings::native_physics_component_get_linear_velocity)
-      .bind("SetPhysicsLinearVelocity", bindings::native_physics_component_set_linear_velocity)
-      .bind("GetPhysicsAngularVelocity", bindings::native_physics_component_get_angular_velocity)
-      .bind("SetPhysicsAngularVelocity", bindings::native_physics_component_set_angular_velocity)
-      .bind("PhysicsAddForce", bindings::native_physics_component_add_force)
-      .bind("PhysicsAddImpulse", bindings::native_physics_component_add_impulse)
-      .bind("PhysicsAddTorque", bindings::native_physics_component_add_torque)
-      .bind("PhysicsRaycast", bindings::native_physics_raycast)
-      .bind("CameraGetPosition", bindings::native_camera_component_get_position)
-      .bind("CameraLookFrom", bindings::native_camera_component_look_from)
-      .bind("CameraGetDirection", bindings::native_camera_component_get_direction)
-      .bind("CameraLookAt", bindings::native_camera_component_look_at)
-      .bind("CameraLook", bindings::native_camera_component_look)
-      .bind("CameraGetFov", bindings::native_camera_component_get_fov)
-      .bind("CameraSetFov", bindings::native_camera_component_set_fov)
-      .bind("CameraGetClipPlanes", bindings::native_camera_component_get_clip_planes)
-      .bind("CameraSetClipPlanes", bindings::native_camera_component_set_clip_planes)
-      .bind("PointLightGetPosition", bindings::native_point_light_get_position)
-      .bind("PointLightSetPosition", bindings::native_point_light_set_position)
-      .bind("PointLightGetColor", bindings::native_point_light_get_color)
-      .bind("PointLightSetColor", bindings::native_point_light_set_color)
-      .bind("DirectionLightGetDirection", bindings::native_direction_light_get_direction)
-      .bind("DirectionLightSetDirection", bindings::native_direction_light_set_direction)
-      .bind("DirectionLightGetColor", bindings::native_direction_light_get_color)
-      .bind("DirectionLightSetColor", bindings::native_direction_light_set_color);
+      .bind<bindings::native_render_component_get_num_vertices>("GetNumVertices")
+      .bind<bindings::native_render_component_get_num_indices>("GetNumIndices")
+      .bind<bindings::native_render_component_get_mesh_name>("GetMeshName")
+      .bind<bindings::native_render_component_fetch_mesh>("FetchMesh")
+      .bind<bindings::native_render_component_upload_mesh>("UploadMesh")
+      .bind<bindings::native_render_component_get_material_path>("GetMaterialPath")
+      .bind<bindings::native_render_component_set_material_path>("SetMaterialPath")
+      .bind<bindings::native_animation_component_get_clip_path>("GetAnimationClipPath")
+      .bind<bindings::native_animation_component_set_clip_path>("SetAnimationClipPath")
+      .bind<bindings::native_audio_source_get_clip_path>("GetAudioClipPath")
+      .bind<bindings::native_audio_source_set_clip_path>("SetAudioClipPath")
+      .bind<bindings::native_physics_component_get_body_type>("GetPhysicsBodyType")
+      .bind<bindings::native_physics_component_set_body_type>("SetPhysicsBodyType")
+      .bind<bindings::native_physics_component_get_mass>("GetPhysicsMass")
+      .bind<bindings::native_physics_component_set_mass>("SetPhysicsMass")
+      .bind<bindings::native_physics_component_get_is_trigger>("GetPhysicsIsTrigger")
+      .bind<bindings::native_physics_component_set_is_trigger>("SetPhysicsIsTrigger")
+      .bind<bindings::native_physics_component_get_linear_velocity>("GetPhysicsLinearVelocity")
+      .bind<bindings::native_physics_component_set_linear_velocity>("SetPhysicsLinearVelocity")
+      .bind<bindings::native_physics_component_get_angular_velocity>("GetPhysicsAngularVelocity")
+      .bind<bindings::native_physics_component_set_angular_velocity>("SetPhysicsAngularVelocity")
+      .bind<bindings::native_physics_component_add_force>("PhysicsAddForce")
+      .bind<bindings::native_physics_component_add_impulse>("PhysicsAddImpulse")
+      .bind<bindings::native_physics_component_add_torque>("PhysicsAddTorque")
+      .bind<bindings::native_physics_raycast>("PhysicsRaycast")
+      .bind<bindings::native_camera_component_get_position>("CameraGetPosition")
+      .bind<bindings::native_camera_component_look_from>("CameraLookFrom")
+      .bind<bindings::native_camera_component_get_direction>("CameraGetDirection")
+      .bind<bindings::native_camera_component_look_at>("CameraLookAt")
+      .bind<bindings::native_camera_component_look>("CameraLook")
+      .bind<bindings::native_camera_component_get_fov>("CameraGetFov")
+      .bind<bindings::native_camera_component_set_fov>("CameraSetFov")
+      .bind<bindings::native_camera_component_get_clip_planes>("CameraGetClipPlanes")
+      .bind<bindings::native_camera_component_set_clip_planes>("CameraSetClipPlanes")
+      .bind<bindings::native_point_light_get_position>("PointLightGetPosition")
+      .bind<bindings::native_point_light_set_position>("PointLightSetPosition")
+      .bind<bindings::native_point_light_get_color>("PointLightGetColor")
+      .bind<bindings::native_point_light_set_color>("PointLightSetColor")
+      .bind<bindings::native_direction_light_get_direction>("DirectionLightGetDirection")
+      .bind<bindings::native_direction_light_set_direction>("DirectionLightSetDirection")
+      .bind<bindings::native_direction_light_get_color>("DirectionLightGetColor")
+      .bind<bindings::native_direction_light_set_color>("DirectionLightSetColor");
 
     bindings::binding_context{ dn_host }
       /// Audio
-      .bind("AudioPlayOneShot", bindings::native_audio_play_one_shot)
-      .bind("AudioSetBusVolume", bindings::native_audio_set_bus_volume)
-      .bind("AudioGetBusVolume", bindings::native_audio_get_bus_volume);
+      .bind<bindings::native_audio_play_one_shot>("AudioPlayOneShot")
+      .bind<bindings::native_audio_set_bus_volume>("AudioSetBusVolume")
+      .bind<bindings::native_audio_get_bus_volume>("AudioGetBusVolume");
 
     bindings::validate_binding_points(dn_host);
   }
@@ -590,50 +594,50 @@ namespace other {
 
       bindings::binding_context{ dn_host }
         /// Core.
-        .bind("OeFnvHash", bindings::native_oe_fnv_hash);
+        .bind<bindings::native_oe_fnv_hash>("OeFnvHash");
 
       bindings::binding_context{ dn_host }
         /// Validation.
-        .bind("OeValidateHandle", abi::oe_validate_handle)
+        .bind<abi::oe_validate_handle>("OeValidateHandle")
         /// Component management.
-        .bind("OeHasComponent", abi::oe_has_component)
-        .bind("OeAddComponent", abi::oe_add_component)
-        .bind("OeRemoveComponent", abi::oe_remove_component);
+        .bind<abi::oe_has_component>("OeHasComponent")
+        .bind<abi::oe_add_component>("OeAddComponent")
+        .bind<abi::oe_remove_component>("OeRemoveComponent");
 
       bindings::binding_context{ dn_host }
         /// Field accessors - Primitives.
-        .bind("OeGetFieldBool", abi::oe_get_field_bool)
-        .bind("OeSetFieldBool", abi::oe_set_field_bool)
-        .bind("OeGetFieldI32", abi::oe_get_field_i32)
-        .bind("OeSetFieldI32", abi::oe_set_field_i32)
-        .bind("OeGetFieldU32", abi::oe_get_field_u32)
-        .bind("OeSetFieldU32", abi::oe_set_field_u32)
-        .bind("OeGetFieldI64", abi::oe_get_field_i64)
-        .bind("OeSetFieldI64", abi::oe_set_field_i64)
-        .bind("OeGetFieldU64", abi::oe_get_field_u64)
-        .bind("OeSetFieldU64", abi::oe_set_field_u64)
-        .bind("OeGetFieldF32", abi::oe_get_field_f32)
-        .bind("OeSetFieldF32", abi::oe_set_field_f32)
-        .bind("OeGetFieldF64", abi::oe_get_field_f64)
-        .bind("OeSetFieldF64", abi::oe_set_field_f64);
+        .bind<abi::oe_get_field_bool>("OeGetFieldBool")
+        .bind<abi::oe_set_field_bool>("OeSetFieldBool")
+        .bind<abi::oe_get_field_i32>("OeGetFieldI32")
+        .bind<abi::oe_set_field_i32>("OeSetFieldI32")
+        .bind<abi::oe_get_field_u32>("OeGetFieldU32")
+        .bind<abi::oe_set_field_u32>("OeSetFieldU32")
+        .bind<abi::oe_get_field_i64>("OeGetFieldI64")
+        .bind<abi::oe_set_field_i64>("OeSetFieldI64")
+        .bind<abi::oe_get_field_u64>("OeGetFieldU64")
+        .bind<abi::oe_set_field_u64>("OeSetFieldU64")
+        .bind<abi::oe_get_field_f32>("OeGetFieldF32")
+        .bind<abi::oe_set_field_f32>("OeSetFieldF32")
+        .bind<abi::oe_get_field_f64>("OeGetFieldF64")
+        .bind<abi::oe_set_field_f64>("OeSetFieldF64");
 
       bindings::binding_context{ dn_host }
         /// Field accessors - Math types.
-        .bind("OeGetFieldVec2", abi::oe_get_field_vec2)
-        .bind("OeSetFieldVec2", abi::oe_set_field_vec2)
-        .bind("OeGetFieldVec3", abi::oe_get_field_vec3)
-        .bind("OeSetFieldVec3", abi::oe_set_field_vec3)
-        .bind("OeGetFieldVec4", abi::oe_get_field_vec4)
-        .bind("OeSetFieldVec4", abi::oe_set_field_vec4)
-        .bind("OeGetFieldQuat", abi::oe_get_field_quat)
-        .bind("OeSetFieldQuat", abi::oe_set_field_quat)
-        .bind("OeGetFieldMat4", abi::oe_get_field_mat4)
-        .bind("OeSetFieldMat4", abi::oe_set_field_mat4);
+        .bind<abi::oe_get_field_vec2>("OeGetFieldVec2")
+        .bind<abi::oe_set_field_vec2>("OeSetFieldVec2")
+        .bind<abi::oe_get_field_vec3>("OeGetFieldVec3")
+        .bind<abi::oe_set_field_vec3>("OeSetFieldVec3")
+        .bind<abi::oe_get_field_vec4>("OeGetFieldVec4")
+        .bind<abi::oe_set_field_vec4>("OeSetFieldVec4")
+        .bind<abi::oe_get_field_quat>("OeGetFieldQuat")
+        .bind<abi::oe_set_field_quat>("OeSetFieldQuat")
+        .bind<abi::oe_get_field_mat4>("OeGetFieldMat4")
+        .bind<abi::oe_set_field_mat4>("OeSetFieldMat4");
 
       bindings::binding_context{ dn_host }
         /// Field accessors - String.
-        .bind("OeGetFieldString", abi::oe_get_field_string)
-        .bind("OeSetFieldString", abi::oe_set_field_string);
+        .bind<abi::oe_get_field_string>("OeGetFieldString")
+        .bind<abi::oe_set_field_string>("OeSetFieldString");
     }
 
   }  // namespace detail

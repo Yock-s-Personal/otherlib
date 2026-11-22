@@ -342,6 +342,16 @@ namespace other {
     return loaded_project->is_loaded();
   }
 
+  void project_system::project_file_changed() {
+    PROFILE_SECTION("project_system::project_file_changed");
+    ++file_revision;
+    /// a project that is still loading or on its way out reads the file itself, or not at all
+    if (loaded_project == nullptr || !loaded_project->is_loaded() || !last_loaded_project_file.has_value()) {
+      return;
+    }
+    loaded_project->refresh_from_file(*last_loaded_project_file);
+  }
+
   void project_system::handle_project_event(driver_kernel* kernel, const project_event_data& data) {
     PROFILE_SECTION("project_system::handle_project_event");
     CORE_LOG_DEBUG("Received project event '{}' for project '{}' at path '{}'", data.type, data.project_name, data.project_path);
@@ -491,7 +501,8 @@ namespace other {
       CORE_LOG_ERROR("Failed to get local asset path for unloaded script source asset with ID: {}", asset_id);
       return;
     }
-    OTHER_ASSERT(std::filesystem::exists(script_source_path.value()), "Local asset path '{}' for unloaded script source asset with ID {} does not exist.", script_source_path.value().string(), asset_id);
+    /// the file may be gone by now: a build that replaces an assembly removes it first, and
+    ///  detaching what was loaded from it does not need it
     CORE_LOG_DEBUG("Script source unloaded with path '{}' for asset ID {}", script_source_path.value().string(), asset_id);
 
     CORE_LOG_DEBUG("Script source unloaded. Project State: {}", loaded_project->get_state());

@@ -37,6 +37,8 @@ extern other::exit_code other_main(const other::command_line& cmd, const other::
 namespace other {
 
   exit_code invoke_other_main(const command_line& cmd, const config_table& config, const std::string_view profile) {
+    /// before the subsystems: the scripting environment starts with them and already checks
+    register_main_thread();
     subsystem_registry registry = register_all_subsystems();
     registry.initialize_profile(profile, &config);
 
@@ -61,7 +63,6 @@ namespace other {
         CORE_LOG_DEBUG("Calling Other Main");
       }
 
-      register_main_thread();
       res = other_main(cmd, config, registry);
     } catch (const std::exception& e) {
       CORE_LOG_ERROR("Unhandled exception in other_main: {}", e.what());

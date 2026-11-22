@@ -99,6 +99,20 @@ namespace other {
     void begin_assembly_refresh(const filepath& dll_path);
     bool refresh_built_script(const filepath& script_asset_path);
 
+    /// what the project file on disk says that this project, loaded from an earlier text of
+    ///  it, has not taken
+    struct file_notice {
+      /// set when the file on disk cannot be read as a project file
+      std::string error;
+      /// the parts that differ and are only read when a project is opened
+      ostd::vector<std::string> needs_reopen;
+    };
+    /// re-reads the project file after it changed on disk. the metadata and the starting
+    ///  scene are taken as the file has them; whatever else differs is left for the next
+    ///  time the project is opened, and noted
+    void refresh_from_file(const filepath& path);
+    inline const opt<file_notice>& get_file_notice() const { return project_file_notice; }
+
     void add_loaded_scene(natural_t scene_id);
     void remove_loaded_scene(natural_t scene_id);
 
@@ -176,6 +190,10 @@ namespace other {
     /// [scripting] assembly: a built assembly that is loaded as it is. while it is set nothing
     ///  is built and the project has no csproj
     filepath prebuilt_assembly;
+
+    /// the project file's text as it was when the project was loaded
+    std::string loaded_file_text;
+    opt<file_notice> project_file_notice;
 
     void clear_script_failure();
 

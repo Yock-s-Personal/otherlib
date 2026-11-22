@@ -1,6 +1,4 @@
 using System;
-using System.Diagnostics;
-using System.IO;
 using System.Runtime.CompilerServices;
 using OtherCsBindings;
 
@@ -14,43 +12,21 @@ namespace Other.Toolset
       public NativeString WorkingDirectory;
     }
 
-    public struct Settings
-    {
-      public string config;
-    }
-
     private string name;
     private string working_directory;
     private string csproj_file_path;
-    private string build_log_path;
 
-    Process? restore_process_handle = null;
-    Process? build_process_handle = null;
-
-    private Settings settings;
-    
     public ProjectTool() : base()
     {
       name = string.Empty;
       working_directory = string.Empty;
       csproj_file_path = string.Empty;
-      build_log_path = string.Empty;
-
-      settings = new Settings
-      {
-        config = "Debug"
-      };
     }
 
     public void SetData(ProjectArgs args)
     {
       name = args.Name.ToString()!;
       working_directory = args.WorkingDirectory.ToString()!;
-    }
-
-    public void SetConfig(NativeString config)
-    {
-      settings.config = config.ToString()!;
     }
 
     public void CreateDefaultCsproj(NativeString path)
@@ -78,184 +54,6 @@ namespace Other.Toolset
 ";
 
       System.IO.File.WriteAllText(csproj_file_path, csproj_content);
-    }
-
-    public void SetCsprojFilePath(NativeString path)
-    {
-      csproj_file_path = path.ToString()!;
-    }
-
-    /// msbuild writes the build's errors to this file; the engine reads it after a failed build
-    public void SetBuildLogPath(NativeString path)
-    {
-      build_log_path = path.ToString()!;
-    }
-
-    public void StartCsprojBuild()
-    {
-      string csproj_path = csproj_file_path;
-      if (!System.IO.File.Exists(csproj_path))
-      {
-        Console.WriteLine($"Error: File '{csproj_path}' does not exist.");
-        return;
-      }
-
-      /// check if we need to restore and if we do restore before building
-      var restore_process_start_info = new ProcessStartInfo
-      {
-        FileName = "dotnet.exe",
-        Arguments = $"restore \"{csproj_path}\"",
-        RedirectStandardOutput = true,
-        RedirectStandardError = true
-      };
-
-      /// a file logger, not redirected output: build servers outlive the build and would hold a pipe open
-      string log_argument = build_log_path.Length == 0 ? string.Empty : $" \"-flp:logfile={build_log_path};errorsonly;encoding=UTF-8\"";
-
-      var build_process_start_info = new ProcessStartInfo
-      {
-        FileName = "dotnet.exe",
-        Arguments = $"build \"{csproj_path}\" -c {settings.config}{log_argument}",
-        // RedirectStandardOutput = true,
-        // RedirectStandardError = true
-      };
-
-      bool need_to_restore = false;
-      string dotnet_proj_dir = Path.GetDirectoryName(csproj_path)!;
-      string obj_dir = Path.Combine(dotnet_proj_dir, "obj");
-      // need_to_restore = !Directory.Exists(obj_dir) || Directory.GetFiles(obj_dir, "*.assets.json").Length == 0;
-
-      if (!need_to_restore)
-      {
-        Console.WriteLine("No restore needed, starting build...");
-        build_process_handle = new Process()
-        {
-          StartInfo = build_process_start_info
-        };
-
-        try
-        {
-          build_process_handle.Start();
-        }
-        catch (Exception e)
-        {
-          /// no process means no msbuild log, so the reason goes where the engine looks for errors
-          build_process_handle.Dispose();
-          build_process_handle = null;
-          WriteBuildLog($"Could not start 'dotnet build': {e.Message}");
-        }
-        return;
-      }
-      else
-      {
-        restore_process_handle = new Process()
-        {
-          StartInfo = restore_process_start_info
-        };
-        restore_process_handle.OutputDataReceived += (sender, args) => Debug.Log($"{args.Data}");
-        restore_process_handle.ErrorDataReceived += (sender, args) => Debug.Error($"ERROR: {args.Data}");
-        restore_process_handle.Exited += (sender, args) => {
-          if (restore_process_handle.ExitCode == 0)
-          {
-            Debug.Log("Restore succeeded, starting build...");
-            build_process_handle = new Process()
-            {
-              StartInfo = build_process_start_info
-            };
-            build_process_handle.Start();
-          }
-          else
-          {
-            Debug.Error($"Restore failed with exit code {restore_process_handle.ExitCode}.");
-          }
-
-          restore_process_handle.Dispose();
-          restore_process_handle = null;
-        };
-
-        
-        if (!restore_process_handle.Start())
-        {
-          Console.WriteLine($"Error: Failed to start restore process for '{csproj_path}'.");
-          restore_process_handle = null;
-          return;
-        } 
-      }
-    }
-
-    public bool IsBuildInProgress()
-    {
-      if (build_process_handle == null && restore_process_handle == null)
-      {
-        return false;
-      }
-      if (restore_process_handle != null && !restore_process_handle.HasExited)
-      {
-        return true;
-      }
-      if (build_process_handle != null && !build_process_handle.HasExited)
-      {
-        return true;
-      }
-      return false;
-    }
-
-    public void CleanupBuild()
-    {
-      if (build_process_handle != null)
-      {
-        if (!build_process_handle.HasExited)
-        {
-          build_process_handle.Kill();
-        }
-        build_process_handle.Dispose();
-        build_process_handle = null;
-      }
-
-      if (restore_process_handle != null)
-      {
-        if (!restore_process_handle.HasExited)
-        {
-          restore_process_handle.Kill();
-        }
-        restore_process_handle.Dispose();
-        restore_process_handle = null;
-      }
-    }
-
-    public int GetBuildResult()
-    {
-      if (build_process_handle == null)
-      {
-        Console.WriteLine("Error: No build process found.");
-        return -1;
-      }
-
-      if (!build_process_handle.HasExited)
-      {
-        Console.WriteLine("Error: Build process is still running.");
-        return -1;
-      }
-
-      return build_process_handle.ExitCode;
-    }
-
-    private void WriteBuildLog(string message)
-    {
-      Console.WriteLine($"Error: {message}");
-      if (build_log_path.Length == 0)
-      {
-        return;
-      }
-
-      try
-      {
-        System.IO.File.WriteAllText(build_log_path, message);
-      }
-      catch (Exception e)
-      {
-        Console.WriteLine($"Error: could not write build log '{build_log_path}': {e.Message}");
-      }
     }
   }
 }

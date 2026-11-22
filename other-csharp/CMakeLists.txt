@@ -18,6 +18,7 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/behavior-descriptor.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/other-object.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/other-behavior.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/behavior-host.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/filesystem.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec2.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec3.cs

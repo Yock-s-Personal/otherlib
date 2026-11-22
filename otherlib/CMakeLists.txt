@@ -63,6 +63,7 @@ target_sources(otherlib
     src/scripting/dotnet_bindings/scene_bindings.cpp
     src/scripting/dotnet_bindings/scene_object_bindings.cpp
     src/scripting/dotnet_bindings/component_bindings.cpp
+    src/scripting/dotnet_bindings/behavior_bindings.cpp
     src/scripting/dotnet_bindings/draw_bindings.cpp
     src/scripting/dotnet_bindings/event_bindings.cpp
     src/scripting/dotnet_bindings/input_bindings.cpp

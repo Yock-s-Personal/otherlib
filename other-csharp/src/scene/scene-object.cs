@@ -42,14 +42,6 @@ namespace Other
       }
     }
 
-    public T AddBehavior<T>() 
-      where T : Core.OtherBehavior, new()
-    {
-      T behavior = new T();
-      AddBehavior(behavior);
-      return behavior;
-    }
-
     public T GetComponent<T>() 
       where T : Component
     {
@@ -91,28 +83,5 @@ namespace Other
       }
     }
 
-    public override void OnStart()
-    {
-    }
-
-    public override void OnStop()
-    {
-      
-    }
-
-    public override void OnUpdate()
-    {
-      
-    }
-
-    public override void OnLateUpdate()
-    {
-      
-    }
-
-    public override void OnFixedUpdate()
-    {
-      
-    }
   }
 }

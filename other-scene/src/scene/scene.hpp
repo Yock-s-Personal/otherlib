@@ -399,7 +399,7 @@ namespace other {
     void apply_component_shape(entt::entity entity, physics_component& phys_comp);
 
     void dispatch_contact_events(const ostd::vector<contact_event>& events);
-    void dispatch_physics_event_to(natural_t object_id, const char* method, natural_t other_id,
+    void dispatch_physics_event_to(natural_t object_id, behavior_callback callback, natural_t other_id,
                                    const glm::vec3& point, const glm::vec3& normal);
 
     /// name-resolved breakable welds: created on play, torn down on stop, checked per fixed tick

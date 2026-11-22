@@ -18,6 +18,7 @@
 
 #include "driver/driver.hpp"
 #include "scripting/binding_descriptor.hpp"
+#include "scripting/dotnet_bindings/behavior_bindings.hpp"
 #include "scripting/dotnet_bindings/component_bindings.hpp"
 #include "scripting/dotnet_bindings/core_bindings.hpp"
 #include "scripting/dotnet_bindings/draw_bindings.hpp"
@@ -542,7 +543,16 @@ namespace other {
       .bind<bindings::native_audio_set_bus_volume>("AudioSetBusVolume")
       .bind<bindings::native_audio_get_bus_volume>("AudioGetBusVolume");
 
+    bindings::binding_context{ dn_host }
+      /// Behaviors.
+      .bind<bindings::native_behavior_set_runtime>("BehaviorSetRuntime")
+      .bind<bindings::native_behavior_add>("BehaviorAdd")
+      .bind<bindings::native_behavior_remove>("BehaviorRemove")
+      .bind<bindings::native_behavior_set_enabled>("BehaviorSetEnabled");
+
     bindings::validate_binding_points(dn_host);
+    /// behaviors can be made from here on
+    bindings::attach_behavior_runtime();
   }
 
   void bind_otherlib_lua_functions(lua_host& lua_host) {

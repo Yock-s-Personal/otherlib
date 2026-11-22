@@ -11,12 +11,44 @@
 namespace other {
   namespace {
 
+    /// what runs behaviours, once a script has handed it over
+    behavior_runtime runtime_in_use;
+    bool runtime_set = false;
+
+    /// the name a script gives each callback, for what is said when one throws
+    constexpr std::string_view kCallbackNames[] = {
+      "OnAwake",
+      "OnEnable",
+      "OnStart",
+      "OnFixedUpdate",
+      "OnUpdate",
+      "OnLateUpdate",
+      "OnRender",
+      "OnCollisionEnter",
+      "OnCollisionExit",
+      "OnTriggerEnter",
+      "OnTriggerExit",
+      "OnJointBreak",
+      "OnDisable",
+      "OnDestroy",
+    };
+    static_assert(std::size(kCallbackNames) == static_cast<size_t>(behavior_callback::NUM_CALLBACKS), "a name for every behaviour callback");
+
     /// a behavior's slot is labelled after its parent, so a rename has to rebuild it
     std::string behavior_object_name(const std::string_view parent_name, const std::string_view behavior_name) {
       return std::format("{}__behavior__{}", parent_name, behavior_name);
     }
 
   }  // namespace
+
+  void set_behavior_runtime(const behavior_runtime* runtime) {
+    runtime_set = runtime != nullptr;
+    runtime_in_use = runtime != nullptr ? *runtime : behavior_runtime{};
+  }
+
+  const behavior_runtime* get_behavior_runtime() {
+    return runtime_set ? &runtime_in_use : nullptr;
+  }
 
   void scripting_environment::initialize_script_environment(const config_table& configuration) {
     PROFILE_SECTION("scripting_environment::initialize-script-environment");
@@ -104,10 +136,8 @@ namespace other {
 
     /// behaviors own their managed objects; destroyed with their parent so managed names are
     ///  released for reuse (scene teardown only destroys the parent's slot)
-    for (auto it = obj->behavior_handles.rbegin(); it != obj->behavior_handles.rend(); ++it) {
-      if (it->script_object_id >= 0) {
-        destroy_object(it->script_object_id);
-      }
+    for (size_t i = obj->behavior_handles.size(); i-- > 0;) {
+      retire_behavior(obj, i);
     }
     obj->behavior_handles.clear();
 
@@ -308,43 +338,272 @@ namespace other {
       return;
     }
 
-    /// \todo check if this is actually a behavior type
-
     CORE_LOG_DEBUG("[script {}] attaching behavior '{}' to object '{}'", parent_id, behavior_name, parent->name);
 
-    integer_t behavior_script_id = instantiate_dotnet_behavior(parent, behavior_name);
-
-    /// kept with an invalid id when the type is missing (the project assembly failed to build):
-    ///  a saved scene still names the behavior, and the next assembly refresh retries it
-    parent->behavior_handles.push_back({
-      .type_name = std::string(behavior_name),
-      .script_object_id = behavior_script_id,
-    });
-    if (behavior_script_id < 0) {
+    /// kept without an instance when the type is missing (the project assembly failed to
+    ///  build): a saved scene still names the behavior, and the next assembly refresh retries it
+    script_object::behavior_handle handle = { .type_name = std::string(behavior_name) };
+    const bool made = instantiate_dotnet_behavior(parent, handle);
+    parent->behavior_handles.push_back(std::move(handle));
+    if (!made) {
       return;
     }
 
-    CORE_LOG_DEBUG("[script {}] behavior '{}' attached with script_object ID {}", parent_id, behavior_name, behavior_script_id);
+    CORE_LOG_DEBUG("[script {}] behavior '{}' attached with script_object ID {}", parent_id, behavior_name, parent->behavior_handles.back().script_object_id);
+    if (awake_deferrals > 0) {
+      waiting_to_wake.push_back(parent_id);
+    } else {
+      wake_behavior(parent, parent->behavior_handles.size() - 1);
+    }
   }
 
-  integer_t scripting_environment::instantiate_dotnet_behavior(script_object* parent, const std::string_view behavior_name) {
+  bool scripting_environment::instantiate_dotnet_behavior(script_object* parent, script_object::behavior_handle& handle) {
     PROFILE_SECTION("scripting_environment::instantiate_dotnet_behavior");
+    const behavior_runtime* runtime = get_behavior_runtime();
+    if (runtime == nullptr) {
+      CORE_LOG_ERROR("Behavior '{}' was not made for '{}': no script runtime has been handed to the engine.", handle.type_name, parent->name);
+      return false;
+    }
+
     /// create a script_object slot for this behavior so we have a native-side handle
-    std::string behavior_obj_name = behavior_object_name(parent->name, behavior_name);
+    std::string behavior_obj_name = behavior_object_name(parent->name, handle.type_name);
     integer_t behavior_script_id = create_object(behavior_obj_name);
 
-    dotnet_object* behavior_dotnet_obj = dotnet.instantiate_managed_object(behavior_name, behavior_obj_name);
+    dotnet_object* behavior_dotnet_obj = dotnet.instantiate_managed_object(handle.type_name, behavior_obj_name);
     if (behavior_dotnet_obj == nullptr) {
-      CORE_LOG_ERROR("Failed to instantiate .NET behavior object of type '{}' for script object with ID {}", behavior_name, behavior_script_id);
+      CORE_LOG_ERROR("Failed to instantiate .NET behavior object of type '{}' for script object with ID {}", handle.type_name, behavior_script_id);
       destroy_object(behavior_script_id);
-      return -1;
+      return false;
     }
 
     /// the slot owns the managed object so destroy_object releases it with the parent
     get_object(behavior_script_id)->dotnet_object = behavior_dotnet_obj;
 
-    parent->dotnet_object->invoke<>("AddNativeBehavior", behavior_dotnet_obj->managed_object);
-    return behavior_script_id;
+    uint32_t callbacks = 0;
+    if (!runtime->attach(parent->dotnet_object->managed_object, behavior_dotnet_obj->managed_object, handle.type_name.c_str(), &callbacks)) {
+      CORE_LOG_ERROR("'{}' is not a behavior: it was not attached to '{}'.", handle.type_name, parent->name);
+      destroy_object(behavior_script_id);
+      return false;
+    }
+
+    handle.script_object_id = behavior_script_id;
+    handle.instance = behavior_dotnet_obj->managed_object;
+    handle.callbacks = callbacks;
+    handle.awake = false;
+    handle.running = false;
+    handle.started = false;
+    /// a script reads its own copy of the switch
+    runtime->set_enabled(handle.instance, handle.enabled);
+    return true;
+  }
+
+  void scripting_environment::bind_object_to_runtime(script_object* obj) {
+    const behavior_runtime* runtime = get_behavior_runtime();
+    if (runtime != nullptr && obj->dotnet_object != nullptr) {
+      runtime->bind_object(obj->dotnet_object->managed_object, obj->id);
+    }
+  }
+
+  void scripting_environment::call_behavior(script_object* parent, size_t index, behavior_callback callback, const void* data) {
+    const behavior_runtime* runtime = get_behavior_runtime();
+    if (runtime == nullptr || index >= parent->behavior_handles.size()) {
+      return;
+    }
+
+    void* const instance = parent->behavior_handles[index].instance;
+    if (instance == nullptr || (parent->behavior_handles[index].callbacks & behavior_callback_bit(callback)) == 0) {
+      return;
+    }
+    if (runtime->call(instance, static_cast<int32_t>(callback), data)) {
+      return;
+    }
+
+    /// the script has logged what it threw. a behavior that throws is switched off, so
+    ///  this is said once and not once a frame; found again because the list may have moved
+    for (script_object::behavior_handle& handle : parent->behavior_handles) {
+      if (handle.instance != instance) {
+        continue;
+      }
+      CORE_LOG_ERROR("The behavior '{}' on '{}' threw in {} and is switched off. Set Enabled on it to run it again.", handle.type_name, parent->name, kCallbackNames[static_cast<size_t>(callback)]);
+      handle.enabled = false;
+      handle.running = false;
+      runtime->set_enabled(instance, false);
+    }
+  }
+
+  void scripting_environment::wake_behavior(script_object* parent, size_t index) {
+    if (index >= parent->behavior_handles.size() || parent->behavior_handles[index].instance == nullptr || parent->behavior_handles[index].awake) {
+      return;
+    }
+
+    void* const instance = parent->behavior_handles[index].instance;
+    parent->behavior_handles[index].awake = true;
+    call_behavior(parent, index, behavior_callback::AWAKE);
+
+    /// one made while its scene plays begins running at once
+    if (index < parent->behavior_handles.size() && parent->behavior_handles[index].instance == instance && parent->playing && parent->behavior_handles[index].enabled) {
+      set_behavior_running(parent, index, true);
+    }
+  }
+
+  void scripting_environment::set_behavior_running(script_object* parent, size_t index, bool running) {
+    if (index >= parent->behavior_handles.size()) {
+      return;
+    }
+
+    script_object::behavior_handle& handle = parent->behavior_handles[index];
+    if (handle.instance == nullptr || !handle.awake || handle.running == running) {
+      return;
+    }
+
+    if (running) {
+      handle.running = true;
+      handle.started = false;
+      call_behavior(parent, index, behavior_callback::ENABLE);
+      return;
+    }
+
+    void* const instance = handle.instance;
+    call_behavior(parent, index, behavior_callback::DISABLE);
+    if (index < parent->behavior_handles.size() && parent->behavior_handles[index].instance == instance) {
+      parent->behavior_handles[index].running = false;
+      parent->behavior_handles[index].started = false;
+    }
+  }
+
+  void scripting_environment::retire_behavior(script_object* parent, size_t index) {
+    if (index >= parent->behavior_handles.size() || parent->behavior_handles[index].instance == nullptr) {
+      return;
+    }
+
+    void* const instance = parent->behavior_handles[index].instance;
+    set_behavior_running(parent, index, false);
+    if (index < parent->behavior_handles.size() && parent->behavior_handles[index].instance == instance && parent->behavior_handles[index].awake) {
+      call_behavior(parent, index, behavior_callback::DESTROY);
+    }
+    if (index >= parent->behavior_handles.size() || parent->behavior_handles[index].instance != instance) {
+      return;
+    }
+
+    script_object::behavior_handle& handle = parent->behavior_handles[index];
+    if (const behavior_runtime* runtime = get_behavior_runtime(); runtime != nullptr && parent->dotnet_object != nullptr) {
+      runtime->detach(parent->dotnet_object->managed_object, instance);
+    }
+    const integer_t slot = handle.script_object_id;
+    handle.script_object_id = -1;
+    handle.instance = nullptr;
+    handle.callbacks = 0;
+    handle.awake = false;
+    handle.running = false;
+    handle.started = false;
+    if (slot >= 0) {
+      destroy_object(slot);
+    }
+  }
+
+  void scripting_environment::set_object_playing(integer_t id, bool playing) {
+    PROFILE_SECTION("scripting_environment::set_object_playing");
+    script_object* parent = get_object(id);
+    if (parent == nullptr) {
+      return;
+    }
+
+    parent->playing = playing;
+    for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
+      set_behavior_running(parent, i, playing && parent->behavior_handles[i].enabled);
+    }
+  }
+
+  void scripting_environment::call_behaviors(integer_t id, behavior_callback callback, const void* data) {
+    script_object* parent = get_object(id);
+    if (parent == nullptr || parent->behavior_handles.empty()) {
+      return;
+    }
+    PROFILE_SECTION("scripting_environment::call_behaviors");
+
+    const bool to_enabled = callback == behavior_callback::RENDER;
+    for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
+      const script_object::behavior_handle& handle = parent->behavior_handles[i];
+      if (handle.instance == nullptr || !handle.awake || (handle.callbacks & (behavior_callback_bit(callback) | behavior_callback_bit(behavior_callback::START))) == 0) {
+        continue;
+      }
+      if (to_enabled) {
+        if (handle.enabled) {
+          call_behavior(parent, i, callback, data);
+        }
+        continue;
+      }
+      if (!handle.running) {
+        continue;
+      }
+
+      if (!handle.started) {
+        void* const instance = handle.instance;
+        parent->behavior_handles[i].started = true;
+        call_behavior(parent, i, behavior_callback::START);
+        if (i >= parent->behavior_handles.size() || parent->behavior_handles[i].instance != instance || !parent->behavior_handles[i].running) {
+          continue;
+        }
+      }
+      call_behavior(parent, i, callback, data);
+    }
+  }
+
+  bool scripting_environment::set_behavior_enabled(integer_t parent_id, const std::string_view behavior_name, bool enabled) {
+    script_object* parent = get_object(parent_id);
+    if (parent == nullptr) {
+      return false;
+    }
+
+    for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
+      script_object::behavior_handle& handle = parent->behavior_handles[i];
+      if (handle.type_name != behavior_name) {
+        continue;
+      }
+
+      handle.enabled = enabled;
+      if (const behavior_runtime* runtime = get_behavior_runtime(); runtime != nullptr && handle.instance != nullptr) {
+        runtime->set_enabled(handle.instance, enabled);
+      }
+      set_behavior_running(parent, i, enabled && parent->playing);
+      return true;
+    }
+    return false;
+  }
+
+  void* scripting_environment::get_behavior_instance(integer_t parent_id, const std::string_view behavior_name) {
+    script_object* parent = get_object(parent_id);
+    if (parent == nullptr) {
+      return nullptr;
+    }
+
+    const auto found = std::ranges::find(parent->behavior_handles, behavior_name, &script_object::behavior_handle::type_name);
+    return found != parent->behavior_handles.end() ? found->instance : nullptr;
+  }
+
+  void scripting_environment::defer_behavior_awake(bool defer) {
+    if (defer) {
+      ++awake_deferrals;
+      return;
+    }
+
+    OTHER_ASSERT(awake_deferrals > 0, "Behavior awake was not deferred.");
+    if (--awake_deferrals > 0) {
+      return;
+    }
+
+    /// taken first: a behavior that wakes may make others, which then wake at once
+    const ostd::vector<integer_t> waiting = std::move(waiting_to_wake);
+    waiting_to_wake.clear();
+    for (const integer_t parent_id : waiting) {
+      if (parent_id < 0 || static_cast<size_t>(parent_id) >= kMaxScriptObjects || live_objects[parent_id].status != live_script_object::LIVE) {
+        continue;
+      }
+      script_object* parent = get_object(parent_id);
+      for (size_t i = 0; parent != nullptr && i < parent->behavior_handles.size(); ++i) {
+        wake_behavior(parent, i);
+      }
+    }
   }
 
   void scripting_environment::detach_dotnet_behavior(integer_t parent_id, const std::string_view behavior_name) {
@@ -352,36 +611,26 @@ namespace other {
 
     script_object* parent = get_object(parent_id);
     OTHER_ASSERT(parent != nullptr, "Script object with ID {} does not exist.", parent_id);
-    /// nothing could have attached without a managed parent, so there is nothing to detach
-    if (parent->dotnet_object == nullptr) {
-      CORE_LOG_WARN("Cannot detach behavior '{}' from '{}': script object with ID {} has no .NET object attached.", behavior_name, parent->name, parent_id);
-      return;
-    }
 
     CORE_LOG_DEBUG("[script {}] detaching behavior '{}' from object '{}'", parent_id, behavior_name, parent->name);
 
-    /// find and remove the behavior handle
     auto it = std::find_if(parent->behavior_handles.begin(), parent->behavior_handles.end(), [&behavior_name](const script_object::behavior_handle& handle) {
       return handle.type_name == behavior_name;
     });
-
     if (it == parent->behavior_handles.end()) {
       CORE_LOG_WARN("Behavior '{}' not found on script object with ID {}", behavior_name, parent_id);
       return;
     }
 
-    /// destroy the behavior's script_object slot
-    if (it->script_object_id >= 0) {
-      destroy_object(it->script_object_id);
+    retire_behavior(parent, static_cast<size_t>(it - parent->behavior_handles.begin()));
+
+    /// found again: what the behavior was told as it went may have moved the list
+    it = std::find_if(parent->behavior_handles.begin(), parent->behavior_handles.end(), [&behavior_name](const script_object::behavior_handle& handle) {
+      return handle.type_name == behavior_name;
+    });
+    if (it != parent->behavior_handles.end()) {
+      parent->behavior_handles.erase(it);
     }
-
-    parent->behavior_handles.erase(it);
-
-    /// invoke RemoveBehavior on the parent SceneObject's managed object
-    native_string type_str = native_string::new_str(behavior_name);
-    parent->dotnet_object->invoke<>("RemoveBehavior", type_str);
-    native_string::free_str(type_str);
-
     CORE_LOG_DEBUG("[script {}] behavior '{}' detached", parent_id, behavior_name);
   }
 
@@ -392,19 +641,10 @@ namespace other {
     OTHER_ASSERT(parent != nullptr, "Script object with ID {} does not exist.", parent_id);
 
     CORE_LOG_DEBUG("[script {}] detaching all behaviors from object '{}'", parent_id, parent->name);
-
-    /// destroy all behavior script_objects in reverse order
-    for (auto it = parent->behavior_handles.rbegin(); it != parent->behavior_handles.rend(); ++it) {
-      if (it->script_object_id >= 0) {
-        destroy_object(it->script_object_id);
-      }
+    for (size_t i = parent->behavior_handles.size(); i-- > 0;) {
+      retire_behavior(parent, i);
     }
     parent->behavior_handles.clear();
-
-    /// invoke RemoveAllBehaviors on the parent SceneObject's managed object
-    if (parent->dotnet_object != nullptr) {
-      parent->dotnet_object->invoke<>("RemoveAllBehaviors");
-    }
   }
 
   void scripting_environment::invalidate_dotnet_script_objects_of_type(int32_t dotnet_type_id) {
@@ -426,18 +666,14 @@ namespace other {
           continue;
         }
 
-        for (auto& handle : parent->behavior_handles) {
+        for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
+          const script_object::behavior_handle& handle = parent->behavior_handles[i];
           if (handle.script_object_id < 0 || (handle.type_name != type_class_name && handle.type_name != type_full_name)) {
             continue;
           }
 
           CORE_LOG_DEBUG(" - invalidating behavior '{}' on object '{}' due to matching .NET type ID {}", handle.type_name, parent->name, dotnet_type_id);
-          native_string type_str = native_string::new_str(handle.type_name);
-          parent->dotnet_object->invoke<>("RemoveBehavior", type_str);
-          native_string::free_str(type_str);
-
-          destroy_object(handle.script_object_id);
-          handle.script_object_id = -1;
+          retire_behavior(parent, i);
         }
       }
     }
@@ -474,15 +710,17 @@ namespace other {
         continue;
       }
 
-      for (auto& handle : parent->behavior_handles) {
-        if (handle.script_object_id >= 0) {
+      for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
+        if (parent->behavior_handles[i].script_object_id >= 0) {
           continue;
         }
 
-        CORE_LOG_DEBUG("[script {}] reattaching behavior '{}' to object '{}'", parent->id, handle.type_name, parent->name);
-        /// failure leaves the handle invalid so the next assembly refresh retries it
-        ///  (e.g. the behavior class was removed from this build of the assembly)
-        handle.script_object_id = instantiate_dotnet_behavior(parent, handle.type_name);
+        CORE_LOG_DEBUG("[script {}] reattaching behavior '{}' to object '{}'", parent->id, parent->behavior_handles[i].type_name, parent->name);
+        /// failure leaves the handle without an instance so the next assembly refresh retries
+        ///  it (e.g. the behavior class was removed from this build of the assembly)
+        if (instantiate_dotnet_behavior(parent, parent->behavior_handles[i])) {
+          wake_behavior(parent, i);
+        }
       }
     }
   }
@@ -498,11 +736,6 @@ namespace other {
     }
 
     CORE_LOG_DEBUG("[script {}] destroying .NET object [{}]", id, obj->name);
-
-    if (obj->dotnet_object->has_method("RemoveAllBehaviors")) {
-      CORE_LOG_DEBUG("[script {}] invoking RemoveAllBehaviors on .NET object before detaching", id);
-      obj->dotnet_object->invoke<>("RemoveAllBehaviors");
-    }
 
     /// behaviors were never attached to the NativeObjectManager; detaching them
     ///  there would throw C#-side

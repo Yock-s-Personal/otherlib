@@ -9,6 +9,8 @@
 #include "core/profiler.hpp"
 #include "serialization/scene_field_codec.hpp"
 
+#include "script/scripting_environment.hpp"
+
 #include "scene/scene.hpp"
 
 namespace other {
@@ -72,6 +74,13 @@ namespace other {
       /// @p root_parent (nullptr = scene root)
       void instantiate_records(scene& s, const scene_document& doc, scene_object* root_parent,
                                const codec_services& services, ostd::map<natural_t, natural_t>& id_remap) {
+        /// a behavior is told it is awake once every object of the document is made, not
+        ///  while the ones after its own are still missing
+        scripting_environment* script_env = subsystem<scripting_environment>::inert ? nullptr : subsystem<scripting_environment>::get();
+        if (script_env != nullptr) {
+          script_env->defer_behavior_awake(true);
+        }
+
         for (const object_record& record : doc.objects) {
           scene_object* parent = root_parent;
           if (record.parent_file_id != 0) {
@@ -100,6 +109,10 @@ namespace other {
             }
             codec->apply(s, &object, component.payload, services);
           }
+        }
+
+        if (script_env != nullptr) {
+          script_env->defer_behavior_awake(false);
         }
       }
 

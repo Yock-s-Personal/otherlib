@@ -41,11 +41,21 @@ namespace Other
     }
     protected virtual void OnAwake() {}
 
-    protected override void Remove()
+    protected override void Destroy()
     {
-      OnRemove();
+      OnDestroy();
     }
-    protected virtual void OnRemove() {}
+    /// the behaviour is going: it was removed, its object was destroyed or its scene was
+    ///  unloaded
+    protected virtual void OnDestroy() {}
+
+    protected override void Start()
+    {
+      OnStart();
+    }
+
+    /// once after the behaviour begins running, before its first update
+    protected virtual void OnStart() {}
 
     protected override void Enable()
     {

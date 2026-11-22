@@ -68,12 +68,6 @@ class TestParentObject : Other.Core.OtherObject
   }
 
   public int CountBehaviors() => BehaviorCount;
-
-  public override void OnStart() { }
-  public override void OnStop() { }
-  public override void OnUpdate() { }
-  public override void OnLateUpdate() { }
-  public override void OnFixedUpdate() { }
 }
 
 class TestBehavior : Other.Core.OtherBehavior
@@ -85,7 +79,7 @@ class TestBehavior : Other.Core.OtherBehavior
   public string label = "steady";
 
   protected override void Awake() { }
-  protected override void Remove() { }
+  protected override void Destroy() { }
   protected override void Enable() { }
   protected override void Disable() { }
   protected override void Update() { }

@@ -12,6 +12,7 @@
 #include "dotnet/dotnet_host.hpp"
 #include "dotnet/dotnet_object.hpp"
 #include "lua/lua_host.hpp"
+#include "script/behavior.hpp"
 #include "script/script_object.hpp"
 
 namespace other {
@@ -59,6 +60,23 @@ namespace other {
     bool dotnet_object_is_behavior(integer_t id);
 
     void attach_dotnet_behavior(integer_t parent_id, const std::string_view behavior_name);
+
+    /// the object's scene started or stopped playing: its enabled behaviours start or stop
+    ///  running, and are told
+    void set_object_playing(integer_t id, bool playing);
+    /// a callback that goes to every behaviour of an object that should hear it: the updates
+    ///  and what physics reports to running ones, render to enabled ones. a behaviour is told
+    ///  to start before the first thing it hears after it began running
+    void call_behaviors(integer_t id, behavior_callback callback, const void* data = nullptr);
+    /// false when the object has no behaviour of that name
+    bool set_behavior_enabled(integer_t parent_id, const std::string_view behavior_name, bool enabled);
+    /// the runtime's handle to that behaviour; null when the object has none or it could
+    ///  not be made
+    void* get_behavior_instance(integer_t parent_id, const std::string_view behavior_name);
+    /// while set, a behaviour that is made is not told it is awake. clearing it tells every
+    ///  one that waited, in the order they were made: a scene is loaded whole before any
+    ///  script in it runs. calls nest
+    void defer_behavior_awake(bool defer);
     void detach_dotnet_behavior(integer_t parent_id, const std::string_view behavior_name);
     void detach_all_dotnet_behaviors(integer_t parent_id);
     void invalidate_dotnet_script_objects_of_type(int32_t dotnet_type_id);
@@ -83,6 +101,7 @@ namespace other {
       if (obj->dotnet_object != nullptr) {
         dotnet_register_native_object(id, type_name);
         obj->dotnet_object->load_fields();
+        bind_object_to_runtime(obj);
       } else {
         CORE_LOG_ERROR("Failed to attach .NET object of type {} to script object with ID {}", type_name, id);
       }
@@ -177,7 +196,24 @@ namespace other {
     ref<assembly> dotnet_binding_assembly = nullptr;
 
    private:
-    integer_t instantiate_dotnet_behavior(script_object* parent, const std::string_view behavior_name);
+    /// makes the behaviour's managed object and has it join its parent. false, with the
+    ///  handle left without an instance, when the type is missing or is not a behaviour
+    bool instantiate_dotnet_behavior(script_object* parent, script_object::behavior_handle& handle);
+    void bind_object_to_runtime(script_object* obj);
+
+    /// the calls below take the behaviour's place in its parent's list and not a reference:
+    ///  a callback may add or remove behaviours, which moves the list
+    ///
+    /// one callback, when the behaviour's type has written it. one that throws is switched off
+    void call_behavior(script_object* parent, size_t index, behavior_callback callback, const void* data = nullptr);
+    void wake_behavior(script_object* parent, size_t index);
+    void set_behavior_running(script_object* parent, size_t index, bool running);
+    /// told it is stopping and going, taken from its parent and its managed object
+    ///  destroyed. its entry stays, without an instance
+    void retire_behavior(script_object* parent, size_t index);
+
+    uint32_t awake_deferrals = 0;
+    ostd::vector<integer_t> waiting_to_wake;
 
     struct live_script_object {
       enum {

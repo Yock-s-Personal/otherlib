@@ -594,28 +594,28 @@ namespace other {
         continue;  /// a side was destroyed the same tick - dropped by contract
       }
 
-      const char* method = nullptr;
+      behavior_callback callback = behavior_callback::COLLISION_ENTER;
       switch (ev.type) {
-        case contact_event::kBegin: method = "CollisionEnter"; break;
-        case contact_event::kEnd: method = "CollisionExit"; break;
-        case contact_event::kTriggerBegin: method = "TriggerEnter"; break;
-        case contact_event::kTriggerEnd: method = "TriggerExit"; break;
+        case contact_event::kBegin: callback = behavior_callback::COLLISION_ENTER; break;
+        case contact_event::kEnd: callback = behavior_callback::COLLISION_EXIT; break;
+        case contact_event::kTriggerBegin: callback = behavior_callback::TRIGGER_ENTER; break;
+        case contact_event::kTriggerEnd: callback = behavior_callback::TRIGGER_EXIT; break;
       }
 
       /// both sides hear about the other; the normal points away from the receiver
-      dispatch_physics_event_to(a->owner_object_id, method, b->owner_object_id, ev.point, ev.normal);
-      dispatch_physics_event_to(b->owner_object_id, method, a->owner_object_id, ev.point, -ev.normal);
+      dispatch_physics_event_to(a->owner_object_id, callback, b->owner_object_id, ev.point, ev.normal);
+      dispatch_physics_event_to(b->owner_object_id, callback, a->owner_object_id, ev.point, -ev.normal);
     }
   }
 
-  void scene::dispatch_physics_event_to(natural_t object_id, const char* method, natural_t other_id,
+  void scene::dispatch_physics_event_to(natural_t object_id, behavior_callback callback, natural_t other_id,
                                         const glm::vec3& point, const glm::vec3& normal) {
     scene_object* obj = find_object(object_id);
     if (obj == nullptr) {
       return;
     }
     if (script_component* comp = storage->registry.try_get<script_component>(entt::entity(obj->registry_id)); comp != nullptr) {
-      comp->dispatch_physics_event(method, other_id, point, normal);
+      comp->dispatch_physics_event(callback, other_id, point, normal);
     }
   }
 
@@ -1816,6 +1816,8 @@ namespace other {
     OTHER_ASSERT(object != nullptr, "Failed to retrieve script object after creation for object ID {}", script->script_object_id);
 
     script_env->attach_dotnet_object(script->script_object_id, "Other.SceneObject", (void*)script->object);
+    /// an object made while the scene plays is playing: a behavior it is given begins running
+    script_env->set_object_playing(script->script_object_id, playing);
   }
 
   // void scene::on_update_script_component(const entt::registry&, const entt::entity entity) {

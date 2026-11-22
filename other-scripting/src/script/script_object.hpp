@@ -27,13 +27,31 @@ namespace other {
     ///  are, behaviors are not) so detach only unregisters what was actually attached
     bool dotnet_native_registered = false;
 
-    /// behavior dotnet_objects attached to this script_object: managed user-script instances
-    ///  added via attach_dotnet_behavior; also mirrored in the parent OtherObject's behavior list
+    /// one behaviour on this object. the engine keeps its life here; what the script itself
+    ///  does is reached through the behaviour runtime
     struct behavior_handle {
+      /// what a scene file calls it
       std::string type_name;
-      integer_t script_object_id = -1;  ///< the script_object ID for this behavior in the pool
+      /// the slot that owns its managed object. -1 while it could not be made: the name is
+      ///  kept, and a rebuild of the scripts tries again
+      integer_t script_object_id = -1;
+      /// the runtime's handle to it; null with the slot
+      void* instance = nullptr;
+      /// one bit for each callback its type has written: the others are never called
+      uint32_t callbacks = 0;
+
+      /// the user's switch
+      bool enabled = true;
+      /// it has been told it is awake, which happens once
+      bool awake = false;
+      /// its scene is playing and it is enabled: it has been told so and not told otherwise
+      bool running = false;
+      /// it has been told to start since it last began running
+      bool started = false;
     };
     ostd::vector<behavior_handle> behavior_handles;
+    /// the scene this object is in is playing
+    bool playing = false;
 
     behavior_snapshot get_behavior_snapshot() const;
   };

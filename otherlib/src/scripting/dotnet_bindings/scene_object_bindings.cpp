@@ -24,16 +24,5 @@ namespace other {
       *out_id = obj->id;
     }
 
-    nbool32 native_validate_object_handle(natural_t object_id, uint32_t generation, uint32_t scene_id) {
-      scene* active_scene = detail::get_active_scene_checked();
-      if (active_scene == nullptr || !active_scene->has_object(object_id)) {
-        return false;
-      }
-
-      /// a script's handle does not carry its scene yet: 0 stands for the active one
-      scene_object_handle handle{ scene_id != 0 ? static_cast<natural_t>(scene_id) : active_scene->id, object_id, generation };
-      return validate_handle(active_scene, handle);
-    }
-
   }  // namespace bindings
 }  // namespace other

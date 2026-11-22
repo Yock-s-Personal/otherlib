@@ -198,6 +198,12 @@ namespace Other.Core
       if (GCHandle.FromIntPtr(target).Target is OtherObject bound)
       {
         bound.script_object_id = script_object_id;
+        /// the engine knows it as none: the object is gone, and a script that still holds
+        ///  it must be able to tell
+        if (script_object_id < 0)
+        {
+          bound.ResetNativeHandle();
+        }
       }
     }
 

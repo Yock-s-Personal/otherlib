@@ -5,7 +5,7 @@ namespace Other
 {
   public static class Scene
   {
-    private const int kMaxObjectQueryCount = 4096;
+    internal const int kMaxObjectQueryCount = 4096;
 
     [NativeFunction("SceneCreateObject")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, float, float, float, UInt64> NativeCreateObject;
@@ -42,12 +42,13 @@ namespace Other
     [NativeFunction("SceneSetObjectVisible")]
     internal static unsafe delegate* unmanaged[Cdecl]<UInt64, NativeBool32, void> NativeSetObjectVisible;
 
-    public static ulong CreateObject(string name, Vec3 position = default)
+    /// a new object at the top of the scene. null when there is no scene to make it in
+    public static SceneObject CreateObject(string name, Vec3 position = default)
     {
       unsafe
       {
         using var name_utf8 = new Utf8Arg(name, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeCreateObject(name_utf8.Pointer, position.X, position.Y, position.Z);
+        return SceneObject.FromId(NativeCreateObject(name_utf8.Pointer, position.X, position.Y, position.Z));
       }
     }
 
@@ -83,12 +84,13 @@ namespace Other
       unsafe { return NativeGetObjectCount(); }
     }
 
-    public static ulong FindObjectByName(string name)
+    /// null when the scene has no object of that name
+    public static SceneObject FindObjectByName(string name)
     {
       unsafe
       {
         using var name_utf8 = new Utf8Arg(name, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeFindObjectByName(name_utf8.Pointer);
+        return SceneObject.FromId(NativeFindObjectByName(name_utf8.Pointer));
       }
     }
 

@@ -51,7 +51,8 @@ namespace other {
 
   /// what runs behaviours of one kind. object and instance are that runtime's own handles
   struct behavior_runtime {
-    /// tells an object which script object it is, so it can ask for behaviours itself
+    /// tells an object which script object it is, so it can ask for behaviours itself. -1
+    ///  when it is none any more: the object is going, and what holds it should know
     void (*bind_object)(void* object, int64_t script_object_id) = nullptr;
     /// the instance joins its object, under the name the engine knows it by. false when it
     ///  is not a behaviour; callbacks gets one bit for each callback its type has written

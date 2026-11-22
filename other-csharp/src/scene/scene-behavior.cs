@@ -15,21 +15,7 @@ namespace Other
       }
     }
 
-    public SceneObjectHandle Handle
-    {
-      get
-      {
-        return SceneObject!.ObjectHandle;
-      }
-    }
-    
-    public Transform Transform
-    {
-      get
-      {
-        return Handle?.Transform;
-      }
-    }
+    public Transform Transform => SceneObject.Transform;
 
     protected T GetComponent<T>() where T : Component => SceneObject.GetComponent<T>();
     protected bool HasComponent<T>() where T : Component => SceneObject.HasComponent<T>();

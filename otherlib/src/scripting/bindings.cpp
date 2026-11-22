@@ -360,6 +360,10 @@ namespace other {
       .bind<bindings::native_scene_get_object_count>("SceneGetObjectCount")
       .bind<bindings::native_scene_find_object_by_name>("SceneFindObjectByName")
       /// Object Hierarchy.
+      .bind<bindings::native_scene_object_instance>("SceneObjectInstance")
+      .bind<bindings::native_scene_set_parent>("SceneSetParent")
+      .bind<bindings::native_scene_find_object_with_tag>("SceneFindObjectWithTag")
+      .bind<bindings::native_scene_find_objects_with_tag>("SceneFindObjectsWithTag")
       .bind<bindings::native_scene_get_parent_id>("SceneGetParentId")
       .bind<bindings::native_scene_get_children_ids>("SceneGetChildrenIds")
       /// Object Tags.
@@ -485,12 +489,16 @@ namespace other {
 
     bindings::binding_context{ dn_host }
       /// OtherObject
-      .bind<bindings::native_validate_object_handle>("ValidateObjectHandle")
       .bind<bindings::native_get_object_id>("GetObjectID");
 
     bindings::binding_context{ dn_host }
       /// Scene Object
-      .bind<bindings::native_transform_get_world_matrix>("GetWorldMatrix");
+      .bind<bindings::native_transform_get_world_matrix>("GetWorldMatrix")
+      .bind<bindings::native_transform_get_world_position>("TransformGetWorldPosition")
+      .bind<bindings::native_transform_set_world_position>("TransformSetWorldPosition")
+      .bind<bindings::native_transform_get_world_rotation>("TransformGetWorldRotation")
+      .bind<bindings::native_transform_set_world_rotation>("TransformSetWorldRotation")
+      .bind<bindings::native_transform_get_world_scale>("TransformGetWorldScale");
 
     bindings::binding_context{ dn_host }
       /// Component Helpers

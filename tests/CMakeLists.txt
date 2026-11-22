@@ -56,6 +56,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/script_project_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/behavior_lifecycle_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/behavior_fields_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripting/scene_object_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_serializer_tests.cpp

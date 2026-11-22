@@ -11,9 +11,7 @@
 #include "object/script_component.hpp"
 #include "scene/scene.hpp"
 
-#include "driver/driver.hpp"
-#include "driver/systems/scene_system.hpp"
-#include "scripting/dotnet_bindings/driver_bindings.hpp"
+#include "scripting/dotnet_bindings/scene_bindings.hpp"
 
 namespace other {
   namespace bindings {
@@ -74,9 +72,8 @@ namespace other {
 
       /// after a rebuild of the scripts, an object a field names is one of the scene in use
       env->set_behavior_object_resolver([env](natural_t object_id) -> void* {
-        driver* native_driver = detail::get_dotnet_native_driver_unchecked();
-        scene* active = native_driver != nullptr ? native_driver->get_kernel().get_core_system<scene_system>().get_active_scene() : nullptr;
-        if (active == nullptr) {
+        scene* active = detail::get_active_scene();
+        if (active == nullptr || !active->has_object(object_id)) {
           return nullptr;
         }
         scene_object* named = active->find_object(object_id);

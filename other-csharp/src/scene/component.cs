@@ -8,10 +8,15 @@ namespace Other
 {
   public class Component
   {
-    private struct FieldKey
+    /// compared by its own Equals: without one a struct key is boxed on every lookup
+    private struct FieldKey : IEquatable<FieldKey>
     {
       public Type type;
       public string managed_name;
+
+      public bool Equals(FieldKey other) => type == other.type && managed_name == other.managed_name;
+      public override bool Equals(object obj) => obj is FieldKey other && Equals(other);
+      public override int GetHashCode() => HashCode.Combine(type, managed_name);
     }
     private struct FieldInfo
     {

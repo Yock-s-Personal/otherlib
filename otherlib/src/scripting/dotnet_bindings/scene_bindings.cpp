@@ -8,6 +8,7 @@
 
 #include "script/scripting_environment.hpp"
 
+#include "object/script_component.hpp"
 #include "scene/scene.hpp"
 
 #include "driver/driver.hpp"
@@ -18,7 +19,32 @@
 namespace other {
   namespace detail {
 
+    namespace {
+
+      scene* scene_for_bindings = nullptr;
+
+    }  // namespace
+
+    void set_scene_for_bindings(scene* s) {
+      scene_for_bindings = s;
+    }
+
+    scene* get_scene_for_bindings() {
+      return scene_for_bindings;
+    }
+
+    scene* get_active_scene() {
+      if (scene_for_bindings != nullptr) {
+        return scene_for_bindings;
+      }
+      driver* native_driver = detail::get_dotnet_native_driver_unchecked();
+      return native_driver != nullptr ? native_driver->get_kernel().get_core_system<scene_system>().get_active_scene() : nullptr;
+    }
+
     scene* get_active_scene_checked() {
+      if (scene_for_bindings != nullptr) {
+        return scene_for_bindings;
+      }
       OTHER_ASSERT(detail::get_dotnet_native_driver() != nullptr, "Driver pointer is null.");
       auto* env = subsystem<scripting_environment>::get();
       OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
@@ -111,6 +137,68 @@ namespace other {
         return 0;
       }
       return obj->id;
+    }
+
+    void* native_scene_object_instance(natural_t id) {
+      scene* active_scene = detail::get_active_scene();
+      if (active_scene == nullptr || subsystem<scripting_environment>::inert || !active_scene->has_object(id)) {
+        return nullptr;
+      }
+      scene_object* named = active_scene->find_object(id);
+      if (named == nullptr || named == &active_scene->root_object() || !active_scene->has_component<script_component>(named)) {
+        return nullptr;
+      }
+      return subsystem<scripting_environment>::get()->get_object_instance(active_scene->get_component<script_component>(named)->script_object_id);
+    }
+
+    nbool32 native_scene_set_parent(natural_t id, natural_t parent_id, nbool32 keep_world) {
+      PROFILE_SECTION("native_scene_set_parent");
+      scene* active_scene = detail::get_active_scene();
+      if (active_scene == nullptr || !active_scene->has_object(id)) {
+        return false;
+      }
+      const natural_t new_parent = parent_id != 0 ? parent_id : active_scene->root_object().id;
+      if (!active_scene->has_object(new_parent)) {
+        return false;
+      }
+
+      /// reparent keeps the object where it is in the world by working out a new local
+      ///  transform; without keep_world the one it had is put back
+      const transform local = active_scene->get_transform(id);
+      if (!active_scene->reparent_object(id, new_parent)) {
+        return false;
+      }
+      if (!keep_world) {
+        active_scene->get_transform(id) = local;
+      }
+      return true;
+    }
+
+    natural_t native_scene_find_object_with_tag(const char* tag) {
+      PROFILE_SECTION("native_scene_find_object_with_tag");
+      scene* active_scene = detail::get_active_scene();
+      if (active_scene == nullptr || tag == nullptr) {
+        return 0;
+      }
+      const scene_object* found = active_scene->find_object_with_tag(tag);
+      return found != nullptr ? found->id : 0;
+    }
+
+    void native_scene_find_objects_with_tag(const char* tag, natural_t* out_ids, int32_t* out_count, int32_t max_count) {
+      PROFILE_SECTION("native_scene_find_objects_with_tag");
+      *out_count = 0;
+      scene* active_scene = detail::get_active_scene();
+      if (active_scene == nullptr || tag == nullptr) {
+        return;
+      }
+      for (const natural_t id : active_scene->get_all_object_ids()) {
+        if (*out_count >= max_count) {
+          break;
+        }
+        if (active_scene->object_has_tag(id, tag)) {
+          out_ids[(*out_count)++] = id;
+        }
+      }
     }
 
     natural_t native_scene_get_parent_id(natural_t id) {

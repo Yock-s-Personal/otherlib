@@ -886,6 +886,10 @@ namespace other {
     if (obj->dotnet_native_registered) {
       dotnet_unregister_native_object(id);
     }
+    /// a script may still hold the object: it is told the engine knows it as none
+    if (const behavior_runtime* runtime = get_behavior_runtime(); runtime != nullptr) {
+      runtime->bind_object(obj->dotnet_object->managed_object, -1);
+    }
     dotnet.destroy_managed_object(obj->dotnet_object);
     obj->dotnet_object = nullptr;
   }

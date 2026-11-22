@@ -9,12 +9,17 @@
 #include <fstream>
 #include <sstream>
 
+#include <nlohmann/json.hpp>
 #include <toml++/toml.hpp>
 
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
 #include "file/filesystem.hpp"
+#include "file/glob.hpp"
 #include "file/path_helpers.hpp"
+#include "serialization/scene_serializer.hpp"
+
+#include "model/model_importer.hpp"
 
 #include "project/pipeline_collector.hpp"
 #include "project/project.hpp"
@@ -229,10 +234,73 @@ namespace other {
       }
     };
 
+    /// the kinds of file a scene reaches through its objects: models, textures, materials,
+    ///  audio, animation clips and other scenes. only these can be told to be unused. anything
+    ///  else a project holds may be read by a script, so it is always copied
+    bool is_scene_content(const filepath& file) {
+      switch (asset::get_type_from_extension(file.extension().string())) {
+        case asset::TEXTURE:
+        case asset::MODEL_SOURCE:
+        case asset::ANIMATION:
+        case asset::AUDIO:
+        case asset::MATERIAL:
+        case asset::SCENE: return true;
+        default: return false;
+      }
+    }
+
+    /// one spelling for a path inside the project, to look a file up by
+    std::string file_key(const filepath& relative) {
+      std::string key = relative.generic_string();
+#if OTHER_ENVIRONMENT_WINDOWS
+      std::ranges::transform(key, key.begin(), [](const char c) -> char { return detail::fold_case(c); });
+#endif
+      return key;
+    }
+
+    /// glob_set asserts on a pattern it cannot read, and these are written by hand
+    opt<std::string> invalid_pattern_reason(const std::string_view pattern) {
+      if (pattern.empty()) {
+        return "it is empty";
+      }
+      if (pattern.contains('\\')) {
+        return "folders are separated by '/'";
+      }
+      if (pattern.front() == '/' || pattern.back() == '/') {
+        return "it is a path from the project's folder, with no '/' at either end";
+      }
+      if (pattern.find_first_of("{}[]") != std::string_view::npos) {
+        return "braces and brackets are not supported";
+      }
+      for (std::string_view rest = pattern; !rest.empty();) {
+        const size_t slash = rest.find('/');
+        const std::string_view segment = rest.substr(0, slash);
+        if (segment.empty()) {
+          return "it has an empty folder name";
+        }
+        if (segment.contains("**") && segment != "**") {
+          return "'**' has to be a whole folder name";
+        }
+        rest = slash == std::string_view::npos ? std::string_view{} : rest.substr(slash + 1);
+      }
+      return std::nullopt;
+    }
+
     struct scene_entry {
       std::string name;
+      /// the path as the project file has it, which is what is replaced in the packaged file
+      std::string written;
       filepath file;
+      std::string source_key;
+      /// where the binary copy goes, from the project's folder
+      filepath packaged;
+      serialization::scene_document document;
     };
+
+    /// a scene's path as the project file writes it, pointed at the binary copy
+    std::string packaged_scene_path(const std::string_view written) {
+      return std::format("{}{}", written.substr(0, written.rfind('.')), serialization::kSceneBinaryExtension);
+    }
 
     /// a game's name when nobody chose one: the project's own key, then the name in its
     ///  metadata, then its folder
@@ -292,6 +360,12 @@ namespace other {
       std::string main_pipeline;
       /// engine files the package needs, absolute
       ostd::vector<filepath> engine_files;
+      /// the project's files that something in the package uses, as file keys
+      ostd::vector<std::string> used;
+      /// [package] keep: what ships although nothing a compile can see uses it
+      glob_set kept;
+      /// [package] exclude: what never ships
+      glob_set excluded;
 
       bool fail(std::string reason) {
         CORE_LOG_ERROR("[COMPILE] : {}", reason);
@@ -335,7 +409,50 @@ namespace other {
         return {};
       }
 
+      /// a file something in the package needs: the project's is marked as used, the engine's
+      ///  is copied from the engine, and one that is in neither cannot come along
+      void need(const filepath& file, const std::string_view needed_by) {
+        if (const opt<filepath> in_project = inside(project_folder, file); in_project.has_value()) {
+          used.push_back(file_key(*in_project));
+        } else if (inside(engine.root / "resources", file).has_value()) {
+          engine_files.push_back(file);
+        } else {
+          warn(std::format("{} uses '{}', which is in neither the project nor the engine's resources; it is not in the package", needed_by, file.string()));
+        }
+      }
+
+      /// an asset id as a packaged scene has to have it. an editor used to save an engine
+      ///  file's id through the working directory ('cwd://...'), which holds only where that
+      ///  editor was started; a package has the engine's files under engine/. such an id is
+      ///  given the mount of the file it leads to
+      std::string packaged_asset_id(const std::string& id, const std::string_view scene_name) {
+        const std::string through_working_directory = std::format("{}{}", file_system::kCwd, file_system::kPathSeparator);
+        if (!id.starts_with(through_working_directory)) {
+          return id;
+        }
+        /// that editor's working directory was the folder that holds the project's folder,
+        ///  and in a source tree that is the engine's root as well. no mount is asked: a
+        ///  command-line tool has none for the working directory
+        const filepath written{ id.substr(through_working_directory.size()) };
+        std::error_code ec;
+        for (const filepath& root : { base, engine.root }) {
+          const filepath file = (root / written).lexically_normal();
+          if (!std::filesystem::is_regular_file(file, ec)) {
+            continue;
+          }
+          if (const opt<filepath> in_project = inside(project_folder, file); in_project.has_value()) {
+            return std::format("{}{}{}", project_name, file_system::kPathSeparator, in_project->generic_string());
+          }
+          if (const opt<filepath> in_engine = inside(engine.root, file); in_engine.has_value()) {
+            return std::format("{}{}{}", file_system::kEngineMount, file_system::kPathSeparator, in_engine->generic_string());
+          }
+        }
+        warn(std::format("scene '{}' names '{}' through the working directory, which leads to no file of the project or the engine; the packaged game will not find it", scene_name, id));
+        return id;
+      }
+
       bool read_project();
+      bool read_package_rules();
       bool check_names_and_output();
       bool check_scenes();
       bool check_scripts();
@@ -344,9 +461,11 @@ namespace other {
       bool build_scripts();
       bool collect_rendering();
       void collect_scene_assets();
+      void collect_model_files(const filepath& model);
       bool copy_runtime();
       bool copy_engine();
       bool copy_project();
+      bool write_scenes();
       bool copy_plugins();
       bool write_project_file();
       bool write_runtime_config();
@@ -393,6 +512,31 @@ namespace other {
       return true;
     }
 
+    bool compile_run::read_package_rules() {
+      const auto read = [this](const std::string_view key, glob_set& into) -> bool {
+        const toml::node_view listed = table.at_path(std::format("package.{}", key));
+        if (!listed) {
+          return true;
+        }
+        const toml::array* patterns = listed.as_array();
+        if (patterns == nullptr) {
+          return fail(std::format("[package] {} is a list of patterns, such as [ \"assets/audio/**\" ]", key));
+        }
+        for (const toml::node& entry : *patterns) {
+          const opt<std::string> pattern = entry.value<std::string>();
+          if (!pattern.has_value()) {
+            return fail(std::format("[package] {} holds something that is not a pattern in quotes", key));
+          }
+          if (const opt<std::string> reason = invalid_pattern_reason(*pattern); reason.has_value()) {
+            return fail(std::format("[package] {} has the pattern '{}', which cannot be used: {}", key, *pattern, *reason));
+          }
+          into.include(*pattern);
+        }
+        return true;
+      };
+      return read("keep", kept) && read("exclude", excluded);
+    }
+
     bool compile_run::check_names_and_output() {
       /// the caller's, or the one the project gives by itself
       public_name = settings.public_name.value_or(default_public_name(table, project_name));
@@ -432,10 +576,38 @@ namespace other {
           if (file.empty() || !std::filesystem::is_regular_file(file, ec)) {
             return fail(std::format("scene '{}' is listed as '{}', which does not exist", name, written));
           }
-          if (!inside(project_folder, file).has_value()) {
+          const opt<filepath> relative = inside(project_folder, file);
+          if (!relative.has_value()) {
             return fail(std::format("scene '{}' is at '{}', outside the project's folder, so it cannot be packaged with it", name, file.string()));
           }
-          scenes.push_back({ .name = name, .file = file });
+          /// read now, so a scene that cannot be read stops the compile before anything is
+          ///  written; the same document is what the package gets, in binary
+          serialization::scene_parse_result parsed = serialization::load_scene_document(file);
+          if (!parsed.success()) {
+            return fail(std::format("scene '{}' ('{}') cannot be read: {}", name, written, parsed.error));
+          }
+          const size_t repaired = serialization::rewrite_scene_asset_refs(*parsed.document, [&](const std::string& id) -> std::string {
+            return packaged_asset_id(id, name);
+          });
+          if (repaired > 0) {
+            CORE_LOG_INFO("[COMPILE] : scene '{}': {} asset id(s) written through the working directory now name the project's mount or the engine's", name, repaired);
+          }
+          filepath packaged = *relative;
+          packaged.replace_extension(serialization::kSceneBinaryExtension);
+          const std::string source_key = file_key(*relative);
+          for (const scene_entry& other : scenes) {
+            if (other.packaged == packaged && other.source_key != source_key) {
+              return fail(std::format("scenes '{}' and '{}' would both be packaged as '{}'; one of their files has to be renamed", other.name, name, packaged.generic_string()));
+            }
+          }
+          scenes.push_back({
+            .name = name,
+            .written = written,
+            .file = file,
+            .source_key = source_key,
+            .packaged = std::move(packaged),
+            .document = std::move(*parsed.document),
+          });
           names += std::format("{}{}", names.empty() ? "" : ", ", name);
         }
       }
@@ -585,8 +757,7 @@ namespace other {
         return fail(std::format("the main pipeline '{}' is not one of the project's pipelines: {}", main_pipeline, names));
       }
 
-      /// already in load order. the project's own files travel with the project, so only
-      ///  the engine's are noted for copying
+      /// already in load order
       for (const collected_pipeline& pipeline : collection.pipelines) {
         ostd::vector<filepath> needed = pipeline.files;
         needed.push_back(pipeline.source);
@@ -595,9 +766,7 @@ namespace other {
           if (entry.empty()) {
             return fail(std::format("pipeline '{}' needs '{}', which is in neither the project nor the engine's resources, so it cannot be packaged", pipeline.name, file.string()));
           }
-          if (!inside(project_folder, file).has_value()) {
-            engine_files.push_back(file);
-          }
+          need(file, std::format("pipeline '{}'", pipeline.name));
         }
         config_pipelines.push_back(packaged_entry(pipeline.source));
       }
@@ -606,24 +775,95 @@ namespace other {
 
     void compile_run::collect_scene_assets() {
       PROFILE_SECTION("compile_project--scene-assets");
-      /// what the scenes use that belongs to the engine (a stock model, say) has to come along.
-      ///  the project's own assets are copied with its folder
+      /// everything the scenes reach: the engine's files (a stock model, say) have to come
+      ///  along, and the project's are the ones a package keeps. the scenes are asked as the
+      ///  package will have them, so an id that was repaired leads where the game will look
+      const std::string through_working_directory = std::format("{}{}", file_system::kCwd, file_system::kPathSeparator);
       ostd::vector<filepath> roots;
+      std::error_code ec;
       for (const scene_entry& scene : scenes) {
-        roots.push_back(scene.file);
+        const std::string user = std::format("scene '{}'", scene.name);
+        if (const filepath script = scene.document.script.empty() ? filepath{} : resolve_relative(scene.file, scene.document.script); std::filesystem::is_regular_file(script, ec)) {
+          need(script, user);
+        }
+        for (const serialization::component_asset_ref& ref : serialization::collect_scene_asset_refs(scene.document)) {
+          /// one that could not be repaired has been warned about already
+          if (ref.path.starts_with(through_working_directory)) {
+            continue;
+          }
+          const asset_path resolved = resolve_asset_path(ref.path, scene.file);
+          if (!resolved.found()) {
+            warn(std::format("{} names '{}', which cannot be found; it is not in the package", user, ref.path));
+            continue;
+          }
+          /// the dependency graph only takes a file that is under a mount
+          const filepath file = resolved.resolved.lexically_normal();
+          if (inside(project_folder, file).has_value() || inside(engine.root, file).has_value()) {
+            roots.push_back(file);
+          } else {
+            need(file, user);
+          }
+        }
       }
+      std::ranges::sort(roots);
+      const auto repeated = std::ranges::unique(roots);
+      roots.erase(repeated.begin(), repeated.end());
+
       asset_resolver resolver;
       const dependency_snapshot snapshot = resolver.resolve(roots);
       for (const dependency_snapshot::node& node : snapshot.nodes) {
         const filepath file = absolute_of(node.virtual_path).lexically_normal();
-        std::error_code ec;
-        if (inside(project_folder, file).has_value() || !std::filesystem::is_regular_file(file, ec)) {
+        if (!std::filesystem::is_regular_file(file, ec)) {
           continue;
         }
-        if (inside(engine.root / "resources", file).has_value()) {
-          engine_files.push_back(file);
-        } else {
-          warn(std::format("a scene uses '{}', which is in neither the project nor the engine's resources; it is not in the package", file.string()));
+        need(file, "a scene");
+        if (node.type == asset::MODEL_SOURCE) {
+          collect_model_files(file);
+        }
+      }
+    }
+
+    void compile_run::collect_model_files(const filepath& model) {
+      PROFILE_SECTION("compile_project--model-files");
+      /// the dependency graph has a model's textures only for some formats. the importer the
+      ///  game loads the model with names them for every format, so it is asked
+      const std::string user = std::format("model '{}'", model.filename().string());
+      const model_import_result imported = import(model);
+      if (!imported.data.has_value()) {
+        warn(std::format("model '{}' could not be read, so the textures it names are not known: {}", model.string(), imported.error));
+        return;
+      }
+      std::error_code ec;
+      for (const imported_material& material : imported.data->materials) {
+        for (const std::string* authored : { &material.base_color_texture, &material.normal_texture, &material.metallic_roughness_texture, &material.emissive_texture }) {
+          /// one that is not there is the model's own trouble: it draws with a fallback
+          if (authored->empty() || authored->starts_with("embedded:")) {
+            continue;
+          }
+          if (const filepath texture = resolve_relative(model, *authored); std::filesystem::is_regular_file(texture, ec)) {
+            need(texture, user);
+          }
+        }
+      }
+
+      /// a .gltf keeps its geometry in files beside it
+      if (model.extension() != ".gltf") {
+        return;
+      }
+      const nlohmann::json document = nlohmann::json::parse(read_text(model).value_or(std::string{}), nullptr, false);
+      if (!document.is_object() || !document.contains("buffers") || !document["buffers"].is_array()) {
+        return;
+      }
+      for (const nlohmann::json& buffer : document["buffers"]) {
+        if (!buffer.is_object() || !buffer.contains("uri") || !buffer["uri"].is_string()) {
+          continue;
+        }
+        const std::string uri = buffer["uri"].get<std::string>();
+        if (uri.empty() || uri.starts_with("data:")) {
+          continue;
+        }
+        if (const filepath data = resolve_relative(model, uri); std::filesystem::is_regular_file(data, ec)) {
+          need(data, user);
         }
       }
     }
@@ -700,6 +940,7 @@ namespace other {
     }
 
     bool compile_run::copy_project() {
+      std::ranges::sort(used);
       std::error_code ec;
       for (std::filesystem::recursive_directory_iterator entry(project_folder, ec), end; !ec && entry != end; entry.increment(ec)) {
         const filepath relative = *inside(project_folder, entry->path());
@@ -717,11 +958,54 @@ namespace other {
         if (extension == ".cs" || extension == ".csproj" || entry->path() == project_file || std::ranges::find(vm_sources, name) != vm_sources.end()) {
           continue;
         }
+
+        const std::string key = file_key(relative);
+        const bool is_used = std::ranges::binary_search(used, key);
+        const bool is_kept = kept.matches(name);
+        /// a listed scene is written in binary by write_scenes. its text comes along only when
+        ///  the project asks for it, for a script that loads the scene by that path
+        if (std::ranges::find(scenes, key, &scene_entry::source_key) != scenes.end()) {
+          if (is_kept && !copy(entry->path(), staged_project / relative)) {
+            return false;
+          }
+          continue;
+        }
+        if (excluded.matches(name)) {
+          if (is_used) {
+            warn(std::format("'{}' is left out by [package] exclude, and something in the package uses it", name));
+          }
+          continue;
+        }
+        if (is_scene_content(entry->path()) && !is_used && !is_kept) {
+          CORE_LOG_DEBUG("[COMPILE] : left out '{}', which nothing uses", name);
+          report.left_out.push_back(name);
+          report.left_out_bytes += entry->file_size(ec);
+          continue;
+        }
         if (!copy(entry->path(), staged_project / relative)) {
           return false;
         }
       }
-      return ec ? fail(std::format("could not read the project folder '{}': {}", project_folder.string(), ec.message())) : true;
+      if (ec) {
+        return fail(std::format("could not read the project folder '{}': {}", project_folder.string(), ec.message()));
+      }
+      if (!report.left_out.empty()) {
+        CORE_LOG_INFO("[COMPILE] : left out {} file(s) that nothing in the project uses, {} bytes in all", report.left_out.size(), report.left_out_bytes);
+      }
+      return true;
+    }
+
+    bool compile_run::write_scenes() {
+      PROFILE_SECTION("compile_project--scenes");
+      for (const scene_entry& scene : scenes) {
+        const filepath packaged = staged_project / scene.packaged;
+        std::error_code ec;
+        std::filesystem::create_directories(packaged.parent_path(), ec);
+        if (!serialization::save_scene_document(scene.document, packaged)) {
+          return fail(std::format("could not write scene '{}' as '{}'", scene.name, packaged.string()));
+        }
+      }
+      return true;
     }
 
     bool compile_run::copy_plugins() {
@@ -761,6 +1045,23 @@ namespace other {
         }
         if (!replaced) {
           return fail(std::format("could not find the path of plugin '{}' in the project file's text to point it at the packaged copy", plugin.name));
+        }
+      }
+      /// a scene's path is rewritten the same way, to the binary copy
+      for (const scene_entry& scene : scenes) {
+        const std::string packaged = packaged_scene_path(scene.written);
+        if (packaged == scene.written) {
+          continue;
+        }
+        bool replaced = false;
+        for (const auto& [literal, replacement] : { std::pair{ toml_string(scene.written), toml_string(packaged) }, std::pair{ std::format("'{}'", scene.written), std::format("'{}'", packaged) } }) {
+          for (size_t at = text.find(literal); at != std::string::npos; at = text.find(literal, at + replacement.size())) {
+            text.replace(at, literal.size(), replacement);
+            replaced = true;
+          }
+        }
+        if (!replaced) {
+          return fail(std::format("could not find the path of scene '{}' in the project file's text to point it at the packaged copy", scene.name));
         }
       }
       text = set_toml_string(text, "vm", "boot-file", kBootProgram);
@@ -828,6 +1129,18 @@ namespace other {
     }
 
   }  // namespace
+
+  std::string readable_size(const uint64_t bytes) {
+    constexpr uint64_t kKilobyte = 1024;
+    constexpr uint64_t kMegabyte = kKilobyte * kKilobyte;
+    if (bytes < kKilobyte) {
+      return std::format("{} bytes", bytes);
+    }
+    if (bytes < kMegabyte) {
+      return std::format("{:.1f} KB", static_cast<double>(bytes) / static_cast<double>(kKilobyte));
+    }
+    return std::format("{:.1f} MB", static_cast<double>(bytes) / static_cast<double>(kMegabyte));
+  }
 
   opt<engine_sources> locate_engine_sources(const package_config config, ostd::vector<std::string>& errors) {
     PROFILE_SECTION("locate_engine_sources");
@@ -1018,7 +1331,7 @@ namespace other {
       return run.report;
     }
     const scoped_project_environment environment(run.engine.root, run.project_name, run.project_folder);
-    if (!run.check_names_and_output() || !run.check_scenes() || !run.check_scripts() || !run.check_plugins()) {
+    if (!run.read_package_rules() || !run.check_names_and_output() || !run.check_scenes() || !run.check_scripts() || !run.check_plugins()) {
       return run.report;
     }
 
@@ -1033,7 +1346,7 @@ namespace other {
     bool built = run.build_vm() && run.build_scripts() && run.collect_rendering();
     if (built) {
       run.collect_scene_assets();
-      built = run.copy_runtime() && run.copy_engine() && run.copy_project() && run.copy_plugins() && run.write_project_file() && run.write_runtime_config() && run.swap_in();
+      built = run.copy_runtime() && run.copy_engine() && run.copy_project() && run.write_scenes() && run.copy_plugins() && run.write_project_file() && run.write_runtime_config() && run.swap_in();
     }
     if (!built) {
       /// a failed compile leaves nothing half-made behind, and the package that was there stays

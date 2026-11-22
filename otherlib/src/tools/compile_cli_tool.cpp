@@ -124,7 +124,20 @@ namespace other {
         }
         return tool_result::error(std::format("'{}' was not packaged:{}", parsed.project->string(), reasons));
       }
-      return tool_result::ok(std::format("packaged '{}' as '{}'", parsed.project->string(), report.package_root.string()));
+      std::string message = std::format("packaged '{}' as '{}'", parsed.project->string(), report.package_root.string());
+      if (!report.left_out.empty()) {
+        /// said where the caller reads: a file the game loads by path is missing until it is kept
+        constexpr size_t kNamesShown = 20;
+        message += std::format("\nleft out {} file(s) that nothing in the project uses ({}). name the ones the game loads by path in [package] keep:", report.left_out.size(),
+                               readable_size(report.left_out_bytes));
+        for (size_t i = 0; i < std::min(report.left_out.size(), kNamesShown); ++i) {
+          message += std::format("\n  {}", report.left_out[i]);
+        }
+        if (report.left_out.size() > kNamesShown) {
+          message += std::format("\n  and {} more", report.left_out.size() - kNamesShown);
+        }
+      }
+      return tool_result::ok(message);
     }
 
   }  // namespace cli

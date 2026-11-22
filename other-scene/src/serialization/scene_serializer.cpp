@@ -486,5 +486,25 @@ namespace other {
       return refs;
     }
 
+    size_t rewrite_scene_asset_refs(scene_document& doc, const asset_path_rewrite_fn& rewrite) {
+      PROFILE_SECTION("rewrite_scene_asset_refs");
+      OTHER_ASSERT(rewrite != nullptr, "rewrite_scene_asset_refs needs a function to rewrite with");
+      size_t changed = 0;
+      const asset_path_rewrite_fn counted = [&](const std::string& path) -> std::string {
+        std::string replacement = rewrite(path);
+        changed += replacement != path ? 1 : 0;
+        return replacement;
+      };
+      for (object_record& object : doc.objects) {
+        for (component_record& component : object.components) {
+          const component_codec* codec = find_component_codec(component.key_hash);
+          if (codec != nullptr && codec->rewrite_asset_refs != nullptr) {
+            component.payload = codec->rewrite_asset_refs(component.payload, counted);
+          }
+        }
+      }
+      return changed;
+    }
+
   }  // namespace serialization
 }  // namespace other

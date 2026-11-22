@@ -6,6 +6,8 @@
  * its lua files are stand-ins in a temp folder; the engine's resources are the real ones.
  * then what the editor's window is built on: a preview of a compile, the choices written
  * back to the project file, and a compile that runs on a worker thread.
+ * last, what a package leaves behind: scenes go in as binary, and a file of a kind a scene
+ * reaches is left out when nothing reaches it.
  **/
 #include <chrono>
 #include <filesystem>
@@ -20,6 +22,7 @@
 #include "event/event_system.hpp"
 #include "file/filesystem.hpp"
 #include "file/path_helpers.hpp"
+#include "serialization/scene_serializer.hpp"
 
 #include "project/compile_session.hpp"
 #include "project/pipeline_collector.hpp"
@@ -49,6 +52,34 @@ namespace other {
       "]\n";
 
     constexpr std::string_view kScene = "[scene]\nschema-version = 1\nname = \"main\"\n";
+
+    /// a scene that uses a model, a material and a sound of the project
+    constexpr std::string_view kSceneWithContent =
+      "[scene]\n"
+      "schema-version = 1\n"
+      "name = \"main\"\n"
+      "\n"
+      "[[objects]]\n"
+      "id = 1\n"
+      "name = \"Crate\"\n"
+      "[objects.components.render]\n"
+      "model_asset_id = \"game/assets/models/crate.obj\"\n"
+      "material_asset_id = \"game/assets/materials/crate.omat\"\n"
+      "[objects.components.audio-source]\n"
+      "clip_asset_id = \"game/assets/audio/thud.wav\"\n";
+
+    /// one triangle, with a material file that names a texture beside the model
+    constexpr std::string_view kCrateModel = "mtllib crate.mtl\nusemtl skin\nv 0 0 0\nv 1 0 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 0 1\nf 1/1 2/2 3/3\n";
+    constexpr std::string_view kCrateModelMaterial = "newmtl skin\nKd 1 1 1\nmap_Kd crate-skin.png\n";
+    constexpr std::string_view kCrateMaterial =
+      "asset-type = \"material\"\n"
+      "name = \"crate\"\n"
+      "\n"
+      "[params]\n"
+      "roughness = 0.5\n"
+      "\n"
+      "[textures]\n"
+      "base_color = \"../textures/paint.png\"\n";
 
   }  // namespace
 
@@ -156,6 +187,26 @@ namespace other {
       return !std::filesystem::exists(output);
     }
 
+    /// the sandbox project with content: some of it used by the Main scene, some by nothing
+    void write_content() {
+      write("game/assets/scenes/main.oscn", kSceneWithContent);
+      write("game/assets/models/crate.obj", kCrateModel);
+      write("game/assets/models/crate.mtl", kCrateModelMaterial);
+      write("game/assets/models/crate-skin.png", "the texture the model names");
+      write("game/assets/materials/crate.omat", kCrateMaterial);
+      write("game/assets/textures/paint.png", "the texture the material names");
+      write("game/assets/audio/thud.wav", "a sound the scene plays");
+      /// of the same kinds, and nothing uses them
+      write("game/assets/models/statue.fbx", "a model no scene has");
+      write("game/assets/textures/poster.png", "a texture nothing names");
+      write("game/assets/audio/voice/line-1.wav", "a sound a script plays by path");
+      write("game/assets/materials/old.omat", kCrateMaterial);
+      write("game/assets/scenes/cut.oscn", kScene);
+      /// of kinds a scene never names
+      write("game/assets/data/levels.json", "{}");
+      write("game/notes/todo.txt", "ship it");
+    }
+
     asio::io_context io;
     std::unique_ptr<event_system> events;
     filepath sandbox;
@@ -206,7 +257,7 @@ namespace other {
 
     /// the project: its content, its boot program, and none of its sources or build leftovers
     const filepath game = package / "game";
-    EXPECT_EQ(read(game / "assets/scenes/main.oscn"), kScene);
+    EXPECT_TRUE(std::filesystem::is_regular_file(game / "assets/scenes/main.oscnb"));
     EXPECT_EQ(read(game / "assets/textures/wall.txt"), "a texture, as far as a copy is concerned");
     EXPECT_EQ(read(game / "project.lua"), "-- project settings\n");
     EXPECT_FALSE(ocmd_toolchain{}.read_obin(game / "boot.obin").empty());
@@ -613,6 +664,198 @@ namespace other {
     const opt<std::string> missing = save_compile_choices(sandbox / "nothing-here", { .public_name = "x" });
     ASSERT_TRUE(missing.has_value());
     EXPECT_TRUE(missing->contains("cannot be read"));
+  }
+
+  TEST_F(project_compiler_tests, listed_scenes_are_packaged_in_binary_and_the_project_file_points_at_them) {
+    const compile_report report = compile(settings());
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    const filepath game = report.package_root / "game";
+
+    /// the binary form in the place of the text, and it reads back as the same scene
+    for (const std::string_view scene : { "main", "second" }) {
+      EXPECT_FALSE(std::filesystem::exists(game / "assets/scenes" / std::format("{}.oscn", scene))) << scene;
+      const serialization::scene_parse_result packaged = serialization::load_scene_document(game / "assets/scenes" / std::format("{}.oscnb", scene));
+      ASSERT_TRUE(packaged.success()) << scene << ": " << packaged.error;
+      EXPECT_EQ(packaged.document->name, "main");
+    }
+    const std::string text = read(game / "game.toml");
+    EXPECT_TRUE(text.contains("  { name = \"Main\", path = \"game/assets/scenes/main.oscnb\" },\n"));
+    EXPECT_TRUE(text.contains("  { name = \"Second\", path = \"game/assets/scenes/second.oscnb\" },\n"));
+    EXPECT_FALSE(text.contains(".oscn\""));
+    /// and the project itself is as it was
+    EXPECT_EQ(read(project_folder / "assets/scenes/main.oscn"), kScene);
+    EXPECT_EQ(read(project_folder / "game.toml"), kProject);
+  }
+
+  TEST_F(project_compiler_tests, a_scene_that_cannot_be_read_stops_the_compile_before_it_starts) {
+    write("game/assets/scenes/second.oscn", "[scene\nthis is not a scene");
+    const compile_report report = compile(settings());
+    EXPECT_FALSE(report.success);
+    EXPECT_TRUE(any_holds(report.errors, "scene 'Second' ('game/assets/scenes/second.oscn') cannot be read"));
+    EXPECT_TRUE(nothing_was_written());
+  }
+
+  TEST_F(project_compiler_tests, two_scenes_that_would_be_one_file_in_the_package_are_refused) {
+    /// the same scene twice, once already in binary
+    const serialization::scene_parse_result scene = serialization::load_scene_document(project_folder / "assets/scenes/main.oscn");
+    ASSERT_TRUE(scene.success());
+    ASSERT_TRUE(serialization::save_scene_document(*scene.document, project_folder / "assets/scenes/second.oscnb"));
+    std::string text{ kProject };
+    const std::string_view listed = "game/assets/scenes/second.oscn\"";
+    text.replace(text.find(listed), listed.size(), "game/assets/scenes/second.oscnb\" },\n  { name = \"Third\", path = \"game/assets/scenes/second.oscn\"");
+    write("game/game.toml", text);
+
+    const compile_report report = compile(settings());
+    EXPECT_FALSE(report.success);
+    EXPECT_TRUE(any_holds(report.errors, "scenes 'Second' and 'Third' would both be packaged as 'assets/scenes/second.oscnb'"));
+    EXPECT_TRUE(nothing_was_written());
+  }
+
+  TEST_F(project_compiler_tests, content_that_nothing_reaches_is_left_out_and_everything_else_is_copied) {
+    write_content();
+    const compile_report report = compile(settings());
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    const filepath game = report.package_root / "game";
+
+    /// what the scene names, what its material names, and what its model names
+    for (const std::string_view used : { "assets/models/crate.obj", "assets/materials/crate.omat", "assets/audio/thud.wav", "assets/textures/paint.png", "assets/models/crate-skin.png" }) {
+      EXPECT_TRUE(std::filesystem::is_regular_file(game / used)) << used;
+    }
+    /// files of kinds no scene names are copied whoever uses them: a script may read them
+    for (const std::string_view other : { "assets/models/crate.mtl", "assets/data/levels.json", "notes/todo.txt", "assets/textures/wall.txt", "project.lua" }) {
+      EXPECT_TRUE(std::filesystem::is_regular_file(game / other)) << other;
+    }
+
+    ostd::vector<std::string> left_out = report.left_out;
+    std::ranges::sort(left_out);
+    EXPECT_EQ(left_out, (ostd::vector<std::string>{
+                          "assets/audio/voice/line-1.wav",
+                          "assets/materials/old.omat",
+                          "assets/models/statue.fbx",
+                          "assets/scenes/cut.oscn",
+                          "assets/textures/poster.png",
+                        }));
+    uint64_t bytes = 0;
+    for (const std::string& name : left_out) {
+      EXPECT_FALSE(std::filesystem::exists(game / name)) << name;
+      bytes += std::filesystem::file_size(project_folder / name);
+    }
+    EXPECT_EQ(report.left_out_bytes, bytes);
+    /// and a size is said in the unit that fits it
+    EXPECT_EQ(readable_size(182), "182 bytes");
+    EXPECT_EQ(readable_size(1536), "1.5 KB");
+    EXPECT_EQ(readable_size(5 * 1024 * 1024), "5.0 MB");
+    /// leaving something out is not a warning; only the Release one about nothing is here
+    EXPECT_TRUE(report.warnings.empty()) << report.warnings.front();
+  }
+
+  TEST_F(project_compiler_tests, keep_ships_what_the_game_loads_by_path_and_exclude_ships_nothing_it_names) {
+    write_content();
+    write("game/game.toml", std::format("{}\n[package]\n"
+                                        "keep = [ \"assets/audio/**\", \"assets/scenes/main.oscn\", \"assets/*/poster.png\" ]\n"
+                                        "exclude = [ \"notes/**\", \"**/*.json\", \"assets/textures/paint.png\" ]\n",
+                                        kProject));
+    const compile_report report = compile(settings());
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    const filepath game = report.package_root / "game";
+
+    EXPECT_EQ(read(game / "assets/audio/voice/line-1.wav"), "a sound a script plays by path");
+    EXPECT_TRUE(std::filesystem::is_regular_file(game / "assets/textures/poster.png"));
+    /// a listed scene that is kept ships as text beside its binary copy
+    EXPECT_EQ(read(game / "assets/scenes/main.oscn"), kSceneWithContent);
+    EXPECT_TRUE(std::filesystem::is_regular_file(game / "assets/scenes/main.oscnb"));
+    EXPECT_FALSE(std::filesystem::exists(game / "assets/scenes/second.oscn"));
+
+    /// excluded files are not there, whatever kind they are, and are not counted as left out
+    EXPECT_FALSE(std::filesystem::exists(game / "notes"));
+    EXPECT_FALSE(std::filesystem::exists(game / "assets/data/levels.json"));
+    EXPECT_FALSE(std::filesystem::exists(game / "assets/textures/paint.png"));
+    ostd::vector<std::string> left_out = report.left_out;
+    std::ranges::sort(left_out);
+    EXPECT_EQ(left_out, (ostd::vector<std::string>{ "assets/materials/old.omat", "assets/models/statue.fbx", "assets/scenes/cut.oscn" }));
+    /// excluding something the package uses is allowed, and said
+    EXPECT_TRUE(any_holds(report.warnings, "'assets/textures/paint.png' is left out by [package] exclude, and something in the package uses it"));
+    EXPECT_EQ(report.warnings.size(), 1);
+  }
+
+  TEST_F(project_compiler_tests, an_id_written_through_the_working_directory_is_given_the_mount_of_its_file) {
+    write_content();
+    /// as an editor started beside the project's folder used to save a scene
+    write("game/assets/scenes/main.oscn",
+          "[scene]\n"
+          "schema-version = 1\n"
+          "name = \"main\"\n"
+          "\n"
+          "[[objects]]\n"
+          "id = 1\n"
+          "name = \"Crate\"\n"
+          "[objects.components.render]\n"
+          "model_asset_id = \"cwd://game/assets/models/crate.obj\"\n"
+          "material_asset_id = \"cwd://game/assets/materials/crate.omat\"\n"
+          "[objects.components.audio-source]\n"
+          "clip_asset_id = \"game/assets/audio/thud.wav\"\n"
+          "\n"
+          "[[objects]]\n"
+          "id = 2\n"
+          "name = \"Gone\"\n"
+          "[objects.components.render]\n"
+          "model_asset_id = \"cwd://nowhere/gone.fbx\"\n");
+    const compile_report report = compile(settings());
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    const filepath game = report.package_root / "game";
+
+    const serialization::scene_parse_result packaged = serialization::load_scene_document(game / "assets/scenes/main.oscnb");
+    ASSERT_TRUE(packaged.success()) << packaged.error;
+    ostd::vector<std::string> ids;
+    for (const serialization::component_asset_ref& ref : serialization::collect_scene_asset_refs(*packaged.document)) {
+      ids.push_back(ref.path);
+    }
+    /// the two that lead to the project's files name its mount; one that was never through
+    ///  the working directory is as it was; one that leads nowhere is left, and said
+    EXPECT_EQ(ids, (ostd::vector<std::string>{
+                     "game://assets/models/crate.obj",
+                     "game://assets/materials/crate.omat",
+                     "game/assets/audio/thud.wav",
+                     "cwd://nowhere/gone.fbx",
+                   }));
+    EXPECT_TRUE(any_holds(report.warnings, "scene 'Main' names 'cwd://nowhere/gone.fbx' through the working directory"));
+    /// and what they lead to is in the package, with what the model and the material name
+    for (const std::string_view used : { "assets/models/crate.obj", "assets/models/crate-skin.png", "assets/materials/crate.omat", "assets/textures/paint.png", "assets/audio/thud.wav" }) {
+      EXPECT_TRUE(std::filesystem::is_regular_file(game / used)) << used;
+    }
+    /// the project's own scene is not rewritten
+    EXPECT_TRUE(read(project_folder / "assets/scenes/main.oscn").contains("cwd://game/assets/models/crate.obj"));
+  }
+
+  TEST_F(project_compiler_tests, keeping_everything_packages_the_project_as_it_is) {
+    write_content();
+    write("game/game.toml", std::format("{}\n[package]\nkeep = [ \"**\" ]\n", kProject));
+    const compile_report report = compile(settings());
+    ASSERT_TRUE(report.success) << (report.errors.empty() ? "" : report.errors.front());
+    EXPECT_TRUE(report.left_out.empty());
+    EXPECT_EQ(report.left_out_bytes, 0);
+    const filepath game = report.package_root / "game";
+    for (const std::string_view kept : { "assets/models/statue.fbx", "assets/textures/poster.png", "assets/materials/old.omat", "assets/scenes/cut.oscn", "assets/scenes/second.oscn" }) {
+      EXPECT_TRUE(std::filesystem::is_regular_file(game / kept)) << kept;
+    }
+  }
+
+  TEST_F(project_compiler_tests, a_package_pattern_that_cannot_be_read_is_refused_before_anything_is_written) {
+    const auto refused = [this](const std::string_view rules, const std::string_view reason) {
+      write("game/game.toml", std::format("{}\n[package]\n{}\n", kProject, rules));
+      const compile_report report = compile(settings());
+      EXPECT_FALSE(report.success) << rules;
+      EXPECT_TRUE(any_holds(report.errors, reason)) << rules << ": " << (report.errors.empty() ? "" : report.errors.front());
+      EXPECT_TRUE(nothing_was_written()) << rules;
+    };
+    refused("keep = [ 'assets\\audio' ]", "[package] keep has the pattern 'assets\\audio', which cannot be used: folders are separated by '/'");
+    refused("keep = [ \"/assets\" ]", "with no '/' at either end");
+    refused("exclude = [ \"assets/**.png\" ]", "[package] exclude has the pattern 'assets/**.png', which cannot be used: '**' has to be a whole folder name");
+    refused("exclude = [ \"assets//x\" ]", "it has an empty folder name");
+    refused("keep = [ \"assets/{a,b}\" ]", "braces and brackets are not supported");
+    refused("keep = [ \"\" ]", "it is empty");
+    refused("keep = \"assets/**\"", "[package] keep is a list of patterns");
+    refused("keep = [ 3 ]", "[package] keep holds something that is not a pattern in quotes");
   }
 
   /// the same project, compiled through a session on a real job system

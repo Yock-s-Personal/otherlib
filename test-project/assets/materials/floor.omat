@@ -6,3 +6,6 @@ name = "floor"
 [params]
 base_color = [0.2, 0.2, 0.2, 1.0]
 roughness = 0.5
+
+[textures]
+base_color = "../textures/floor.png"

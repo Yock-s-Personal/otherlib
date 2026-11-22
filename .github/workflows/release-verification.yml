@@ -10,7 +10,7 @@ on:
 jobs:
   ## a tag can only ship the version the sources declare (VERSION file, VERSIONING.md)
   version-gate:
-    runs-on: warp-windows-2025-vs2026-x64-16x
+    runs-on: Other-Environment-Tester
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
 
   package:
     needs: extensive-tests
-    runs-on: warp-windows-2025-vs2026-x64-16x
+    runs-on: Other-Environment-Tester
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4

@@ -6,6 +6,7 @@
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
 
+#include "dotnet/dotnet_object.hpp"
 #include "script/script_object.hpp"
 
 namespace other {
@@ -34,7 +35,16 @@ namespace other {
     };
     static_assert(std::size(kCallbackNames) == static_cast<size_t>(behavior_callback::NUM_CALLBACKS), "a name for every behaviour callback");
 
-    /// a behavior's slot is labelled after its parent, so a rename has to rebuild it
+    /// what the runtime calls to turn an object id into an object: context is the resolver
+    void* resolve_object(void* context, uint64_t object_id) {
+      const auto* resolve = static_cast<const behavior_object_resolver*>(context);
+      return (*resolve)(object_id);
+    }
+
+    /// what a capture is given to write into before its size is known
+    constexpr size_t kFieldStreamGuess = 1024;
+
+    /// a behavior's managed object is named after its parent, so a rename has to rename it
     std::string behavior_object_name(const std::string_view parent_name, const std::string_view behavior_name) {
       return std::format("{}__behavior__{}", parent_name, behavior_name);
     }
@@ -134,8 +144,7 @@ namespace other {
     script_object* obj = get_object(id);
     OTHER_ASSERT(obj != nullptr, "Script object with ID {} does not exist.", id);
 
-    /// behaviors own their managed objects; destroyed with their parent so managed names are
-    ///  released for reuse (scene teardown only destroys the parent's slot)
+    /// behaviors go with their parent, so their managed objects' names are free for reuse
     for (size_t i = obj->behavior_handles.size(); i-- > 0;) {
       retire_behavior(obj, i);
     }
@@ -214,17 +223,8 @@ namespace other {
     }
 
     for (const script_object::behavior_handle& handle : obj->behavior_handles) {
-      if (handle.script_object_id < 0) {
-        continue;
-      }
-
-      script_object* behavior = get_object(handle.script_object_id);
-      if (behavior == nullptr) {
-        continue;
-      }
-      behavior->name = behavior_object_name(obj->name, handle.type_name);
-      if (behavior->dotnet_object != nullptr) {
-        behavior->dotnet_object->object_name = behavior->name;
+      if (handle.managed != nullptr) {
+        handle.managed->object_name = behavior_object_name(obj->name, handle.type_name);
       }
     }
   }
@@ -334,7 +334,7 @@ namespace other {
       return handle.type_name == behavior_name;
     });
     if (existing != parent->behavior_handles.end()) {
-      CORE_LOG_DEBUG("[script {}] behavior '{}' already attached with script_object ID {}", parent_id, behavior_name, existing->script_object_id);
+      CORE_LOG_DEBUG("[script {}] behavior '{}' already attached", parent_id, behavior_name);
       return;
     }
 
@@ -349,7 +349,7 @@ namespace other {
       return;
     }
 
-    CORE_LOG_DEBUG("[script {}] behavior '{}' attached with script_object ID {}", parent_id, behavior_name, parent->behavior_handles.back().script_object_id);
+    CORE_LOG_DEBUG("[script {}] behavior '{}' attached", parent_id, behavior_name);
     if (awake_deferrals > 0) {
       waiting_to_wake.push_back(parent_id);
     } else {
@@ -365,28 +365,20 @@ namespace other {
       return false;
     }
 
-    /// create a script_object slot for this behavior so we have a native-side handle
-    std::string behavior_obj_name = behavior_object_name(parent->name, handle.type_name);
-    integer_t behavior_script_id = create_object(behavior_obj_name);
-
-    dotnet_object* behavior_dotnet_obj = dotnet.instantiate_managed_object(handle.type_name, behavior_obj_name);
+    dotnet_object* behavior_dotnet_obj = dotnet.instantiate_managed_object(handle.type_name, behavior_object_name(parent->name, handle.type_name));
     if (behavior_dotnet_obj == nullptr) {
-      CORE_LOG_ERROR("Failed to instantiate .NET behavior object of type '{}' for script object with ID {}", handle.type_name, behavior_script_id);
-      destroy_object(behavior_script_id);
+      CORE_LOG_ERROR("Failed to instantiate .NET behavior object of type '{}' for '{}'", handle.type_name, parent->name);
       return false;
     }
-
-    /// the slot owns the managed object so destroy_object releases it with the parent
-    get_object(behavior_script_id)->dotnet_object = behavior_dotnet_obj;
 
     uint32_t callbacks = 0;
     if (!runtime->attach(parent->dotnet_object->managed_object, behavior_dotnet_obj->managed_object, handle.type_name.c_str(), &callbacks)) {
       CORE_LOG_ERROR("'{}' is not a behavior: it was not attached to '{}'.", handle.type_name, parent->name);
-      destroy_object(behavior_script_id);
+      dotnet.destroy_managed_object(behavior_dotnet_obj);
       return false;
     }
 
-    handle.script_object_id = behavior_script_id;
+    handle.managed = behavior_dotnet_obj;
     handle.instance = behavior_dotnet_obj->managed_object;
     handle.callbacks = callbacks;
     handle.awake = false;
@@ -489,15 +481,15 @@ namespace other {
     if (const behavior_runtime* runtime = get_behavior_runtime(); runtime != nullptr && parent->dotnet_object != nullptr) {
       runtime->detach(parent->dotnet_object->managed_object, instance);
     }
-    const integer_t slot = handle.script_object_id;
-    handle.script_object_id = -1;
+    dotnet_object* const managed = handle.managed;
+    handle.managed = nullptr;
     handle.instance = nullptr;
     handle.callbacks = 0;
     handle.awake = false;
     handle.running = false;
     handle.started = false;
-    if (slot >= 0) {
-      destroy_object(slot);
+    if (managed != nullptr) {
+      dotnet.destroy_managed_object(managed);
     }
   }
 
@@ -606,6 +598,111 @@ namespace other {
     }
   }
 
+  ostd::vector<uint8_t> scripting_environment::capture_fields(const script_object::behavior_handle& handle) {
+    const behavior_runtime* runtime = get_behavior_runtime();
+    if (runtime == nullptr || runtime->capture == nullptr || handle.instance == nullptr) {
+      return handle.fields;
+    }
+    PROFILE_SECTION("scripting_environment::capture_fields");
+
+    ostd::vector<uint8_t> stream(kFieldStreamGuess);
+    int32_t size = runtime->capture(handle.instance, stream.data(), static_cast<int32_t>(stream.size()));
+    if (size > static_cast<int32_t>(stream.size())) {
+      stream.resize(static_cast<size_t>(size));
+      size = runtime->capture(handle.instance, stream.data(), static_cast<int32_t>(stream.size()));
+    }
+    stream.resize(size > 0 && size <= static_cast<int32_t>(stream.size()) ? static_cast<size_t>(size) : 0);
+    return stream;
+  }
+
+  void scripting_environment::apply_fields(const script_object::behavior_handle& handle, std::span<const uint8_t> stream, const behavior_object_resolver& resolve) {
+    const behavior_runtime* runtime = get_behavior_runtime();
+    if (runtime == nullptr || runtime->apply == nullptr || handle.instance == nullptr || stream.empty()) {
+      return;
+    }
+    PROFILE_SECTION("scripting_environment::apply_fields");
+
+    const behavior_object_resolver& used = resolve != nullptr ? resolve : object_resolver;
+    if (used != nullptr) {
+      runtime->apply(handle.instance, stream.data(), static_cast<int32_t>(stream.size()), &resolve_object, const_cast<behavior_object_resolver*>(&used));
+    } else {
+      runtime->apply(handle.instance, stream.data(), static_cast<int32_t>(stream.size()), nullptr, nullptr);
+    }
+  }
+
+  ostd::vector<uint8_t> scripting_environment::capture_behavior_fields(integer_t parent_id, const std::string_view behavior_name) {
+    script_object* parent = get_object(parent_id);
+    if (parent == nullptr) {
+      return {};
+    }
+
+    const auto found = std::ranges::find(parent->behavior_handles, behavior_name, &script_object::behavior_handle::type_name);
+    return found != parent->behavior_handles.end() ? capture_fields(*found) : ostd::vector<uint8_t>{};
+  }
+
+  void scripting_environment::apply_behavior_fields(integer_t parent_id, const std::string_view behavior_name, std::span<const uint8_t> stream, const behavior_object_resolver& resolve) {
+    script_object* parent = get_object(parent_id);
+    if (parent == nullptr) {
+      return;
+    }
+
+    const auto found = std::ranges::find(parent->behavior_handles, behavior_name, &script_object::behavior_handle::type_name);
+    if (found == parent->behavior_handles.end()) {
+      return;
+    }
+    /// no instance to give them to: kept, so a save writes them back and a rebuild that
+    ///  brings the type applies them
+    if (found->instance == nullptr) {
+      found->fields.assign(stream.begin(), stream.end());
+      return;
+    }
+    apply_fields(*found, stream, resolve);
+  }
+
+  const ostd::vector<behavior_field_description>& scripting_environment::describe_behavior(integer_t parent_id, const std::string_view behavior_name) {
+    static const ostd::vector<behavior_field_description> kNone = {};
+    script_object* parent = get_object(parent_id);
+    const behavior_runtime* runtime = get_behavior_runtime();
+    if (parent == nullptr || runtime == nullptr || runtime->describe == nullptr) {
+      return kNone;
+    }
+
+    const auto handle = std::ranges::find(parent->behavior_handles, behavior_name, &script_object::behavior_handle::type_name);
+    if (handle == parent->behavior_handles.end() || handle->instance == nullptr) {
+      return kNone;
+    }
+    if (const auto known = descriptions.find(handle->type_name); known != descriptions.end()) {
+      return known->second;
+    }
+    PROFILE_SECTION("scripting_environment::describe_behavior");
+
+    ostd::vector<uint8_t> stream(kFieldStreamGuess);
+    int32_t size = runtime->describe(handle->instance, stream.data(), static_cast<int32_t>(stream.size()));
+    if (size > static_cast<int32_t>(stream.size())) {
+      stream.resize(static_cast<size_t>(size));
+      size = runtime->describe(handle->instance, stream.data(), static_cast<int32_t>(stream.size()));
+    }
+    stream.resize(size > 0 && size <= static_cast<int32_t>(stream.size()) ? static_cast<size_t>(size) : 0);
+
+    ostd::vector<behavior_field_description>& described = descriptions[handle->type_name];
+    if (!behavior_fields::read_description(stream, described)) {
+      CORE_LOG_ERROR("What the fields of the behavior '{}' are could not be read.", handle->type_name);
+    }
+    return described;
+  }
+
+  void scripting_environment::set_behavior_object_resolver(behavior_object_resolver resolve) {
+    object_resolver = std::move(resolve);
+  }
+
+  void* scripting_environment::get_object_instance(integer_t id) {
+    if (id < 0 || static_cast<size_t>(id) >= kMaxScriptObjects || live_objects[id].status != live_script_object::LIVE) {
+      return nullptr;
+    }
+    const script_object* obj = get_object(id);
+    return obj != nullptr && obj->dotnet_object != nullptr ? obj->dotnet_object->managed_object : nullptr;
+  }
+
   void scripting_environment::detach_dotnet_behavior(integer_t parent_id, const std::string_view behavior_name) {
     PROFILE_SECTION("scripting_environment::detach_dotnet_behavior");
 
@@ -647,6 +744,27 @@ namespace other {
     parent->behavior_handles.clear();
   }
 
+  void scripting_environment::keep_dotnet_behavior_fields(int32_t dotnet_type_id) {
+    PROFILE_SECTION("scripting_environment::keep_dotnet_behavior_fields");
+    const dotnet_type* kept_type = dotnet.get_type_cache()->get_type(dotnet_type_id);
+    if (kept_type == nullptr) {
+      return;
+    }
+
+    const std::string type_class_name = kept_type->class_name();
+    const std::string type_full_name = kept_type->full_name();
+    for (auto& live_obj : live_objects) {
+      if (live_obj.status != live_script_object::LIVE || live_obj.object == nullptr) {
+        continue;
+      }
+      for (script_object::behavior_handle& handle : live_obj.object->behavior_handles) {
+        if (handle.instance != nullptr && (handle.type_name == type_class_name || handle.type_name == type_full_name)) {
+          handle.fields = capture_fields(handle);
+        }
+      }
+    }
+  }
+
   void scripting_environment::invalidate_dotnet_script_objects_of_type(int32_t dotnet_type_id) {
     PROFILE_SECTION("scripting_environment::invalidate_dotnet_script_objects_of_type");
     CORE_LOG_DEBUG("Invalidating script objects with .NET type ID {}", dotnet_type_id);
@@ -656,6 +774,9 @@ namespace other {
     if (dotnet_type* invalidated_type = dotnet.get_type_cache()->get_type(dotnet_type_id); invalidated_type != nullptr) {
       const std::string type_class_name = invalidated_type->class_name();
       const std::string type_full_name = invalidated_type->full_name();
+      /// the next build's type may have other fields
+      descriptions.erase(type_class_name);
+      descriptions.erase(type_full_name);
       for (auto& live_obj : live_objects) {
         if (live_obj.status != live_script_object::LIVE || live_obj.object == nullptr) {
           continue;
@@ -668,7 +789,7 @@ namespace other {
 
         for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
           const script_object::behavior_handle& handle = parent->behavior_handles[i];
-          if (handle.script_object_id < 0 || (handle.type_name != type_class_name && handle.type_name != type_full_name)) {
+          if (handle.instance == nullptr || (handle.type_name != type_class_name && handle.type_name != type_full_name)) {
             continue;
           }
 
@@ -685,11 +806,7 @@ namespace other {
           continue;
         }
 
-        // check if behavior and remove behavior if it matches the type being invalidated
-        if (obj->dotnet_object->is_behavior() && obj->dotnet_object->dn_type->dotnet_id == dotnet_type_id) {
-          CORE_LOG_DEBUG(" - invalidating behavior script object [{}:{}] with ID {} due to matching .NET type ID {}", obj->name, obj->id, obj->id, dotnet_type_id);
-          destroy_object(obj->id);
-        } else if (obj->dotnet_object->dn_type->dotnet_id == dotnet_type_id) {
+        if (obj->dotnet_object->dn_type->dotnet_id == dotnet_type_id) {
           CORE_LOG_DEBUG(" - invalidating script object [{}:{}] with ID {} due to matching .NET type ID {}", obj->name, obj->id, obj->id, dotnet_type_id);
           detach_dotnet_object(obj->id);
         }
@@ -700,6 +817,13 @@ namespace other {
   void scripting_environment::reattach_invalidated_dotnet_behaviors() {
     PROFILE_SECTION("scripting_environment::reattach_invalidated_dotnet_behaviors");
 
+    /// every instance is made before any is given its fields, since a field may hold
+    ///  another object's behavior; and each has its fields before it is told it is awake
+    struct remade_behavior {
+      integer_t parent_id = -1;
+      std::string type_name;
+    };
+    ostd::vector<remade_behavior> remade = {};
     for (auto& live_obj : live_objects) {
       if (live_obj.status != live_script_object::LIVE || live_obj.object == nullptr) {
         continue;
@@ -711,7 +835,7 @@ namespace other {
       }
 
       for (size_t i = 0; i < parent->behavior_handles.size(); ++i) {
-        if (parent->behavior_handles[i].script_object_id >= 0) {
+        if (parent->behavior_handles[i].instance != nullptr) {
           continue;
         }
 
@@ -719,8 +843,28 @@ namespace other {
         /// failure leaves the handle without an instance so the next assembly refresh retries
         ///  it (e.g. the behavior class was removed from this build of the assembly)
         if (instantiate_dotnet_behavior(parent, parent->behavior_handles[i])) {
-          wake_behavior(parent, i);
+          remade.push_back({ .parent_id = parent->id, .type_name = parent->behavior_handles[i].type_name });
         }
+      }
+    }
+
+    for (const remade_behavior& made : remade) {
+      script_object* parent = get_object(made.parent_id);
+      const auto found = std::ranges::find(parent->behavior_handles, made.type_name, &script_object::behavior_handle::type_name);
+      if (found != parent->behavior_handles.end() && found->instance != nullptr) {
+        apply_fields(*found, found->fields, nullptr);
+        found->fields.clear();
+      }
+    }
+
+    for (const remade_behavior& made : remade) {
+      if (live_objects[made.parent_id].status != live_script_object::LIVE) {
+        continue;
+      }
+      script_object* parent = get_object(made.parent_id);
+      const auto found = std::ranges::find(parent->behavior_handles, made.type_name, &script_object::behavior_handle::type_name);
+      if (found != parent->behavior_handles.end()) {
+        wake_behavior(parent, static_cast<size_t>(found - parent->behavior_handles.begin()));
       }
     }
   }

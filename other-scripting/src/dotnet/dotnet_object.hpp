@@ -15,7 +15,6 @@
 #include "core/value_type_size.hpp"
 #include "memory/arena.hpp"
 
-#include "dotnet/behavior_descriptor.hpp"
 #include "dotnet/dotnet_field.hpp"
 #include "dotnet/dotnet_type.hpp"
 #include "dotnet/types.hpp"
@@ -44,11 +43,6 @@ namespace other {
 
     bool has_attribute(const std::string_view attr_name);
     ostd::vector<std::string> get_attribute_names() const;
-
-    ostd::vector<uint8_t> serialize_to_bytes();
-    void load_from_bytes(const std::span<const uint8_t> buffer);
-
-    ostd::vector<uint8_t> serialize_field_to_bytes(const std::string_view name);
 
     template <typename T>
     T get_attribute(const std::string_view attr_name, const std::string_view field_name) {

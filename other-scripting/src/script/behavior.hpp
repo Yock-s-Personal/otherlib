@@ -8,6 +8,7 @@
 #define OTHER_SCRIPTING_SCRIPT_BEHAVIOR_HPP
 
 #include <cstdint>
+#include <functional>
 
 #include "core/defines.hpp"
 
@@ -61,7 +62,21 @@ namespace other {
     nbool32 (*call)(void* instance, int32_t callback, const void* data) = nullptr;
     /// the instance's own copy of the switch, which is the one a script reads
     void (*set_enabled)(void* instance, nbool32 enabled) = nullptr;
+
+    /// the instance's saved fields as a stream (behavior_fields.hpp). returns the stream's
+    ///  size and writes it only when it fits in capacity
+    int32_t (*capture)(void* instance, uint8_t* out_bytes, int32_t capacity) = nullptr;
+    /// each field of the stream the instance still has is given its value; the others are
+    ///  left. resolve gives the runtime's handle to a scene object from its id, null for
+    ///  none; it may itself be null, and then a field that names an object is left
+    void (*apply)(void* instance, const uint8_t* bytes, int32_t size, void* (*resolve)(void* context, uint64_t object_id), void* context) = nullptr;
+    /// what the saved fields of the instance's type are, for whoever draws them, as a
+    ///  stream of structs (behavior_field_description). sized as capture is
+    int32_t (*describe)(void* instance, uint8_t* out_bytes, int32_t capacity) = nullptr;
   };
+
+  /// the runtime's handle to a scene object from its id; null when there is no such object
+  using behavior_object_resolver = std::function<void*(natural_t object_id)>;
 
   /// null takes the runtime away: behaviours are then kept by name and not run
   void set_behavior_runtime(const behavior_runtime* runtime);

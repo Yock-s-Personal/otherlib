@@ -51,6 +51,10 @@ namespace other {
       std::function<bool(scene&, scene_object*)> has = nullptr;
       std::function<ostd::vector<uint8_t>(scene&, scene_object*, const codec_services&)> capture = nullptr;
       std::function<void(scene&, scene_object*, std::span<const uint8_t>, const codec_services&)> apply = nullptr;
+      /// called for each object after every object of a document has been made and applied,
+      ///  with the map from the document's ids to the objects made: what a payload says about
+      ///  another object can only be applied then. null for codecs that hold no such thing
+      std::function<void(scene&, scene_object*, std::span<const uint8_t>, const codec_services&, const ostd::map<natural_t, natural_t>&)> finish = nullptr;
 
       /// document-level, engine-free (cli safe); table_path is the dotted path of the
       /// component's own table (e.g. "objects.components.camera") for nested sub-tables

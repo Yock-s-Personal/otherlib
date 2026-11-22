@@ -162,6 +162,10 @@ namespace other {
     auto* env = subsystem<scripting_environment>::get();
     OTHER_ASSERT(env != nullptr, "Scripting environment subsystem is not initialized.");
 
+    for (auto* type : itr->second->types) {
+      env->keep_dotnet_behavior_fields(type->dotnet_id);
+    }
+
     /// remove types from type cache
     for (auto* type : itr->second->types) {
       env->invalidate_dotnet_script_objects_of_type(type->dotnet_id);

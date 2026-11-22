@@ -13,20 +13,33 @@
 namespace other {
   namespace {
 
+    /// a segment in double quotes is one key whatever it holds, dots too. its quotes are not
+    ///  part of the key; it may not hold a quote or a backslash itself
     ostd::vector<std::string> split_dotted_path(std::string_view dotted_path) {
       OTHER_ASSERT(!dotted_path.empty(), "empty toml table path");
       OTHER_ASSERT(dotted_path.front() != '.' && dotted_path.back() != '.', "malformed toml table path '{}'", dotted_path);
       ostd::vector<std::string> segments;
       size_t start = 0;
       while (start <= dotted_path.size()) {
-        const size_t dot = dotted_path.find('.', start);
-        const std::string_view segment = dotted_path.substr(start, dot == std::string_view::npos ? std::string_view::npos : dot - start);
+        size_t end = 0;
+        std::string_view segment = {};
+        if (start < dotted_path.size() && dotted_path[start] == '"') {
+          const size_t close = dotted_path.find('"', start + 1);
+          OTHER_ASSERT(close != std::string_view::npos, "unclosed quote in toml table path '{}'", dotted_path);
+          segment = dotted_path.substr(start + 1, close - start - 1);
+          end = close + 1;
+          OTHER_ASSERT(end == dotted_path.size() || dotted_path[end] == '.', "malformed toml table path '{}'", dotted_path);
+        } else {
+          const size_t dot = dotted_path.find('.', start);
+          end = dot == std::string_view::npos ? dotted_path.size() : dot;
+          segment = dotted_path.substr(start, end - start);
+        }
         OTHER_ASSERT(!segment.empty(), "malformed toml table path '{}'", dotted_path);
         segments.emplace_back(segment);
-        if (dot == std::string_view::npos) {
+        if (end >= dotted_path.size()) {
           break;
         }
-        start = dot + 1;
+        start = end + 1;
       }
       return segments;
     }
@@ -117,6 +130,14 @@ namespace other {
 
   toml_writer::toml_writer(toml_format_options options)
       : options(options) {}
+
+  std::string toml_writer::path_segment(std::string_view key_name) {
+    if (is_bare_key(key_name)) {
+      return std::string{ key_name };
+    }
+    OTHER_ASSERT(key_name.find_first_of("\"\\") == std::string_view::npos, "toml table path segment '{}' holds a quote or a backslash", key_name);
+    return std::format("\"{}\"", key_name);
+  }
 
   toml_writer& toml_writer::comment(std::string_view text_line) {
     OTHER_ASSERT(!finalized, "toml_writer used after finalize");

@@ -52,6 +52,9 @@ namespace json = nlohmann;
 
 namespace other {
 
+  template <typename Mutex>
+  class console_sink;
+
   class driver_thread;
   struct asset;
 
@@ -321,6 +324,9 @@ namespace other {
 
     config_table config;
     command_line cmd_line;
+
+    /// the logger's own, which outlives this driver
+    console_sink<std::mutex>* console_log_sink = nullptr;
 
     metadata driver_metadata;
     scope<driver_kernel> driver_kernel_ptr = nullptr;

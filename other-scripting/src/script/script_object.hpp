@@ -8,8 +8,6 @@
 
 #include "core/defines.hpp"
 
-#include "dotnet/behavior_descriptor.hpp"
-
 namespace other {
 
   class dotnet_object;
@@ -32,10 +30,10 @@ namespace other {
     struct behavior_handle {
       /// what a scene file calls it
       std::string type_name;
-      /// the slot that owns its managed object. -1 while it could not be made: the name is
-      ///  kept, and a rebuild of the scripts tries again
-      integer_t script_object_id = -1;
-      /// the runtime's handle to it; null with the slot
+      /// the engine's hold on its managed object. null while it could not be made: the name
+      ///  is kept, and a rebuild of the scripts tries again
+      other::dotnet_object* managed = nullptr;
+      /// the runtime's handle to it; null as managed is
       void* instance = nullptr;
       /// one bit for each callback its type has written: the others are never called
       uint32_t callbacks = 0;
@@ -48,12 +46,14 @@ namespace other {
       bool running = false;
       /// it has been told to start since it last began running
       bool started = false;
+
+      /// its saved fields while there is no instance to ask: the type is missing, or the
+      ///  scripts are being rebuilt. given to the instance when there is one
+      ostd::vector<uint8_t> fields;
     };
     ostd::vector<behavior_handle> behavior_handles;
     /// the scene this object is in is playing
     bool playing = false;
-
-    behavior_snapshot get_behavior_snapshot() const;
   };
 
 }  // namespace other

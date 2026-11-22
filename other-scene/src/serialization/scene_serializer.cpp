@@ -111,6 +111,21 @@ namespace other {
           }
         }
 
+        /// what refers to another object of the document waits until all of them exist
+        for (const object_record& record : doc.objects) {
+          const auto made = id_remap.find(record.file_id);
+          scene_object* object = made != id_remap.end() ? s.find_object(made->second) : nullptr;
+          if (object == nullptr) {
+            continue;
+          }
+          for (const component_record& component : record.components) {
+            const component_codec* codec = find_component_codec(component.key_hash);
+            if (codec != nullptr && codec->finish != nullptr) {
+              codec->finish(s, object, component.payload, services, id_remap);
+            }
+          }
+        }
+
         if (script_env != nullptr) {
           script_env->defer_behavior_awake(false);
         }

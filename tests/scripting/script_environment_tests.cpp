@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "dotnet/dotnet_object.hpp"
+#include "script/behavior_fields.hpp"
 
 #include "gtest/gtest.h"
 
@@ -64,7 +65,7 @@ namespace other {
 
     EXPECT_NO_FATAL_FAILURE(env->attach_dotnet_behavior(parent_id, "TestBehavior"));
     ASSERT_EQ(parent->behavior_handles.size(), 1u);
-    EXPECT_GE(parent->behavior_handles[0].script_object_id, 0);
+    EXPECT_NE(parent->behavior_handles[0].instance, nullptr);
     EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 1);
 
     dotnet_type* behavior_type = env->get_dotnet_host().get_type_cache()->get_type("TestBehavior");
@@ -75,13 +76,13 @@ namespace other {
     EXPECT_NO_FATAL_FAILURE(env->get_dotnet_host().purge_dotnet_type(behavior_type->dotnet_id));
 
     ASSERT_EQ(parent->behavior_handles.size(), 1u);
-    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+    EXPECT_EQ(parent->behavior_handles[0].instance, nullptr);
     EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 0);
 
     /// reload half
     EXPECT_NO_FATAL_FAILURE(env->reattach_invalidated_dotnet_behaviors());
     ASSERT_EQ(parent->behavior_handles.size(), 1u);
-    EXPECT_GE(parent->behavior_handles[0].script_object_id, 0);
+    EXPECT_NE(parent->behavior_handles[0].instance, nullptr);
     EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 1);
 
     EXPECT_NO_FATAL_FAILURE(env->detach_all_dotnet_behaviors(parent_id));
@@ -89,89 +90,72 @@ namespace other {
     EXPECT_NO_FATAL_FAILURE(env->destroy_object(parent_id));
   }
 
-  /// managed-reflection pipeline behind the behavior inspector: GetFields/GetProperties must
-  ///  enumerate public members (BindingFlags regression); snapshot walks each behavior's own type
-  TEST_F(script_environment_tests, behavior_snapshot_lists_fields_and_roundtrips) {
+  /// what the behavior inspector draws from: the runtime says what a type's saved fields
+  ///  are, and their values go out and come back as a stream
+  TEST_F(script_environment_tests, behavior_description_lists_fields_and_values_roundtrip) {
     auto* env = subsystem<scripting_environment>::get();
     ASSERT_NE(env, nullptr);
 
     integer_t parent_id = -1;
-    EXPECT_NO_FATAL_FAILURE(parent_id = env->create_object("SnapshotFieldsParent"));
+    EXPECT_NO_FATAL_FAILURE(parent_id = env->create_object("DescribedFieldsParent"));
     ASSERT_GE(parent_id, 0);
     EXPECT_NO_FATAL_FAILURE(env->attach_dotnet_object(parent_id, "TestParentObject"));
-
-    script_object* parent = env->get_object(parent_id);
-    ASSERT_NE(parent, nullptr);
-    ASSERT_NE(parent->dotnet_object, nullptr);
     EXPECT_NO_FATAL_FAILURE(env->attach_dotnet_behavior(parent_id, "TestBehavior"));
 
-    behavior_snapshot snapshot = parent->get_behavior_snapshot();
-    ASSERT_TRUE(snapshot.valid);
-    ASSERT_EQ(snapshot.behaviors.size(), 1u);
+    const ostd::vector<behavior_field_description>& described = env->describe_behavior(parent_id, "TestBehavior");
+    const auto kind_of = [&described](const std::string_view name) -> behavior_field_kind {
+      const auto found = std::ranges::find(described, name, &behavior_field_description::name);
+      return found != described.end() ? found->kind : behavior_field_kind::NONE;
+    };
+    EXPECT_EQ(described.size(), 4u);
+    EXPECT_EQ(kind_of("speed"), behavior_field_kind::FLOAT);
+    EXPECT_EQ(kind_of("counter"), behavior_field_kind::INT32);
+    EXPECT_EQ(kind_of("active"), behavior_field_kind::BOOL);
+    EXPECT_EQ(kind_of("label"), behavior_field_kind::TEXT);
+    /// asked once for a type: the same list is handed back
+    EXPECT_EQ(&env->describe_behavior(parent_id, "TestBehavior"), &described);
+    EXPECT_TRUE(env->describe_behavior(parent_id, "NoSuchBehavior").empty());
 
-    const behavior_descriptor& behavior = snapshot.behaviors[0];
-    EXPECT_EQ(behavior.display_name, "TestBehavior");
-    ASSERT_GE(behavior.script_object_id, 0);
-
-    auto find_field = [&](std::string_view name) -> const behavior_field_descriptor* {
-      for (const auto& f : behavior.fields) {
-        if (f.field_name == name) {
-          return &f;
-        }
+    ostd::vector<uint8_t> stream = {};
+    ostd::vector<behavior_fields::field> fields = {};
+    const auto field = [&](const std::string_view name) -> const behavior_fields::field* {
+      stream = env->capture_behavior_fields(parent_id, "TestBehavior");
+      if (!behavior_fields::read(stream, fields)) {
+        return nullptr;
       }
-      return nullptr;
+      const auto found = std::ranges::find(fields, name, &behavior_fields::field::name);
+      return found != fields.end() ? &*found : nullptr;
     };
 
-    const behavior_field_descriptor* speed = find_field("speed");
-    ASSERT_NE(speed, nullptr);
-    EXPECT_EQ(speed->type, value_type::FLOAT);
-    const behavior_field_descriptor* counter = find_field("counter");
-    ASSERT_NE(counter, nullptr);
-    EXPECT_EQ(counter->type, value_type::INT32);
-    const behavior_field_descriptor* active = find_field("active");
-    ASSERT_NE(active, nullptr);
-    EXPECT_EQ(active->type, value_type::OEBOOL);
-    const behavior_field_descriptor* label = find_field("label");
-    ASSERT_NE(label, nullptr);
-    EXPECT_EQ(label->type, value_type::STRING);
+    float speed = 0.f;
+    ASSERT_NE(field("speed"), nullptr);
+    EXPECT_TRUE(field("speed")->value(speed));
+    EXPECT_FLOAT_EQ(speed, 2.5f);
+    EXPECT_EQ(field("label")->text(), "steady");
 
-    script_object* behavior_obj = env->get_object(behavior.script_object_id);
-    ASSERT_NE(behavior_obj, nullptr);
-    ASSERT_NE(behavior_obj->dotnet_object, nullptr);
+    /// one field given a value, as the inspector does it: the others are left
+    behavior_fields::writer edit = {};
+    edit.add_value<float>("speed", behavior_field_kind::FLOAT, 11.25f);
+    env->apply_behavior_fields(parent_id, "TestBehavior", edit.take());
+    EXPECT_TRUE(field("speed")->value(speed));
+    EXPECT_FLOAT_EQ(speed, 11.25f);
+    EXPECT_EQ(field("label")->text(), "steady");
+    int32_t counter = 0;
+    EXPECT_TRUE(field("counter")->value(counter));
+    EXPECT_EQ(counter, 7);
 
-    float speed_val = 0.f;
-    EXPECT_EQ(behavior_obj->dotnet_object->read_field_value("speed", &speed_val, sizeof(speed_val)), (int32_t)sizeof(float));
-    EXPECT_FLOAT_EQ(speed_val, 2.5f);
-
-    const float new_speed = 11.25f;
-    EXPECT_TRUE(behavior_obj->dotnet_object->write_field_value("speed", &new_speed, sizeof(new_speed)));
-    speed_val = 0.f;
-    behavior_obj->dotnet_object->read_field_value("speed", &speed_val, sizeof(speed_val));
-    EXPECT_FLOAT_EQ(speed_val, 11.25f);
-
-    char text[64] = {};
-    int32_t text_len = behavior_obj->dotnet_object->read_field_value("label", text, sizeof(text));
-    EXPECT_EQ(std::string(text), "steady");
-    EXPECT_EQ(text_len, (int32_t)std::string("steady").size() + 1);
-
-    /// shrink then grow, the storage block reuse path both ways
-    const char* short_label = "ok";
-    EXPECT_TRUE(behavior_obj->dotnet_object->write_field_value("label", short_label, (int32_t)std::strlen(short_label) + 1));
-    std::memset(text, 0, sizeof(text));
-    behavior_obj->dotnet_object->read_field_value("label", text, sizeof(text));
-    EXPECT_EQ(std::string(text), "ok");
-
-    const char* long_label = "a longer label than before";
-    EXPECT_TRUE(behavior_obj->dotnet_object->write_field_value("label", long_label, (int32_t)std::strlen(long_label) + 1));
-    std::memset(text, 0, sizeof(text));
-    behavior_obj->dotnet_object->read_field_value("label", text, sizeof(text));
-    EXPECT_EQ(std::string(text), long_label);
+    /// text shorter, then longer, than what was there
+    for (const std::string_view label : { std::string_view{ "ok" }, std::string_view{ "a longer label than before" } }) {
+      edit.add_text("label", behavior_field_kind::TEXT, label);
+      env->apply_behavior_fields(parent_id, "TestBehavior", edit.take());
+      EXPECT_EQ(field("label")->text(), label);
+    }
 
     EXPECT_NO_FATAL_FAILURE(env->destroy_object(parent_id));
   }
 
-  /// snapshot restore (undo/redo, play/stop) destroys the parent slot and rebuilds it; behavior
-  ///  slots must release with it or every rebuild leaks a managed object
+  /// snapshot restore (undo/redo, play/stop) destroys the parent slot and rebuilds it; its
+  ///  behaviors' managed objects must go with it or every rebuild leaks one
   TEST_F(script_environment_tests, destroy_parent_releases_behaviors_for_rebuild) {
     auto* env = subsystem<scripting_environment>::get();
     ASSERT_NE(env, nullptr);
@@ -190,11 +174,7 @@ namespace other {
       EXPECT_NO_FATAL_FAILURE(env->attach_dotnet_behavior(parent_id, "TestBehavior"));
       ASSERT_EQ(parent->behavior_handles.size(), 1u) << "cycle " << cycle;
 
-      const integer_t behavior_id = parent->behavior_handles[0].script_object_id;
-      ASSERT_GE(behavior_id, 0) << "cycle " << cycle;
-      script_object* behavior = env->get_object(behavior_id);
-      ASSERT_NE(behavior, nullptr);
-      EXPECT_NE(behavior->dotnet_object, nullptr) << "behavior slot should own its managed object";
+      EXPECT_NE(parent->behavior_handles[0].managed, nullptr) << "cycle " << cycle;
       EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 1);
 
       /// scene teardown destroys only the parent's slot
@@ -287,7 +267,7 @@ namespace other {
     env->attach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
     ASSERT_EQ(parent->behavior_handles.size(), 1u);
     EXPECT_EQ(parent->behavior_handles[0].type_name, "NoSuchBehaviorType");
-    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+    EXPECT_EQ(parent->behavior_handles[0].instance, nullptr);
     EXPECT_EQ(parent->dotnet_object->invoke<int>("CountBehaviors"), 0);
 
     /// attach stays idempotent per type, and a refresh that still lacks the type changes nothing
@@ -295,12 +275,12 @@ namespace other {
     EXPECT_EQ(parent->behavior_handles.size(), 1u);
     env->reattach_invalidated_dotnet_behaviors();
     ASSERT_EQ(parent->behavior_handles.size(), 1u);
-    EXPECT_EQ(parent->behavior_handles[0].script_object_id, -1);
+    EXPECT_EQ(parent->behavior_handles[0].instance, nullptr);
 
     /// a type that exists attaches beside it and the unresolved one can still be removed
     env->attach_dotnet_behavior(parent_id, "TestBehavior");
     ASSERT_EQ(parent->behavior_handles.size(), 2u);
-    EXPECT_GE(parent->behavior_handles[1].script_object_id, 0);
+    EXPECT_NE(parent->behavior_handles[1].instance, nullptr);
 
     env->detach_dotnet_behavior(parent_id, "NoSuchBehaviorType");
     ASSERT_EQ(parent->behavior_handles.size(), 1u);
@@ -324,10 +304,9 @@ namespace other {
     ASSERT_NE(obj, nullptr);
     ASSERT_NE(obj->dotnet_object, nullptr);
     ASSERT_EQ(obj->behavior_handles.size(), 1u);
-    script_object* behavior = env->get_object(obj->behavior_handles[0].script_object_id);
+    const dotnet_object* behavior = obj->behavior_handles[0].managed;
     ASSERT_NE(behavior, nullptr);
-    ASSERT_NE(behavior->dotnet_object, nullptr);
-    EXPECT_EQ(behavior->name, "Before__behavior__TestBehavior");
+    EXPECT_EQ(behavior->object_name, "Before__behavior__TestBehavior");
     const natural_t handle = obj->dotnet_object->handle;
 
     env->rename_object(id, "After");
@@ -335,8 +314,7 @@ namespace other {
     EXPECT_EQ(obj->name, "After");
     EXPECT_EQ(obj->dotnet_object->object_name, "After");
     EXPECT_EQ(obj->dotnet_object->handle, handle);
-    EXPECT_EQ(behavior->name, "After__behavior__TestBehavior");
-    EXPECT_EQ(behavior->dotnet_object->object_name, "After__behavior__TestBehavior");
+    EXPECT_EQ(behavior->object_name, "After__behavior__TestBehavior");
     EXPECT_EQ(obj->dotnet_object->invoke<int>("CountBehaviors"), 1);
 
     env->destroy_object(id);

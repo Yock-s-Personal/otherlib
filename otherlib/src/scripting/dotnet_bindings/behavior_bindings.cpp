@@ -8,6 +8,13 @@
 #include "script/behavior.hpp"
 #include "script/scripting_environment.hpp"
 
+#include "object/script_component.hpp"
+#include "scene/scene.hpp"
+
+#include "driver/driver.hpp"
+#include "driver/systems/scene_system.hpp"
+#include "scripting/dotnet_bindings/driver_bindings.hpp"
+
 namespace other {
   namespace bindings {
 
@@ -59,9 +66,25 @@ namespace other {
       if (subsystem<scripting_environment>::inert) {
         return;
       }
-      if (scripting_environment* env = subsystem<scripting_environment>::get(); env != nullptr) {
-        env->call_static_dotnet_method<void>("Other.Core.BehaviorHost", "Attach");
+      scripting_environment* env = subsystem<scripting_environment>::get();
+      if (env == nullptr) {
+        return;
       }
+      env->call_static_dotnet_method<void>("Other.Core.BehaviorHost", "Attach");
+
+      /// after a rebuild of the scripts, an object a field names is one of the scene in use
+      env->set_behavior_object_resolver([env](natural_t object_id) -> void* {
+        driver* native_driver = detail::get_dotnet_native_driver_unchecked();
+        scene* active = native_driver != nullptr ? native_driver->get_kernel().get_core_system<scene_system>().get_active_scene() : nullptr;
+        if (active == nullptr) {
+          return nullptr;
+        }
+        scene_object* named = active->find_object(object_id);
+        if (named == nullptr || !active->has_component<script_component>(named)) {
+          return nullptr;
+        }
+        return env->get_object_instance(active->get_component<script_component>(named)->script_object_id);
+      });
     }
 
   }  // namespace bindings

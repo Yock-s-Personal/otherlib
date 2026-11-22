@@ -53,6 +53,9 @@ namespace Other.Core
       public delegate* unmanaged[Cdecl]<IntPtr, IntPtr, void> detach;
       public delegate* unmanaged[Cdecl]<IntPtr, int, void*, uint> call;
       public delegate* unmanaged[Cdecl]<IntPtr, uint, void> set_enabled;
+      public delegate* unmanaged[Cdecl]<IntPtr, byte*, int, int> capture;
+      public delegate* unmanaged[Cdecl]<IntPtr, byte*, int, delegate* unmanaged[Cdecl]<void*, ulong, void*>, void*, void> apply;
+      public delegate* unmanaged[Cdecl]<IntPtr, byte*, int, int> describe;
     }
 
     /// what a contact callback is told: behavior_contact on the native side
@@ -85,6 +88,8 @@ namespace Other.Core
     };
 
     private static readonly Dictionary<Type, uint> written = new();
+    /// what a capture writes into, kept so that one makes no garbage of its own
+    private static readonly FieldWriter stream = new();
     private static bool watching_unloads;
 
     /// called by the engine, by name, once its functions are bound
@@ -103,6 +108,9 @@ namespace Other.Core
         detach = &DetachBehavior,
         call = &Call,
         set_enabled = &SetEnabledFromEngine,
+        capture = &CaptureFields,
+        apply = &ApplyFields,
+        describe = &DescribeFields,
       };
       NativeSetRuntime(&runtime);
     }
@@ -173,6 +181,7 @@ namespace Other.Core
       {
         written.Remove(type);
       }
+      BehaviorFields.Forget(assembly);
 
       if (assembly == typeof(BehaviorHost).Assembly)
       {
@@ -231,6 +240,76 @@ namespace Other.Core
       if (GCHandle.FromIntPtr(instance).Target is OtherBehavior behavior)
       {
         behavior.enabled = enabled != 0;
+      }
+    }
+
+    /// the size of the stream. it is copied out only when it fits: the engine asks again
+    ///  with room for it
+    private static int Hand(byte* out_bytes, int capacity)
+    {
+      if (out_bytes != null && stream.Length <= capacity)
+      {
+        stream.Written.CopyTo(new Span<byte>(out_bytes, capacity));
+      }
+      return stream.Length;
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int CaptureFields(IntPtr instance, byte* out_bytes, int capacity)
+    {
+      try
+      {
+        object? target = GCHandle.FromIntPtr(instance).Target;
+        if (target == null)
+        {
+          return 0;
+        }
+        stream.Clear();
+        BehaviorFields.Write(stream, target);
+        return Hand(out_bytes, capacity);
+      }
+      catch (Exception e)
+      {
+        Logger.LogError($"A behaviour's fields could not be read: {e}");
+        return 0;
+      }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static void ApplyFields(IntPtr instance, byte* bytes, int size, delegate* unmanaged[Cdecl]<void*, ulong, void*> resolve, void* context)
+    {
+      try
+      {
+        object? target = GCHandle.FromIntPtr(instance).Target;
+        if (target != null && bytes != null && size > 0)
+        {
+          BehaviorFields.Apply(target, new ReadOnlySpan<byte>(bytes, size), resolve, context);
+        }
+      }
+      catch (Exception e)
+      {
+        Logger.LogError($"A behaviour's fields could not be set: {e}");
+      }
+    }
+
+    [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
+    private static int DescribeFields(IntPtr instance, byte* out_bytes, int capacity)
+    {
+      try
+      {
+        object? target = GCHandle.FromIntPtr(instance).Target;
+        if (target == null)
+        {
+          return 0;
+        }
+        stream.Clear();
+        BehaviorFields.Describe(stream, target.GetType());
+        return Hand(out_bytes, capacity);
+      }
+      catch (Exception e)
+      {
+        Logger.LogError($"A behaviour's fields could not be described: {e}");
+        return 0;
       }
     }
 

@@ -130,6 +130,19 @@ namespace Other.Core
       return null;
     }
 
+    /// the behaviour that is of that type, for when the type is only known as it runs
+    internal OtherBehavior FindBehavior(Type type)
+    {
+      for (int i = 0; i < behaviors.Count; i++)
+      {
+        if (type.IsInstanceOfType(behaviors[i]))
+        {
+          return behaviors[i];
+        }
+      }
+      return null;
+    }
+
     public bool HasBehavior<T>() where T : OtherBehavior
     {
       for (int i = 0; i < behaviors.Count; i++)

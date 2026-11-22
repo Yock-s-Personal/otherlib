@@ -141,6 +141,21 @@ namespace other {
       return *this;
     }
 
+    /// one inline table as a key's value: "k = { a = 1 }". fill receives it
+    template <typename Fn>
+      requires std::invocable<Fn, inline_table&>
+    toml_writer& key_inline_table(std::string_view key_name, Fn&& fill) {
+      inline_table value;
+      fill(value);
+      emit_key_line(key_name, value.str(options.space_inside_inline_braces));
+      mirror_insert(key_name, value.take_mirror());
+      return *this;
+    }
+
+    /// a key as one segment of a table path: quoted when it is not a bare key, so a name
+    ///  with dots in it stays one table
+    static std::string path_segment(std::string_view key_name);
+
     /// -- output ------------------------------------------------------------
     /// debug builds re-parse the emitted text and assert equivalence with the mirror tree
     void finalize();

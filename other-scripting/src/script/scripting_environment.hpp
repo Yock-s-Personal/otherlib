@@ -13,6 +13,7 @@
 #include "dotnet/dotnet_object.hpp"
 #include "lua/lua_host.hpp"
 #include "script/behavior.hpp"
+#include "script/behavior_fields.hpp"
 #include "script/script_object.hpp"
 
 namespace other {
@@ -29,8 +30,8 @@ namespace other {
 
     integer_t create_object(const std::string_view name);
     void destroy_object(integer_t id);
-    /// names are labels, not identity: updates the object, its managed object, and the
-    ///  behavior slots that derive their names from it
+    /// names are labels, not identity: updates the object, its managed object, and its
+    ///  behaviors' managed objects, which are named after it
     void rename_object(integer_t id, const std::string_view name);
 
     void dotnet_register_native_object(integer_t id, const std::string_view type_name);
@@ -77,8 +78,29 @@ namespace other {
     ///  one that waited, in the order they were made: a scene is loaded whole before any
     ///  script in it runs. calls nest
     void defer_behavior_awake(bool defer);
+
+    /// a behaviour's saved fields as a stream (behavior_fields.hpp): asked of its instance,
+    ///  or what is kept for it while it has none. empty when the object has no such behaviour
+    ostd::vector<uint8_t> capture_behavior_fields(integer_t parent_id, const std::string_view behavior_name);
+    /// the stream's values given to the behaviour's instance, or kept until it has one.
+    ///  resolve turns an object id in the stream into that object; without one the
+    ///  environment's own is used
+    void apply_behavior_fields(integer_t parent_id, const std::string_view behavior_name, std::span<const uint8_t> stream, const behavior_object_resolver& resolve = nullptr);
+    /// how an object id is turned into an object when nobody says otherwise: after a
+    ///  rebuild of the scripts, when the fields a behaviour had are given to its new instance
+    void set_behavior_object_resolver(behavior_object_resolver resolve);
+    /// the runtime's handle to a script object's own managed object; null when it has none
+    void* get_object_instance(integer_t id);
+    /// what the saved fields of a behaviour's type are, for whoever draws them. asked of the
+    ///  runtime once for a type and kept until the type's assembly goes; none while the
+    ///  behaviour has no instance
+    const ostd::vector<behavior_field_description>& describe_behavior(integer_t parent_id, const std::string_view behavior_name);
     void detach_dotnet_behavior(integer_t parent_id, const std::string_view behavior_name);
     void detach_all_dotnet_behaviors(integer_t parent_id);
+    /// before an assembly's types go: what each behaviour of this type holds is kept for
+    ///  the instance the next build makes. asked for every type of the assembly before any
+    ///  is invalidated, since a field may hold a behaviour of another of its types
+    void keep_dotnet_behavior_fields(int32_t dotnet_type_id);
     void invalidate_dotnet_script_objects_of_type(int32_t dotnet_type_id);
     void reattach_invalidated_dotnet_behaviors();
 
@@ -105,15 +127,6 @@ namespace other {
       } else {
         CORE_LOG_ERROR("Failed to attach .NET object of type {} to script object with ID {}", type_name, id);
       }
-    }
-
-    template <typename... Args>
-    void attach_serialized_dotnet_object(integer_t id, const std::string_view type_name, const std::span<const uint8_t> buffer, Args&&... ctor_args) {
-      attach_dotnet_object(id, type_name, std::forward<Args>(ctor_args)...);
-
-      script_object* obj = get_object(id);
-      OTHER_ASSERT(obj != nullptr, "Failed to retrieve script object to deserialize dotnet object!");
-      obj->dotnet_object->load_from_bytes(buffer);
     }
 
     template <typename R = void, typename... Args>
@@ -211,6 +224,12 @@ namespace other {
     /// told it is stopping and going, taken from its parent and its managed object
     ///  destroyed. its entry stays, without an instance
     void retire_behavior(script_object* parent, size_t index);
+    ostd::vector<uint8_t> capture_fields(const script_object::behavior_handle& handle);
+    void apply_fields(const script_object::behavior_handle& handle, std::span<const uint8_t> stream, const behavior_object_resolver& resolve);
+
+    behavior_object_resolver object_resolver = nullptr;
+    /// by the name a behaviour's type is attached under
+    ostd::map<std::string, ostd::vector<behavior_field_description>> descriptions;
 
     uint32_t awake_deferrals = 0;
     ostd::vector<integer_t> waiting_to_wake;

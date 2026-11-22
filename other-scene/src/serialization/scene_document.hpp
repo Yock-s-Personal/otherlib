@@ -33,7 +33,7 @@ namespace other {
     };
 
     struct scene_document {
-      constexpr static uint32_t kCurrentSchemaVersion = 1;
+      constexpr static uint32_t kCurrentSchemaVersion = 2;
 
       uint32_t schema_version = kCurrentSchemaVersion;
       std::string name = "";

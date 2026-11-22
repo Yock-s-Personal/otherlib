@@ -3,6 +3,7 @@ target_sources(other_ui
   PRIVATE
     src/theme/ui_theme_settings.cpp
     src/theme/font.cpp
+    src/theme/theme.cpp
     
     src/ui/unicode.cpp
     src/ui/ui_helpers.cpp

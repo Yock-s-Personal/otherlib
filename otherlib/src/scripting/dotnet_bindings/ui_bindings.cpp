@@ -10,6 +10,11 @@
 
 #include "dotnet/native_string.hpp"
 
+#include "scripting/main_thread_only.hpp"
+#include "theme/font.hpp"
+#include "theme/theme.hpp"
+#include "ui/inspector_widgets.hpp"
+
 namespace other {
   namespace bindings {
 
@@ -401,6 +406,264 @@ namespace other {
 
     void native_ui_end_drag_drop_target() {
       ImGui::EndDragDropTarget();
+    }
+
+    void native_ui_separator_text(const char* label) {
+      ImGui::SeparatorText(label);
+    }
+
+    void native_ui_text_disabled(const char* text) {
+      ImGui::TextDisabled("%s", text);
+    }
+
+    void native_ui_bullet() {
+      ImGui::Bullet();
+    }
+
+    void native_ui_begin_disabled(nbool32 disabled) {
+      ImGui::BeginDisabled(disabled != 0);
+    }
+
+    void native_ui_end_disabled() {
+      ImGui::EndDisabled();
+    }
+
+    void native_ui_set_clipboard_text(const char* text) {
+      ImGui::SetClipboardText(text);
+    }
+
+    const char* native_ui_get_clipboard_text() {
+      const char* text = ImGui::GetClipboardText();
+      return returned_string(text != nullptr ? text : "");
+    }
+
+    void native_ui_begin_property_row(const char* label, float label_width) {
+      ui::inspector::begin_property_row(label, label_width > 0.f ? label_width : ui::inspector::kPropertyLabelWidth);
+    }
+
+    void native_ui_end_property_row() {
+      ui::inspector::end_property_row();
+    }
+
+    void native_ui_property_display(const char* label, const char* text, float r, float g, float b, float a) {
+      ui::inspector::property_display(label, text, glm::vec4{ r, g, b, a });
+    }
+
+    nbool32 native_ui_theme_color(const char* token, float* out_rgba) {
+      const color_token* found = find_color_token(token);
+      if (found == nullptr) {
+        return false;
+      }
+      const glm::vec4& color = *found->ptr;
+      out_rgba[0] = color.r;
+      out_rgba[1] = color.g;
+      out_rgba[2] = color.b;
+      out_rgba[3] = color.a;
+      return true;
+    }
+
+    void native_ui_push_font(int32_t role) {
+      const bool is_role = role >= 0 && role < static_cast<int32_t>(font_role::NUM_ROLES);
+      ImGui::PushFont(is_role ? ui_fonts().get(static_cast<font_role>(role)) : nullptr);
+    }
+
+    void native_ui_pop_font() {
+      ImGui::PopFont();
+    }
+
+    void native_ui_begin_group() {
+      ImGui::BeginGroup();
+    }
+
+    void native_ui_end_group() {
+      ImGui::EndGroup();
+    }
+
+    void native_ui_set_next_item_width(float width) {
+      ImGui::SetNextItemWidth(width);
+    }
+
+    void native_ui_align_text_to_frame_padding() {
+      ImGui::AlignTextToFramePadding();
+    }
+
+    void native_ui_get_cursor_pos(float* out_x, float* out_y) {
+      const ImVec2 pos = ImGui::GetCursorPos();
+      *out_x = pos.x;
+      *out_y = pos.y;
+    }
+
+    void native_ui_set_cursor_pos(float x, float y) {
+      ImGui::SetCursorPos(ImVec2(x, y));
+    }
+
+    void native_ui_get_cursor_screen_pos(float* out_x, float* out_y) {
+      const ImVec2 pos = ImGui::GetCursorScreenPos();
+      *out_x = pos.x;
+      *out_y = pos.y;
+    }
+
+    void native_ui_set_cursor_screen_pos(float x, float y) {
+      ImGui::SetCursorScreenPos(ImVec2(x, y));
+    }
+
+    float native_ui_get_scroll_x() {
+      return ImGui::GetScrollX();
+    }
+
+    float native_ui_get_scroll_y() {
+      return ImGui::GetScrollY();
+    }
+
+    void native_ui_set_scroll_x(float scroll) {
+      ImGui::SetScrollX(scroll);
+    }
+
+    void native_ui_set_scroll_y(float scroll) {
+      ImGui::SetScrollY(scroll);
+    }
+
+    float native_ui_get_scroll_max_x() {
+      return ImGui::GetScrollMaxX();
+    }
+
+    float native_ui_get_scroll_max_y() {
+      return ImGui::GetScrollMaxY();
+    }
+
+    void native_ui_set_scroll_here_y(float center_ratio) {
+      ImGui::SetScrollHereY(center_ratio);
+    }
+
+    void native_ui_set_next_item_open(nbool32 open, int32_t cond) {
+      ImGui::SetNextItemOpen(open != 0, static_cast<ImGuiCond>(cond));
+    }
+
+    void native_ui_set_keyboard_focus_here(int32_t offset) {
+      ImGui::SetKeyboardFocusHere(offset);
+    }
+
+    nbool32 native_ui_is_item_deactivated_after_edit() {
+      return ImGui::IsItemDeactivatedAfterEdit();
+    }
+
+    nbool32 native_ui_is_window_appearing() {
+      return ImGui::IsWindowAppearing();
+    }
+
+    namespace {
+
+      /// ImGui asserts on a button or a key it does not have
+      bool is_mouse_button(int32_t button) {
+        return button >= 0 && button < ImGuiMouseButton_COUNT;
+      }
+
+      bool is_key(int32_t key) {
+        return key >= ImGuiKey_NamedKey_BEGIN && key < ImGuiKey_NamedKey_END;
+      }
+
+    }  // namespace
+
+    void native_ui_get_mouse_pos(float* out_x, float* out_y) {
+      const ImVec2 pos = ImGui::GetMousePos();
+      *out_x = pos.x;
+      *out_y = pos.y;
+    }
+
+    nbool32 native_ui_is_mouse_down(int32_t button) {
+      return is_mouse_button(button) && ImGui::IsMouseDown(button);
+    }
+
+    nbool32 native_ui_is_mouse_clicked(int32_t button) {
+      return is_mouse_button(button) && ImGui::IsMouseClicked(button);
+    }
+
+    nbool32 native_ui_is_mouse_double_clicked(int32_t button) {
+      return is_mouse_button(button) && ImGui::IsMouseDoubleClicked(button);
+    }
+
+    nbool32 native_ui_is_mouse_released(int32_t button) {
+      return is_mouse_button(button) && ImGui::IsMouseReleased(button);
+    }
+
+    void native_ui_get_mouse_drag_delta(int32_t button, float lock_threshold, float* out_x, float* out_y) {
+      const ImVec2 delta = is_mouse_button(button) ? ImGui::GetMouseDragDelta(button, lock_threshold) : ImVec2(0.f, 0.f);
+      *out_x = delta.x;
+      *out_y = delta.y;
+    }
+
+    void native_ui_get_mouse_wheel(float* out_x, float* out_y) {
+      const ImGuiIO& io = ImGui::GetIO();
+      *out_x = io.MouseWheelH;
+      *out_y = io.MouseWheel;
+    }
+
+    nbool32 native_ui_is_mouse_hovering_rect(float min_x, float min_y, float max_x, float max_y, nbool32 clip) {
+      return ImGui::IsMouseHoveringRect(ImVec2(min_x, min_y), ImVec2(max_x, max_y), clip != 0);
+    }
+
+    nbool32 native_ui_is_key_down(int32_t key) {
+      return is_key(key) && ImGui::IsKeyDown(static_cast<ImGuiKey>(key));
+    }
+
+    nbool32 native_ui_is_key_pressed(int32_t key, nbool32 repeat) {
+      return is_key(key) && ImGui::IsKeyPressed(static_cast<ImGuiKey>(key), repeat != 0);
+    }
+
+    int32_t native_ui_get_key_mods() {
+      return static_cast<int32_t>(ImGui::GetIO().KeyMods);
+    }
+
+    void native_ui_get_item_rect_min(float* out_x, float* out_y) {
+      const ImVec2 min = ImGui::GetItemRectMin();
+      *out_x = min.x;
+      *out_y = min.y;
+    }
+
+    void native_ui_get_item_rect_max(float* out_x, float* out_y) {
+      const ImVec2 max = ImGui::GetItemRectMax();
+      *out_x = max.x;
+      *out_y = max.y;
+    }
+
+    void native_ui_get_item_rect_size(float* out_width, float* out_height) {
+      const ImVec2 size = ImGui::GetItemRectSize();
+      *out_width = size.x;
+      *out_height = size.y;
+    }
+
+    nbool32 native_ui_drag_int(const char* label, int32_t* value, float speed, int32_t min_val, int32_t max_val) {
+      return ImGui::DragInt(label, value, speed, min_val, max_val);
+    }
+
+    nbool32 native_ui_drag_float2(const char* label, float* values, float speed, float min_val, float max_val) {
+      return ImGui::DragFloat2(label, values, speed, min_val, max_val);
+    }
+
+    nbool32 native_ui_drag_float4(const char* label, float* values, float speed, float min_val, float max_val) {
+      return ImGui::DragFloat4(label, values, speed, min_val, max_val);
+    }
+
+    nbool32 native_ui_slider_float2(const char* label, float* values, float min_val, float max_val) {
+      return ImGui::SliderFloat2(label, values, min_val, max_val);
+    }
+
+    nbool32 native_ui_slider_float3(const char* label, float* values, float min_val, float max_val) {
+      return ImGui::SliderFloat3(label, values, min_val, max_val);
+    }
+
+    nbool32 native_ui_slider_float4(const char* label, float* values, float min_val, float max_val) {
+      return ImGui::SliderFloat4(label, values, min_val, max_val);
+    }
+
+    const void* native_ui_accept_drag_drop_payload(const char* type, int32_t flags, int32_t* out_size) {
+      *out_size = 0;
+      const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(type, static_cast<ImGuiDragDropFlags>(flags));
+      if (payload == nullptr) {
+        return nullptr;
+      }
+      *out_size = payload->DataSize;
+      return payload->Data;
     }
 
   }  // namespace bindings

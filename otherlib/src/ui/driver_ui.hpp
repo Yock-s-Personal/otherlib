@@ -5,11 +5,13 @@
 #define OTHERLIB_UI_DRIVER_UI_HPP
 
 #include <cstdint>
+#include <functional>
 #include <string>
 
 #include "ui/component_widget_registry.hpp"
 #include "ui/menu-bar/menu_bar.hpp"
 #include "ui/ui_window.hpp"
+#include "ui/window_registry.hpp"
 
 namespace other {
 
@@ -18,21 +20,6 @@ namespace other {
 
   class driver_ui {
    public:
-    enum builtin_window_type {
-      BUILTIN_WINDOW_NONE = 0,
-      BUILTIN_WINDOW_TYPE_DATABASE,
-      BUILTIN_WINDOW_CONSOLE,
-
-      NUM_BUILTIN_WINDOW_TYPES,
-      INVALID_WINDOW_TYPE = NUM_BUILTIN_WINDOW_TYPES
-    };
-
-    constexpr static std::array<const std::string_view, NUM_BUILTIN_WINDOW_TYPES> kBuiltinWindowNames{
-      "none",
-      "type-database",
-      "console",
-    };
-
     driver_ui(driver* drv)
         : driver_ptr(drv) {}
     virtual ~driver_ui() = default;
@@ -46,9 +33,6 @@ namespace other {
     ostd::vector<std::string> get_open_window_names() const;
     ostd::vector<std::string> get_available_window_names() const;
 
-    ostd::vector<std::string> get_available_builtin_window_names() const;
-    ostd::vector<std::string> get_available_custom_window_names() const;
-
     void open_window(const std::string_view window_name);
     void close_window(const std::string_view window_name);
     void close_all_windows();
@@ -60,7 +44,13 @@ namespace other {
     void register_main_menu_bar_sub_menu(const std::string_view menu_name, const ui::menu& sub_menu);
     void register_main_menu_bar_menu_item(const std::string_view menu_name, const ui::menu_item& item);
 
-    natural_t register_window(const std::string_view name, scope<ui_window> window);
+    /// path names the menu and any menus inside it: "File/Project". what comes back takes
+    ///  the item out again; 0 when the path names no menu
+    natural_t add_menu_item(const std::string_view path, const std::string_view label, std::function<void(natural_t)> on_click);
+    void remove_menu_item(natural_t id);
+
+    /// 0 when the name is taken
+    natural_t register_window(const std::string_view name, scope<ui_window> window, ui::window_source source = ui::window_source::DRIVER);
     template <typename T, typename... Args>
       requires std::derived_from<T, ui_window>
     natural_t register_window(const std::string_view name, Args&&... args) {
@@ -76,28 +66,6 @@ namespace other {
     }
 
    private:
-    struct builtin_window {
-      builtin_window_type type = BUILTIN_WINDOW_NONE;
-
-      bool open = false;
-      uint32_t id = 0;
-
-      scope<ui_window> window_ptr = nullptr;
-
-      std::string_view get_name() const {
-        return kBuiltinWindowNames[static_cast<size_t>(type)];
-      }
-    };
-
-    struct driver_window {
-      std::string name;
-      natural_t hash;
-
-      bool open = false;
-      uint32_t id = 0;
-
-      scope<ui_window> window_ptr = nullptr;
-    };
     struct main_menu_bar_menu {
       natural_t hash;
       ui::menu menu;
@@ -105,30 +73,19 @@ namespace other {
 
     bool main_menu_bar_open = false;
     driver* driver_ptr = nullptr;
-    builtin_window builtin_windows[NUM_BUILTIN_WINDOW_TYPES];
+    ui::window_registry windows;
 
     ui::menu_bar main_menu_bar;
     ostd::vector<main_menu_bar_menu> main_menu_bar_menus;
-
-    natural_t window_registry_id = 0;
-    ostd::unordered_map<natural_t, driver_window> custom_windows;
+    natural_t last_menu_item_id = 0;
 
     scope<ui::component_widget_registry> component_reg = nullptr;
 
     event_system& events();
 
-    void initialize_builtin_windows();
-    void shutdown_builtin_windows();
-    void shutdown_custom_windows();
-
-    void open_builtin_window(builtin_window_type type);
-    void close_builtin_window(builtin_window_type type);
-
-    void render_builtin_windows();
-    void render_custom_windows();
-
-    void open_custom_window(const std::string_view name);
-    void close_custom_window(const std::string_view name);
+    /// a driver whose config names a theme draws with it; one that names none looks as it
+    ///  always did
+    void load_theme();
   };
 
 }  // namespace other

@@ -1,5 +1,6 @@
 using OtherCsBindings;
 using Other.Core;
+using Other.UI;
 using System;
 using System.Buffers;
 
@@ -197,14 +198,111 @@ namespace Other
     internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeBeginDragDropTarget;
     [NativeFunction("UIEndDragDropTarget")]
     internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndDragDropTarget;
+    [NativeFunction("UISeparatorText")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeSeparatorText;
+    [NativeFunction("UITextDisabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeTextDisabled;
+    [NativeFunction("UIBullet")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeBullet;
+    [NativeFunction("UIBeginDisabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32, void> NativeBeginDisabled;
+    [NativeFunction("UIEndDisabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndDisabled;
+    [NativeFunction("UISetClipboardText")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeSetClipboardText;
+    [NativeFunction("UIGetClipboardText")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*> NativeGetClipboardText;
+    [NativeFunction("UIBeginGroup")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeBeginGroup;
+    [NativeFunction("UIEndGroup")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeEndGroup;
+    [NativeFunction("UISetNextItemWidth")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativeSetNextItemWidth;
+    [NativeFunction("UIAlignTextToFramePadding")]
+    internal static unsafe delegate* unmanaged[Cdecl]<void> NativeAlignTextToFramePadding;
+    [NativeFunction("UIGetCursorPos")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetCursorPos;
+    [NativeFunction("UISetCursorPos")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, void> NativeSetCursorPos;
+    [NativeFunction("UIGetCursorScreenPos")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetCursorScreenPos;
+    [NativeFunction("UISetCursorScreenPos")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, void> NativeSetCursorScreenPos;
+    [NativeFunction("UIGetScrollX")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float> NativeGetScrollX;
+    [NativeFunction("UIGetScrollY")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float> NativeGetScrollY;
+    [NativeFunction("UISetScrollX")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativeSetScrollX;
+    [NativeFunction("UISetScrollY")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativeSetScrollY;
+    [NativeFunction("UIGetScrollMaxX")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float> NativeGetScrollMaxX;
+    [NativeFunction("UIGetScrollMaxY")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float> NativeGetScrollMaxY;
+    [NativeFunction("UISetScrollHereY")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, void> NativeSetScrollHereY;
+    [NativeFunction("UISetNextItemOpen")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32, int, void> NativeSetNextItemOpen;
+    [NativeFunction("UISetKeyboardFocusHere")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, void> NativeSetKeyboardFocusHere;
+    [NativeFunction("UIIsItemDeactivatedAfterEdit")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeIsItemDeactivatedAfterEdit;
+    [NativeFunction("UIIsWindowAppearing")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeIsWindowAppearing;
+    [NativeFunction("UIGetMousePos")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetMousePos;
+    [NativeFunction("UIIsMouseDown")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsMouseDown;
+    [NativeFunction("UIIsMouseClicked")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsMouseClicked;
+    [NativeFunction("UIIsMouseDoubleClicked")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsMouseDoubleClicked;
+    [NativeFunction("UIIsMouseReleased")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsMouseReleased;
+    [NativeFunction("UIGetMouseDragDelta")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, float, float*, float*, void> NativeGetMouseDragDelta;
+    [NativeFunction("UIGetMouseWheel")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetMouseWheel;
+    [NativeFunction("UIIsMouseHoveringRect")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, NativeBool32, NativeBool32> NativeIsMouseHoveringRect;
+    [NativeFunction("UIIsKeyDown")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32> NativeIsKeyDown;
+    [NativeFunction("UIIsKeyPressed")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, NativeBool32, NativeBool32> NativeIsKeyPressed;
+    [NativeFunction("UIGetKeyMods")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int> NativeGetKeyMods;
+    [NativeFunction("UIGetItemRectMin")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetItemRectMin;
+    [NativeFunction("UIGetItemRectMax")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetItemRectMax;
+    [NativeFunction("UIGetItemRectSize")]
+    internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetItemRectSize;
+    [NativeFunction("UIDragInt")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int*, float, int, int, NativeBool32> NativeDragInt;
+    [NativeFunction("UIDragFloat2")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, float, NativeBool32> NativeDragFloat2;
+    [NativeFunction("UIDragFloat4")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, float, NativeBool32> NativeDragFloat4;
+    [NativeFunction("UISliderFloat2")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, NativeBool32> NativeSliderFloat2;
+    [NativeFunction("UISliderFloat3")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, NativeBool32> NativeSliderFloat3;
+    [NativeFunction("UISliderFloat4")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float, float, NativeBool32> NativeSliderFloat4;
+    [NativeFunction("UIAcceptDragDropPayload")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, int*, void*> NativeAcceptDragDropPayload;
 
-    public static bool BeginWindow(string title, int flags)
+    /// a window made this way is nobody's but the caller's: it is not in the View menu,
+    ///  cannot be opened or closed by name, and is drawn whenever this is called. declare a
+    ///  window with [EditorWindow] on a UIWindow instead, unless that is what is wanted
+    public static bool BeginWindow(string title, WindowFlags flags = WindowFlags.None)
     {
       bool open = false;
       unsafe
       {
         using var title_utf8 = new Utf8Arg(title, stackalloc byte[Utf8Arg.StackSize]);
-        NativeBool32 result = NativeBeginWindow(title_utf8.Pointer, flags);
+        NativeBool32 result = NativeBeginWindow(title_utf8.Pointer, (int)flags);
         open = result;
       }
       return open;
@@ -218,18 +316,18 @@ namespace Other
       }
     }
 
-    public static bool BeginChild(string name, int flags)
+    public static bool BeginChild(string name, WindowFlags flags)
     {
-      return BeginChild(name, 0, 0, 0, flags);
+      return BeginChild(name, 0, 0, ChildFlags.None, flags);
     }
 
     /// a size of 0 on an axis takes what is left of it; the two sets of flags are ImGui's own
-    public static bool BeginChild(string name, float width, float height, int child_flags = 0, int window_flags = 0)
+    public static bool BeginChild(string name, float width, float height, ChildFlags child_flags = ChildFlags.None, WindowFlags window_flags = WindowFlags.None)
     {
       unsafe
       {
         using var name_utf8 = new Utf8Arg(name, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeBeginChild(name_utf8.Pointer, width, height, child_flags, window_flags);
+        return NativeBeginChild(name_utf8.Pointer, width, height, (int)child_flags, (int)window_flags);
       }
     }
 
@@ -349,7 +447,7 @@ namespace Other
     public static void Dummy(float width, float height) { unsafe { NativeDummy(width, height); } }
 
     /// max_length is in bytes of UTF-8. true when the text was edited this frame
-    public static bool InputText(string label, ref string text, int max_length, int flags = 0)
+    public static bool InputText(string label, ref string text, int max_length, InputTextFlags flags = InputTextFlags.None)
     {
       byte[] buffer = ArrayPool<byte>.Shared.Rent(max_length + 1);
       try
@@ -361,7 +459,7 @@ namespace Other
           using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
           fixed (byte* ptr = edited)
           {
-            bool changed = NativeInputText(label_utf8.Pointer, ptr, edited.Length, flags);
+            bool changed = NativeInputText(label_utf8.Pointer, ptr, edited.Length, (int)flags);
             if (changed)
             {
               text = Utf8Arg.Read(edited);
@@ -377,7 +475,7 @@ namespace Other
     }
 
     /// max_length is in bytes of UTF-8. true when the text was edited this frame
-    public static bool InputTextMultiline(string label, ref string text, int max_length, float width = 0, float height = 0, int flags = 0)
+    public static bool InputTextMultiline(string label, ref string text, int max_length, float width = 0, float height = 0, InputTextFlags flags = InputTextFlags.None)
     {
       byte[] buffer = ArrayPool<byte>.Shared.Rent(max_length + 1);
       try
@@ -389,7 +487,7 @@ namespace Other
           using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
           fixed (byte* ptr = edited)
           {
-            bool changed = NativeInputTextMultiline(label_utf8.Pointer, ptr, edited.Length, width, height, flags);
+            bool changed = NativeInputTextMultiline(label_utf8.Pointer, ptr, edited.Length, width, height, (int)flags);
             if (changed)
             {
               text = Utf8Arg.Read(edited);
@@ -552,21 +650,21 @@ namespace Other
         return NativeTreeNode(label_utf8.Pointer);
       }
     }
-    public static bool TreeNodeEx(string label, int flags = 0)
+    public static bool TreeNodeEx(string label, TreeNodeFlags flags = TreeNodeFlags.None)
     {
       unsafe
       {
         using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeTreeNodeEx(label_utf8.Pointer, flags);
+        return NativeTreeNodeEx(label_utf8.Pointer, (int)flags);
       }
     }
     public static void TreePop() { unsafe { NativeTreePop(); } }
-    public static bool CollapsingHeader(string label, int flags = 0)
+    public static bool CollapsingHeader(string label, TreeNodeFlags flags = TreeNodeFlags.None)
     {
       unsafe
       {
         using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeCollapsingHeader(label_utf8.Pointer, flags);
+        return NativeCollapsingHeader(label_utf8.Pointer, (int)flags);
       }
     }
 
@@ -667,12 +765,12 @@ namespace Other
     public static void EndPopup() { unsafe { NativeEndPopup(); } }
     public static void CloseCurrentPopup() { unsafe { NativeCloseCurrentPopup(); } }
 
-    public static bool BeginTable(string str_id, int columns, int flags = 0)
+    public static bool BeginTable(string str_id, int columns, TableFlags flags = TableFlags.None)
     {
       unsafe
       {
         using var str_id_utf8 = new Utf8Arg(str_id, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeBeginTable(str_id_utf8.Pointer, columns, flags);
+        return NativeBeginTable(str_id_utf8.Pointer, columns, (int)flags);
       }
     }
     public static void EndTable() { unsafe { NativeEndTable(); } }
@@ -710,21 +808,21 @@ namespace Other
       return new Vec2(x, y);
     }
 
-    public static void SetNextWindowSize(float width, float height, int cond = 0) { unsafe { NativeSetNextWindowSize(width, height, cond); } }
-    public static void SetNextWindowSize(Vec2 size, int cond = 0) { unsafe { NativeSetNextWindowSize(size.X, size.Y, cond); } }
-    public static void SetNextWindowPos(float x, float y, int cond = 0) { unsafe { NativeSetNextWindowPos(x, y, cond); } }
-    public static void SetNextWindowPos(Vec2 pos, int cond = 0) { unsafe { NativeSetNextWindowPos(pos.X, pos.Y, cond); } }
+    public static void SetNextWindowSize(float width, float height, Condition cond = Condition.None) { unsafe { NativeSetNextWindowSize(width, height, (int)cond); } }
+    public static void SetNextWindowSize(Vec2 size, Condition cond = Condition.None) { unsafe { NativeSetNextWindowSize(size.X, size.Y, (int)cond); } }
+    public static void SetNextWindowPos(float x, float y, Condition cond = Condition.None) { unsafe { NativeSetNextWindowPos(x, y, (int)cond); } }
+    public static void SetNextWindowPos(Vec2 pos, Condition cond = Condition.None) { unsafe { NativeSetNextWindowPos(pos.X, pos.Y, (int)cond); } }
     public static bool IsItemHovered() { unsafe { return NativeIsItemHovered(); } }
-    public static bool IsItemClicked(int mouse_button = 0) { unsafe { return NativeIsItemClicked(mouse_button); } }
+    public static bool IsItemClicked(MouseButton mouse_button = MouseButton.Left) { unsafe { return NativeIsItemClicked((int)mouse_button); } }
     public static bool IsItemActive() { unsafe { return NativeIsItemActive(); } }
     public static bool IsWindowFocused(int flags = 0) { unsafe { return NativeIsWindowFocused(flags); } }
     public static bool IsWindowHovered(int flags = 0) { unsafe { return NativeIsWindowHovered(flags); } }
 
-    public static void PushStyleColor(int idx, Vec4 color) { unsafe { NativePushStyleColor(idx, color.X, color.Y, color.Z, color.W); } }
-    public static void PushStyleColor(int idx, float r, float g, float b, float a) { unsafe { NativePushStyleColor(idx, r, g, b, a); } }
+    public static void PushStyleColor(StyleColor idx, Vec4 color) { unsafe { NativePushStyleColor((int)idx, color.X, color.Y, color.Z, color.W); } }
+    public static void PushStyleColor(StyleColor idx, float r, float g, float b, float a) { unsafe { NativePushStyleColor((int)idx, r, g, b, a); } }
     public static void PopStyleColor(int count = 1) { unsafe { NativePopStyleColor(count); } }
-    public static void PushStyleVar(int idx, float val) { unsafe { NativePushStyleVarFloat(idx, val); } }
-    public static void PushStyleVar(int idx, Vec2 val) { unsafe { NativePushStyleVarVec2(idx, val.X, val.Y); } }
+    public static void PushStyleVar(StyleVar idx, float val) { unsafe { NativePushStyleVarFloat((int)idx, val); } }
+    public static void PushStyleVar(StyleVar idx, Vec2 val) { unsafe { NativePushStyleVarVec2((int)idx, val.X, val.Y); } }
     public static void PopStyleVar(int count = 1) { unsafe { NativePopStyleVar(count); } }
     public static void PushItemWidth(float width) { unsafe { NativePushItemWidth(width); } }
     public static void PopItemWidth() { unsafe { NativePopItemWidth(); } }
@@ -765,6 +863,277 @@ namespace Other
     public static void EndDragDropSource() { unsafe { NativeEndDragDropSource(); } }
     public static bool BeginDragDropTarget() { unsafe { return NativeBeginDragDropTarget(); } }
     public static void EndDragDropTarget() { unsafe { NativeEndDragDropTarget(); } }
+
+    /// a separator with a label in it: the header of a section
+    public static void SeparatorText(string label)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        NativeSeparatorText(label_utf8.Pointer);
+      }
+    }
+
+    public static void TextDisabled(string text)
+    {
+      unsafe
+      {
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        NativeTextDisabled(text_utf8.Pointer);
+      }
+    }
+
+    /// a bullet, with what is drawn next on the same line
+    public static void Bullet() { unsafe { NativeBullet(); } }
+
+    /// what is drawn until EndDisabled is greyed and takes no input when disabled is true
+    public static void BeginDisabled(bool disabled = true) { unsafe { NativeBeginDisabled(disabled); } }
+    public static void EndDisabled() { unsafe { NativeEndDisabled(); } }
+
+    public static string ClipboardText
+    {
+      get
+      {
+        unsafe { return System.Runtime.InteropServices.Marshal.PtrToStringUTF8((IntPtr)NativeGetClipboardText()) ?? string.Empty; }
+      }
+      set
+      {
+        unsafe
+        {
+          using var text_utf8 = new Utf8Arg(value, stackalloc byte[Utf8Arg.StackSize]);
+          NativeSetClipboardText(text_utf8.Pointer);
+        }
+      }
+    }
+
+    /// what is drawn until EndGroup is one item to what comes after: SameLine and the item
+    ///  rectangle treat it as one
+    public static void BeginGroup() { unsafe { NativeBeginGroup(); } }
+    public static void EndGroup() { unsafe { NativeEndGroup(); } }
+
+    /// the width of the next item only. a negative width is that far from the right edge
+    public static void SetNextItemWidth(float width) { unsafe { NativeSetNextItemWidth(width); } }
+    /// text drawn next sits on the baseline of the framed items after it on the line
+    public static void AlignTextToFramePadding() { unsafe { NativeAlignTextToFramePadding(); } }
+
+    /// where the next item goes, from the window's top left corner
+    public static Vec2 CursorPos
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetCursorPos(&x, &y); }
+        return new Vec2(x, y);
+      }
+      set { unsafe { NativeSetCursorPos(value.X, value.Y); } }
+    }
+
+    /// the same place on the screen, which is what the draw list and the mouse use
+    public static Vec2 CursorScreenPos
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetCursorScreenPos(&x, &y); }
+        return new Vec2(x, y);
+      }
+      set { unsafe { NativeSetCursorScreenPos(value.X, value.Y); } }
+    }
+
+    public static float ScrollX
+    {
+      get { unsafe { return NativeGetScrollX(); } }
+      set { unsafe { NativeSetScrollX(value); } }
+    }
+
+    public static float ScrollY
+    {
+      get { unsafe { return NativeGetScrollY(); } }
+      set { unsafe { NativeSetScrollY(value); } }
+    }
+
+    public static float ScrollMaxX { get { unsafe { return NativeGetScrollMaxX(); } } }
+    public static float ScrollMaxY { get { unsafe { return NativeGetScrollMaxY(); } } }
+
+    /// scrolls so the place the next item goes is in view: 0 at the top, 0.5 in the middle,
+    ///  1 at the bottom
+    public static void SetScrollHereY(float center_ratio = 0.5f) { unsafe { NativeSetScrollHereY(center_ratio); } }
+
+    /// whether the next tree node or collapsing header is open
+    public static void SetNextItemOpen(bool open, Condition cond = Condition.None) { unsafe { NativeSetNextItemOpen(open, (int)cond); } }
+    /// gives the keyboard to the next item, or with an offset to one after it
+    public static void SetKeyboardFocusHere(int offset = 0) { unsafe { NativeSetKeyboardFocusHere(offset); } }
+    /// the last item was being edited, is not any more, and its value changed: the moment
+    ///  to take an edit as finished
+    public static bool IsItemDeactivatedAfterEdit() { unsafe { return NativeIsItemDeactivatedAfterEdit(); } }
+    /// the window is shown this frame and was not the frame before
+    public static bool IsWindowAppearing() { unsafe { return NativeIsWindowAppearing(); } }
+
+    /// the mouse as the UI has it, on the screen
+    public static Vec2 MousePos
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetMousePos(&x, &y); }
+        return new Vec2(x, y);
+      }
+    }
+
+    public static bool IsMouseDown(MouseButton button = MouseButton.Left) { unsafe { return NativeIsMouseDown((int)button); } }
+    public static bool IsMouseClicked(MouseButton button = MouseButton.Left) { unsafe { return NativeIsMouseClicked((int)button); } }
+    public static bool IsMouseDoubleClicked(MouseButton button = MouseButton.Left) { unsafe { return NativeIsMouseDoubleClicked((int)button); } }
+    public static bool IsMouseReleased(MouseButton button = MouseButton.Left) { unsafe { return NativeIsMouseReleased((int)button); } }
+
+    /// how far the mouse has moved since the button went down; zero until it has moved
+    ///  further than the threshold. a negative threshold is ImGui's own
+    public static Vec2 GetMouseDragDelta(MouseButton button = MouseButton.Left, float lock_threshold = -1f)
+    {
+      float x, y;
+      unsafe { NativeGetMouseDragDelta((int)button, lock_threshold, &x, &y); }
+      return new Vec2(x, y);
+    }
+
+    /// this frame's wheel: X sideways, Y up and down
+    public static Vec2 MouseWheel
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetMouseWheel(&x, &y); }
+        return new Vec2(x, y);
+      }
+    }
+
+    /// the mouse is over that rectangle of the screen. clip cuts the rectangle to what the
+    ///  window is showing
+    public static bool IsMouseHoveringRect(Vec2 min, Vec2 max, bool clip = true) { unsafe { return NativeIsMouseHoveringRect(min.X, min.Y, max.X, max.Y, clip); } }
+
+    public static bool IsKeyDown(Key key) { unsafe { return NativeIsKeyDown((int)key); } }
+    /// true on the frame the key goes down, and again as it repeats when repeat is true
+    public static bool IsKeyPressed(Key key, bool repeat = true) { unsafe { return NativeIsKeyPressed((int)key, repeat); } }
+    public static KeyMods KeyMods { get { unsafe { return (KeyMods)NativeGetKeyMods(); } } }
+
+    /// the last item's rectangle on the screen
+    public static Vec2 ItemRectMin
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetItemRectMin(&x, &y); }
+        return new Vec2(x, y);
+      }
+    }
+
+    public static Vec2 ItemRectMax
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetItemRectMax(&x, &y); }
+        return new Vec2(x, y);
+      }
+    }
+
+    public static Vec2 ItemRectSize
+    {
+      get
+      {
+        float x, y;
+        unsafe { NativeGetItemRectSize(&x, &y); }
+        return new Vec2(x, y);
+      }
+    }
+
+    /// a min and max that are both 0 leave the value unbounded
+    public static bool DragInt(string label, ref int value, float speed = 1f, int min = 0, int max = 0)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        fixed (int* value_ptr = &value)
+        {
+          return NativeDragInt(label_utf8.Pointer, value_ptr, speed, min, max);
+        }
+      }
+    }
+
+    public static bool DragFloat2(string label, ref Vec2 value, float speed = 1f, float min = 0f, float max = 0f)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        float* values = stackalloc float[2] { value.X, value.Y };
+        bool changed = NativeDragFloat2(label_utf8.Pointer, values, speed, min, max);
+        value = new Vec2(values[0], values[1]);
+        return changed;
+      }
+    }
+
+    public static bool DragFloat4(string label, ref Vec4 value, float speed = 1f, float min = 0f, float max = 0f)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        float* values = stackalloc float[4] { value.X, value.Y, value.Z, value.W };
+        bool changed = NativeDragFloat4(label_utf8.Pointer, values, speed, min, max);
+        value = new Vec4(values[0], values[1], values[2], values[3]);
+        return changed;
+      }
+    }
+
+    public static bool SliderFloat2(string label, ref Vec2 value, float min, float max)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        float* values = stackalloc float[2] { value.X, value.Y };
+        bool changed = NativeSliderFloat2(label_utf8.Pointer, values, min, max);
+        value = new Vec2(values[0], values[1]);
+        return changed;
+      }
+    }
+
+    public static bool SliderFloat3(string label, ref Vec3 value, float min, float max)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        float* values = stackalloc float[3] { value.X, value.Y, value.Z };
+        bool changed = NativeSliderFloat3(label_utf8.Pointer, values, min, max);
+        value = new Vec3(values[0], values[1], values[2]);
+        return changed;
+      }
+    }
+
+    public static bool SliderFloat4(string label, ref Vec4 value, float min, float max)
+    {
+      unsafe
+      {
+        using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+        float* values = stackalloc float[4] { value.X, value.Y, value.Z, value.W };
+        bool changed = NativeSliderFloat4(label_utf8.Pointer, values, min, max);
+        value = new Vec4(values[0], values[1], values[2], values[3]);
+        return changed;
+      }
+    }
+
+    /// between BeginDragDropTarget and EndDragDropTarget: the bytes that were dropped here,
+    ///  when what was dropped is of that type. null while nothing of the type has been
+    public static byte[]? AcceptDragDropPayload(string type, int flags = 0)
+    {
+      unsafe
+      {
+        using var type_utf8 = new Utf8Arg(type, stackalloc byte[Utf8Arg.StackSize]);
+        int size = 0;
+        void* data = NativeAcceptDragDropPayload(type_utf8.Pointer, flags, &size);
+        if (data == null)
+        {
+          return null;
+        }
+        return new ReadOnlySpan<byte>(data, size).ToArray();
+      }
+    }
 
     public static void HelpMarker(string description)
     {

@@ -11,5 +11,9 @@ set_target_properties(DotnetTesting PROPERTIES
 target_sources(DotnetTesting PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/test-object.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/boundary-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/window-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/project-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ui-enum-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/theme-probe.cs
 )
 target_link_libraries(DotnetTesting PRIVATE OtherCs)

@@ -4,6 +4,10 @@
 #ifndef OTHER_UI_THEME_THEME_TOKENS_HPP
 #define OTHER_UI_THEME_THEME_TOKENS_HPP
 
+#include <array>
+#include <span>
+#include <string_view>
+
 #include "theme/colors.hpp"
 
 #define OTHER_UI_COLOR_TOKENS(X)                                                                           \
@@ -389,9 +393,11 @@
 
 namespace other {
 
+  /// a colour windows draw with, by the name a theme file gives it. ptr is the variable
+  ///  the windows read: a theme writes its colour there
   struct color_token {
     const std::string_view name;
-    const glm::vec4* ptr;
+    glm::vec4* ptr;
     const glm::vec4 default_value;
   };
 

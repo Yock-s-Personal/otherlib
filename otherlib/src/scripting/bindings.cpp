@@ -29,6 +29,7 @@
 #include "scripting/dotnet_bindings/environment_api_bindings.hpp"
 #include "scripting/dotnet_bindings/event_bindings.hpp"
 #include "scripting/dotnet_bindings/input_bindings.hpp"
+#include "scripting/dotnet_bindings/inspector_bindings.hpp"
 #include "scripting/dotnet_bindings/network_bindings.hpp"
 #include "scripting/dotnet_bindings/project_bindings.hpp"
 #include "scripting/dotnet_bindings/scene_bindings.hpp"
@@ -42,7 +43,9 @@
 #include "scripting/main_thread_only.hpp"
 #include "scripting/other_abi.hpp"
 #include "scripting/scene_interface.hpp"
+#include "theme/colors.hpp"
 #include "tools/environment_console.hpp"
+#include "ui/component_drawer.hpp"
 
 namespace other {
   namespace detail {
@@ -358,7 +361,23 @@ namespace other {
       .bind<bindings::native_ui_remove_menu_item>("UIRemoveMenuItem")
       .bind<bindings::native_ui_set_menu_item_shortcut>("UISetMenuItemShortcut")
       .bind<bindings::native_ui_set_menu_item_enabled>("UISetMenuItemEnabled")
-      .bind<bindings::native_ui_set_menu_item_click_function>("UISetMenuItemClickFunction");
+      .bind<bindings::native_ui_set_menu_item_click_function>("UISetMenuItemClickFunction")
+      .bind<bindings::native_ui_object_header>("UIObjectHeader")
+      .bind<bindings::native_ui_begin_component_section>("UIBeginComponentSection")
+      .bind<bindings::native_ui_end_component_section>("UIEndComponentSection")
+      .bind<bindings::native_ui_component_fields>("UIComponentFields")
+      .bind<bindings::native_ui_add_component_button>("UIAddComponentButton")
+      .bind<bindings::native_ui_property_bool>("UIPropertyBool")
+      .bind<bindings::native_ui_property_float>("UIPropertyFloat")
+      .bind<bindings::native_ui_property_int32>("UIPropertyInt32")
+      .bind<bindings::native_ui_property_uint32>("UIPropertyUInt32")
+      .bind<bindings::native_ui_property_int64>("UIPropertyInt64")
+      .bind<bindings::native_ui_property_uint64>("UIPropertyUInt64")
+      .bind<bindings::native_ui_property_vec2>("UIPropertyVec2")
+      .bind<bindings::native_ui_property_vec3>("UIPropertyVec3")
+      .bind<bindings::native_ui_property_vec4>("UIPropertyVec4")
+      .bind<bindings::native_ui_property_text>("UIPropertyText")
+      .bind<bindings::native_ui_asset_drop_target>("UIAssetDropTarget");
 
     bindings::binding_context{ dn_host }
       /// Scene
@@ -570,7 +589,13 @@ namespace other {
       .bind<bindings::native_behavior_set_runtime>("BehaviorSetRuntime")
       .bind<bindings::native_behavior_add>("BehaviorAdd")
       .bind<bindings::native_behavior_remove>("BehaviorRemove")
-      .bind<bindings::native_behavior_set_enabled>("BehaviorSetEnabled");
+      .bind<bindings::native_behavior_set_enabled>("BehaviorSetEnabled")
+      .bind<bindings::native_behavior_count>("BehaviorCount")
+      .bind<bindings::native_behavior_at>("BehaviorAt")
+      .bind<bindings::native_behavior_set_enabled_on>("BehaviorSetEnabledOn")
+      .bind<bindings::native_behavior_describe>("BehaviorDescribe")
+      .bind<bindings::native_behavior_capture>("BehaviorCapture")
+      .bind<bindings::native_behavior_apply>("BehaviorApply");
 
     bindings::validate_binding_points(dn_host);
     /// behaviors can be made from here on
@@ -678,12 +703,18 @@ namespace other {
 
     template <typename T>
       requires reflected_type<T>
-    void bind_dotnet_component(dotnet_host& dn_host, dotnet_object* managed_binder, const std::string_view display_name, bool removable = true) {
+    void bind_dotnet_component(dotnet_host& dn_host, dotnet_object* managed_binder, const std::string_view display_name, const glm::vec4& color, bool removable = true) {
       // CORE_LOG_DEBUG(" - binding to .NET: '{}'", get_native_type_name<T>());
 
       auto desc = make_component_descriptor<T>(get_native_type_name<T>());
       desc.display_name = display_name;
       desc.removable = removable;
+      desc.color = &color;
+      /// an object's scripts are drawn by whoever draws the inspector, from what each
+      ///  behaviour says its fields are
+      if constexpr (!std::is_same_v<T, script_component>) {
+        desc.draw_fn = &ui::draw_component_fields<T>;
+      }
       set_ecs_lifecycle<T>(desc);
       abi::oe_get_registry().register_component(std::move(desc));
     }
@@ -752,20 +783,21 @@ namespace other {
 
       /// in the order a list of them shows, under the names an inspector uses. every object
       ///  has a transform and its scripts, and keeps them
-      bind_dotnet_component<transform>(dn_host, obj, "Transform", false);
-      bind_dotnet_component<script_component>(dn_host, obj, "Scripts", false);
-      bind_dotnet_component<render_component>(dn_host, obj, "Graphics Object");
-      bind_dotnet_component<physics_component>(dn_host, obj, "Physics Object");
-      bind_dotnet_component<physics_joint_component>(dn_host, obj, "Physics Joint");
-      bind_dotnet_component<camera_component>(dn_host, obj, "Camera");
-      bind_dotnet_component<grid_component>(dn_host, obj, "Grid");
-      bind_dotnet_component<point_light_component>(dn_host, obj, "Point Light");
-      bind_dotnet_component<direction_light_component>(dn_host, obj, "Directional Light");
-      bind_dotnet_component<animation_component>(dn_host, obj, "Animation");
-      bind_dotnet_component<audio_source_component>(dn_host, obj, "Audio Source");
-      bind_dotnet_component<audio_listener_component>(dn_host, obj, "Audio Listener");
-      bind_dotnet_component<network_component>(dn_host, obj, "Network");
-      bind_dotnet_component<network_settings_component>(dn_host, obj, "Network Settings");
+      namespace tint = ui::colors::scene_object;
+      bind_dotnet_component<transform>(dn_host, obj, "Transform", tint::kComponentTransform, false);
+      bind_dotnet_component<script_component>(dn_host, obj, "Scripts", tint::kComponentScript, false);
+      bind_dotnet_component<render_component>(dn_host, obj, "Graphics Object", tint::kComponentRenderer);
+      bind_dotnet_component<physics_component>(dn_host, obj, "Physics Object", tint::kComponentPhysics);
+      bind_dotnet_component<physics_joint_component>(dn_host, obj, "Physics Joint", tint::kComponentPhysics);
+      bind_dotnet_component<camera_component>(dn_host, obj, "Camera", tint::kComponentCamera);
+      bind_dotnet_component<grid_component>(dn_host, obj, "Grid", tint::kComponentGrid);
+      bind_dotnet_component<point_light_component>(dn_host, obj, "Point Light", tint::kComponentPointLight);
+      bind_dotnet_component<direction_light_component>(dn_host, obj, "Directional Light", tint::kComponentDirectionLight);
+      bind_dotnet_component<animation_component>(dn_host, obj, "Animation", tint::kComponentAnimation);
+      bind_dotnet_component<audio_source_component>(dn_host, obj, "Audio Source", tint::kComponentAudio);
+      bind_dotnet_component<audio_listener_component>(dn_host, obj, "Audio Listener", tint::kComponentAudio);
+      bind_dotnet_component<network_component>(dn_host, obj, "Network", tint::kComponentCustom);
+      bind_dotnet_component<network_settings_component>(dn_host, obj, "Network Settings", tint::kComponentCustom);
 
       // dn_host.destroy_managed_object(obj);
     }
@@ -787,6 +819,8 @@ namespace other {
         /// Component management.
         .bind<abi::oe_component_type_count>("OeComponentTypeCount")
         .bind<abi::oe_component_type_at>("OeComponentTypeAt")
+        .bind<abi::oe_component_type_color>("OeComponentTypeColor")
+        .bind<abi::oe_component_type_native_name>("OeComponentTypeNativeName")
         .bind<abi::oe_has_component>("OeHasComponent")
         .bind<abi::oe_add_component>("OeAddComponent")
         .bind<abi::oe_remove_component>("OeRemoveComponent");

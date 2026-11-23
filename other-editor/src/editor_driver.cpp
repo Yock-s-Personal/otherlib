@@ -24,7 +24,6 @@
 #include "driver/systems/project_system.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "ui/asset-browser/asset_browser.hpp"
-#include "ui/object-editor/object_editor.hpp"
 #include "ui/project-compiler/project_compiler.hpp"
 #include "ui/project-creator/project_creator.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
@@ -98,7 +97,6 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_early_initialize");
     auto& ui = get_ui();
     viewport_id = ui->register_window<ui::viewport>("viewport", context, *get_event_system(), get_renderer(), this);
-    ui->register_window<ui::object_editor>("object-editor", context, *get_event_system(), this);
     ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());

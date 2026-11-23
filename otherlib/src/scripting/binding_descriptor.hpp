@@ -19,6 +19,8 @@
 namespace other {
 
   class scene;
+  class driver;
+  struct scene_object;
 
   struct field_binding_descriptor {
     uint64_t field_id = 0;
@@ -58,6 +60,12 @@ namespace other {
     std::string display_name;
     /// false for what every object has and keeps: its transform, its scripts
     bool removable = true;
+    /// the colour its section's header has in an inspector. the theme's own value, so a
+    ///  theme loaded later is the one shown
+    const glm::vec4* color = nullptr;
+    /// draws its fields as the inspector's rows, true when one was changed. null for a
+    ///  component whose rows are not the engine's to draw (the scripts)
+    bool (*draw_fn)(scene* in_scene, scene_object* object, driver* drvr) = nullptr;
 
     ostd::vector<field_binding_descriptor> fields;
     ostd::vector<method_binding_descriptor> methods;

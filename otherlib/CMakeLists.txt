@@ -71,6 +71,7 @@ target_sources(otherlib
     src/scripting/dotnet_bindings/project_bindings.cpp
     src/scripting/dotnet_bindings/steam_bindings.cpp
     src/scripting/dotnet_bindings/window_bindings.cpp
+    src/scripting/dotnet_bindings/inspector_bindings.cpp
     src/scripting/interfaces/networking_interfaces.cpp
     src/scripting/interfaces/rendering_interfaces.cpp
     src/scripting/interface_registry.cpp
@@ -137,7 +138,6 @@ target_sources(otherlib
     src/tools/vm_cli_tool.cpp
     src/tools/compile_cli_tool.cpp
 
-    src/ui/script/script_property_widget.cpp
     src/ui/type-bindings/value_ui.cpp
     src/ui/type-bindings/vm_ui.cpp
     src/ui/type-bindings/scene_ui.cpp

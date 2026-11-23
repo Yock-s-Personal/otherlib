@@ -95,6 +95,9 @@ namespace other {
     ///  runtime once for a type and kept until the type's assembly goes; none while the
     ///  behaviour has no instance
     const ostd::vector<behavior_field_description>& describe_behavior(integer_t parent_id, const std::string_view behavior_name);
+    /// the same as its runtime wrote it, for one that reads the stream itself. empty where
+    ///  describe_behavior has nothing
+    std::span<const uint8_t> describe_behavior_stream(integer_t parent_id, const std::string_view behavior_name);
     void detach_dotnet_behavior(integer_t parent_id, const std::string_view behavior_name);
     void detach_all_dotnet_behaviors(integer_t parent_id);
     /// before an assembly's types go: what each behaviour of this type holds is kept for
@@ -230,6 +233,7 @@ namespace other {
     behavior_object_resolver object_resolver = nullptr;
     /// by the name a behaviour's type is attached under
     ostd::map<std::string, ostd::vector<behavior_field_description>> descriptions;
+    ostd::map<std::string, ostd::vector<uint8_t>> description_streams;
 
     uint32_t awake_deferrals = 0;
     ostd::vector<integer_t> waiting_to_wake;

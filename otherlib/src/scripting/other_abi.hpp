@@ -52,6 +52,10 @@ namespace other {
     ///  inspector shows, and empty for an index that is none
     int32_t oe_component_type_count();
     const char* oe_component_type_at(int32_t index, uint64_t* out_id, nbool32* out_removable);
+    /// the colour that kind's section has in an inspector, as four floats
+    void oe_component_type_color(int32_t index, float* out_rgba);
+    /// what the engine calls that kind: "script_component"
+    const char* oe_component_type_native_name(int32_t index);
     nbool32 oe_has_component(uint64_t obj_id, uint64_t comp_id);
     nbool32 oe_add_component(uint64_t obj_id, uint64_t comp_id);
     nbool32 oe_remove_component(uint64_t obj_id, uint64_t comp_id);

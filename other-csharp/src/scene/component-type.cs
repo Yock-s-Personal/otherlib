@@ -15,12 +15,18 @@ namespace Other
     public string Name { get; }
     /// false for what every object has and keeps: its transform, its scripts
     public bool Removable { get; }
+    /// what the engine calls it: "render_component"
+    public string NativeName { get; }
+    /// the colour its section has in an inspector
+    public Vec4 Color { get; }
 
-    private ComponentType(ulong id, string name, bool removable)
+    private ComponentType(ulong id, string name, bool removable, string native_name, Vec4 color)
     {
       Id = id;
       Name = name;
       Removable = removable;
+      NativeName = native_name;
+      Color = color;
     }
 
     private static List<ComponentType> all;
@@ -41,9 +47,12 @@ namespace Other
               ulong id = 0;
               NativeBool32 removable = false;
               string name = Utf8Arg.Read(OtherABI.NativeComponentTypeAt(i, &id, &removable));
+              string native_name = Utf8Arg.Read(OtherABI.NativeComponentTypeNativeName(i));
+              float* rgba = stackalloc float[4];
+              OtherABI.NativeComponentTypeColor(i, rgba);
               if (id != 0)
               {
-                all.Add(new ComponentType(id, name, removable));
+                all.Add(new ComponentType(id, name, removable, native_name, new Vec4(rgba[0], rgba[1], rgba[2], rgba[3])));
               }
             }
           }
@@ -67,6 +76,29 @@ namespace Other
     }
 
     public static ComponentType Of<T>() where T : Component => Find(Component.TypeId<T>());
+
+    private static ComponentType scripts;
+
+    /// the kind that is an object's scripts. it has no class of its own in C#, and its
+    ///  rows are drawn from what each behaviour says its fields are (Widgets.Behaviors)
+    public static ComponentType Scripts
+    {
+      get
+      {
+        if (scripts == null)
+        {
+          IReadOnlyList<ComponentType> types = All;
+          for (int i = 0; i < types.Count; i++)
+          {
+            if (types[i].NativeName == "script_component")
+            {
+              scripts = types[i];
+            }
+          }
+        }
+        return scripts;
+      }
+    }
 
     public bool IsOn(SceneObject item)
     {

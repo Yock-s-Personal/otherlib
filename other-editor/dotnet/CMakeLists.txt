@@ -11,5 +11,6 @@ target_sources(OtherEditorCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-overview-window.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene-hierarchy-window.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene-list-window.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/object-editor-window.cs
 )
 target_link_libraries(OtherEditorCs PUBLIC OtherEditor OtherCs OtherCsBindings)

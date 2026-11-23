@@ -76,6 +76,41 @@ namespace Other.UI
     DrawLinesToNodes = 1 << 20,
   }
 
+  /// ImGuiSelectableFlags, value for value
+  [Flags]
+  public enum SelectableFlags : int
+  {
+    None = 0,
+    /// a click on it does not close the popup it is in
+    NoAutoClosePopups = 1 << 0,
+    SpanAllColumns = 1 << 1,
+    AllowDoubleClick = 1 << 2,
+    Disabled = 1 << 3,
+    AllowOverlap = 1 << 4,
+    Highlight = 1 << 5,
+  }
+
+  /// ImGuiDragDropFlags, value for value. the Source ones are for BeginDragDropSource,
+  ///  the Accept ones for AcceptDragDropPayload
+  [Flags]
+  public enum DragDropFlags : int
+  {
+    None = 0,
+    SourceNoPreviewTooltip = 1 << 0,
+    SourceNoDisableHover = 1 << 1,
+    SourceNoHoldToOpenOthers = 1 << 2,
+    SourceAllowNullID = 1 << 3,
+    SourceExtern = 1 << 4,
+    PayloadAutoExpire = 1 << 5,
+    PayloadNoCrossContext = 1 << 6,
+    PayloadNoCrossProcess = 1 << 7,
+    /// the payload is given while it is still held over the target, not only when dropped
+    AcceptBeforeDelivery = 1 << 10,
+    AcceptNoDrawDefaultRect = 1 << 11,
+    AcceptNoPreviewTooltip = 1 << 12,
+    AcceptPeekOnly = AcceptBeforeDelivery | AcceptNoDrawDefaultRect,
+  }
+
   /// ImGuiPopupFlags, value for value. a popup opened by a click says which button: the
   ///  right one unless told otherwise, so a flag added to it is added to MouseButtonRight
   [Flags]

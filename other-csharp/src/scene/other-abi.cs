@@ -15,6 +15,10 @@ namespace Other
     internal static unsafe delegate* unmanaged[Cdecl]<int> NativeComponentTypeCount;
     [NativeFunction("OeComponentTypeAt")]
     internal static unsafe delegate* unmanaged[Cdecl]<int, UInt64*, NativeBool32*, byte*> NativeComponentTypeAt;
+    [NativeFunction("OeComponentTypeColor")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, float*, void> NativeComponentTypeColor;
+    [NativeFunction("OeComponentTypeNativeName")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, byte*> NativeComponentTypeNativeName;
     [NativeFunction("OeHasComponent")]
     internal static unsafe delegate* unmanaged[Cdecl]<UInt64, UInt64, NativeBool32> NativeHasComponent;
     [NativeFunction("OeAddComponent")]

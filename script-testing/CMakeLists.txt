@@ -19,5 +19,6 @@ target_sources(DotnetTesting PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/fields-probe.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/object-probe.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/editor-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/inspector-probe.cs
 )
 target_link_libraries(DotnetTesting PRIVATE OtherCs OtherEditor)

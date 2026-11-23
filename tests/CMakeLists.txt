@@ -106,7 +106,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/console_log_layout_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/window_registry_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/script_window_tests.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/ui/script_property_widget_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/ui/behaviors_widget_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/ui_enum_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/ui/theme_tests.cpp
 

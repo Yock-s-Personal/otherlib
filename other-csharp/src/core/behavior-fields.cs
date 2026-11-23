@@ -44,6 +44,12 @@ namespace Other.Core
       length = 0;
     }
 
+    /// back to a length it had: what was written since is given up
+    public void Truncate(int to)
+    {
+      length = Math.Clamp(to, 0, length);
+    }
+
     private Span<byte> Take(int size)
     {
       if (length + size > buffer.Length)
@@ -305,6 +311,10 @@ namespace Other.Core
         if (field.info.GetCustomAttribute<ColorFieldAttribute>() != null) { Flag(writer, "color", ref count); }
         if (field.info.GetCustomAttribute<InspectorSeparatorAttribute>() != null) { Flag(writer, "separator", ref count); }
         if (field.kind == FieldKind.Enum) { Text(writer, "members", string.Join('\n', Enum.GetNames(field.info.FieldType)), ref count); }
+        if (field.kind == FieldKind.Object && typeof(OtherBehavior).IsAssignableFrom(field.info.FieldType))
+        {
+          Text(writer, "behavior", field.info.FieldType.FullName ?? field.info.FieldType.Name, ref count);
+        }
         if (field.kind == FieldKind.Struct)
         {
           Entry(writer, "fields", FieldKind.Struct, out int nested_at);

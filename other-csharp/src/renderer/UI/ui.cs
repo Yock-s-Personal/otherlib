@@ -122,6 +122,18 @@ namespace Other
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, void> NativeOpenPopup;
     [NativeFunction("UIBeginPopup")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopup;
+    [NativeFunction("UIBeginPopupContextItem")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopupContextItem;
+    [NativeFunction("UIBeginPopupContextWindow")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopupContextWindow;
+    [NativeFunction("UIInputTextWithHint")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, byte*, int, int, NativeBool32> NativeInputTextWithHint;
+    [NativeFunction("UIIsItemToggledOpen")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeIsItemToggledOpen;
+    [NativeFunction("UIWantTextInput")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeWantTextInput;
+    [NativeFunction("UIShortcut")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, int, NativeBool32, NativeBool32> NativeShortcut;
     [NativeFunction("UIBeginPopupModal")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopupModal;
     [NativeFunction("UIEndPopup")]
@@ -446,6 +458,35 @@ namespace Other
     public static void NewLine() { unsafe { NativeNewLine(); } }
     public static void Dummy(float width, float height) { unsafe { NativeDummy(width, height); } }
 
+    /// a text field that shows hint, greyed, while it is empty. as InputText otherwise
+    public static bool InputTextWithHint(string label, string hint, ref string text, int max_length, InputTextFlags flags = InputTextFlags.None)
+    {
+      byte[] buffer = ArrayPool<byte>.Shared.Rent(max_length + 1);
+      try
+      {
+        Span<byte> edited = buffer.AsSpan(0, max_length + 1);
+        Utf8Arg.Fill(text, edited);
+        unsafe
+        {
+          using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
+          using var hint_utf8 = new Utf8Arg(hint, stackalloc byte[Utf8Arg.StackSize]);
+          fixed (byte* ptr = edited)
+          {
+            bool changed = NativeInputTextWithHint(label_utf8.Pointer, hint_utf8.Pointer, ptr, edited.Length, (int)flags);
+            if (changed)
+            {
+              text = Utf8Arg.Read(edited);
+            }
+            return changed;
+          }
+        }
+      }
+      finally
+      {
+        ArrayPool<byte>.Shared.Return(buffer);
+      }
+    }
+
     /// max_length is in bytes of UTF-8. true when the text was edited this frame
     public static bool InputText(string label, ref string text, int max_length, InputTextFlags flags = InputTextFlags.None)
     {
@@ -754,6 +795,27 @@ namespace Other
         return NativeBeginPopup(str_id_utf8.Pointer, flags);
       }
     }
+    /// a popup that the item just drawn opens when it is clicked with the right mouse
+    ///  button: drawn like BeginPopup, ended with EndPopup. with no id it is the item's own
+    public static bool BeginPopupContextItem(string? str_id = null, PopupFlags flags = PopupFlags.MouseButtonRight)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id ?? "", stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginPopupContextItem(str_id_utf8.Pointer, (int)flags);
+      }
+    }
+
+    /// the same for a click on the window where nothing else takes it
+    public static bool BeginPopupContextWindow(string? str_id = null, PopupFlags flags = PopupFlags.MouseButtonRight)
+    {
+      unsafe
+      {
+        using var str_id_utf8 = new Utf8Arg(str_id ?? "", stackalloc byte[Utf8Arg.StackSize]);
+        return NativeBeginPopupContextWindow(str_id_utf8.Pointer, (int)flags);
+      }
+    }
+
     public static bool BeginPopupModal(string name, int flags = 0)
     {
       unsafe
@@ -815,6 +877,11 @@ namespace Other
     public static bool IsItemHovered() { unsafe { return NativeIsItemHovered(); } }
     public static bool IsItemClicked(MouseButton mouse_button = MouseButton.Left) { unsafe { return NativeIsItemClicked((int)mouse_button); } }
     public static bool IsItemActive() { unsafe { return NativeIsItemActive(); } }
+    /// the last item is a tree node whose arrow was clicked this frame, so that a click on
+    ///  the arrow can be told from a click on the row
+    public static bool IsItemToggledOpen() { unsafe { return NativeIsItemToggledOpen(); } }
+    /// a text field is being typed in: a key pressed now is its, and not a shortcut's
+    public static bool WantTextInput { get { unsafe { return NativeWantTextInput(); } } }
     public static bool IsWindowFocused(int flags = 0) { unsafe { return NativeIsWindowFocused(flags); } }
     public static bool IsWindowHovered(int flags = 0) { unsafe { return NativeIsWindowHovered(flags); } }
 
@@ -1012,6 +1079,10 @@ namespace Other
     public static bool IsKeyDown(Key key) { unsafe { return NativeIsKeyDown((int)key); } }
     /// true on the frame the key goes down, and again as it repeats when repeat is true
     public static bool IsKeyPressed(Key key, bool repeat = true) { unsafe { return NativeIsKeyPressed((int)key, repeat); } }
+    /// a key with its modifiers, pressed where it is the caller's to take. global: wherever
+    ///  the focus is, unless something that has the keyboard (a text field being typed in)
+    ///  wants the keys itself. otherwise only while the window being drawn has the focus
+    public static bool Shortcut(Key key, KeyMods mods = KeyMods.None, bool global = false) { unsafe { return NativeShortcut((int)key, (int)mods, global); } }
     public static KeyMods KeyMods { get { unsafe { return (KeyMods)NativeGetKeyMods(); } } }
 
     /// the last item's rectangle on the screen

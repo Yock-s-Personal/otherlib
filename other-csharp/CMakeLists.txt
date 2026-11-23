@@ -65,6 +65,7 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/native-component.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/native-field.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/component.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/component-type.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/transform.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/render-component.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/grid-component.cs

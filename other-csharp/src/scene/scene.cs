@@ -37,6 +37,13 @@ namespace Other
     [NativeFunction("SceneRemoveObjectTag")]
     internal static unsafe delegate* unmanaged[Cdecl]<UInt64, byte*, void> NativeRemoveObjectTag;
 
+    [NativeFunction("SceneRevision")]
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64> NativeRevision;
+    [NativeFunction("SceneGetName")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*> NativeGetName;
+    [NativeFunction("SceneGetTopIds")]
+    internal static unsafe delegate* unmanaged[Cdecl]<UInt64*, int*, int, void> NativeGetTopIds;
+
     [NativeFunction("SceneGetObjectVisible")]
     internal static unsafe delegate* unmanaged[Cdecl]<UInt64, NativeBool32> NativeGetObjectVisible;
     [NativeFunction("SceneSetObjectVisible")]
@@ -101,6 +108,35 @@ namespace Other
         UInt64* buffer = stackalloc UInt64[kMaxObjectQueryCount];
         int count = 0;
         NativeGetObjectIds(buffer, &count, kMaxObjectQueryCount);
+        ulong[] result = new ulong[count];
+        for (int i = 0; i < count; i++)
+          result[i] = buffer[i];
+        return result;
+      }
+    }
+
+    /// goes up whenever what a list of the scene's objects would show changes (an object is
+    ///  made, destroyed, renamed, moved under another, hidden, shown or tagged) and when
+    ///  another scene becomes the one in use. what is read from a scene to be drawn every
+    ///  frame is kept, and read again only when this has moved. 0 while there is no scene
+    public static ulong Revision
+    {
+      get { unsafe { return NativeRevision(); } }
+    }
+
+    public static string Name
+    {
+      get { unsafe { return Utf8Arg.Read(NativeGetName()); } }
+    }
+
+    /// the objects at the top of the scene, in its order
+    public static ulong[] GetTopObjectIds()
+    {
+      unsafe
+      {
+        UInt64* buffer = stackalloc UInt64[kMaxObjectQueryCount];
+        int count = 0;
+        NativeGetTopIds(buffer, &count, kMaxObjectQueryCount);
         ulong[] result = new ulong[count];
         for (int i = 0; i < count; i++)
           result[i] = buffer[i];

@@ -54,6 +54,10 @@ namespace other {
   struct component_binding_descriptor {
     uint64_t component_id = 0;
     std::string name;
+    /// what an inspector calls it
+    std::string display_name;
+    /// false for what every object has and keeps: its transform, its scripts
+    bool removable = true;
 
     ostd::vector<field_binding_descriptor> fields;
     ostd::vector<method_binding_descriptor> methods;

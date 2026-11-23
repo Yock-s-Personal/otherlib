@@ -26,6 +26,41 @@ namespace Other.UI
 
     public static void EndPropertyRow() { unsafe { NativeEndPropertyRow(); } }
 
+    /// what a dragged scene object is carried as: its id. a list of objects starts such a
+    ///  drag, and whatever takes an object (another row, a field of a script) accepts it
+    public const string kObjectPayload = "OTHER_SCENE_OBJECT";
+
+    /// after an item: an object can be dragged from it. true while it is being dragged
+    public static bool ObjectDragSource(SceneObject item)
+    {
+      if (!UIBindings.BeginDragDropSource())
+      {
+        return false;
+      }
+
+      unsafe
+      {
+        ulong id = item.ObjectID;
+        UIBindings.SetDragDropPayload(kObjectPayload, (IntPtr)(&id), sizeof(ulong));
+      }
+      UIBindings.Text(item.Name);
+      UIBindings.EndDragDropSource();
+      return true;
+    }
+
+    /// after an item: the object that was dropped on it this frame. null when none was
+    public static SceneObject? ObjectDropTarget()
+    {
+      if (!UIBindings.BeginDragDropTarget())
+      {
+        return null;
+      }
+
+      byte[]? data = UIBindings.AcceptDragDropPayload(kObjectPayload);
+      UIBindings.EndDragDropTarget();
+      return data != null && data.Length == sizeof(ulong) ? SceneObject.FromId(BitConverter.ToUInt64(data, 0)) : null;
+    }
+
     /// a row that shows text nobody edits
     public static void PropertyDisplay(string label, string text)
     {

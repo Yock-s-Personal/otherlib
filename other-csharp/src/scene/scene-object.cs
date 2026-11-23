@@ -31,7 +31,7 @@ namespace Other
     }
 
     /// the object the engine knows by that id; null when it knows none
-    internal static SceneObject FromId(ulong id)
+    public static SceneObject FromId(ulong id)
     {
       if (id == 0)
       {

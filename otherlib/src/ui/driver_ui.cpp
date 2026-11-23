@@ -28,6 +28,19 @@ namespace other {
       return std::ranges::any_of(menu.sub_menus, [id](ui::menu& sub_menu) { return erase_menu_item(sub_menu, id); });
     }
 
+    ui::menu_item* find_menu_item(ui::menu& menu, natural_t id) {
+      const auto found = std::ranges::find(menu.items, id, &ui::menu_item::id);
+      if (found != menu.items.end()) {
+        return &*found;
+      }
+      for (ui::menu& sub_menu : menu.sub_menus) {
+        if (ui::menu_item* item = find_menu_item(sub_menu, id); item != nullptr) {
+          return item;
+        }
+      }
+      return nullptr;
+    }
+
   }  // namespace
 
   void driver_ui::initialize() {
@@ -286,6 +299,24 @@ namespace other {
     }
     for (main_menu_bar_menu& menu : main_menu_bar_menus) {
       if (erase_menu_item(menu.menu, id)) {
+        return;
+      }
+    }
+  }
+
+  void driver_ui::set_menu_item_shortcut(natural_t id, const std::string_view shortcut) {
+    for (main_menu_bar_menu& menu : main_menu_bar_menus) {
+      if (ui::menu_item* item = id != 0 ? find_menu_item(menu.menu, id) : nullptr; item != nullptr) {
+        item->shortcut = shortcut;
+        return;
+      }
+    }
+  }
+
+  void driver_ui::set_menu_item_enabled(natural_t id, bool enabled) {
+    for (main_menu_bar_menu& menu : main_menu_bar_menus) {
+      if (ui::menu_item* item = id != 0 ? find_menu_item(menu.menu, id) : nullptr; item != nullptr) {
+        item->enabled = enabled;
         return;
       }
     }

@@ -76,6 +76,20 @@ namespace Other.UI
     DrawLinesToNodes = 1 << 20,
   }
 
+  /// ImGuiPopupFlags, value for value. a popup opened by a click says which button: the
+  ///  right one unless told otherwise, so a flag added to it is added to MouseButtonRight
+  [Flags]
+  public enum PopupFlags : int
+  {
+    MouseButtonLeft = 0,
+    MouseButtonRight = 1,
+    MouseButtonMiddle = 2,
+    NoReopen = 1 << 5,
+    NoOpenOverExistingPopup = 1 << 7,
+    /// for a window's popup: only over empty space, not over an item
+    NoOpenOverItems = 1 << 8,
+  }
+
   /// ImGuiTableFlags, value for value
   [Flags]
   public enum TableFlags : int

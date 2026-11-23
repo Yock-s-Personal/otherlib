@@ -12,7 +12,10 @@
 #include "object/audio_source_component.hpp"
 #include "object/grid_component.hpp"
 #include "object/light_component.hpp"
+#include "object/network_component.hpp"
+#include "object/network_settings_component.hpp"
 #include "object/physics_component.hpp"
+#include "object/physics_joint_component.hpp"
 #include "object/script_component.hpp"
 #include "object/transform.hpp"
 
@@ -144,6 +147,7 @@ namespace other {
     bindings::binding_context{ dn_host }
       /// UI - Input Widgets.
       .bind<bindings::native_ui_input_text>("UIInputText")
+      .bind<bindings::native_ui_input_text_with_hint>("UIInputTextWithHint")
       .bind<bindings::native_ui_input_text_multiline>("UIInputTextMultiline")
       .bind<bindings::native_ui_input_float>("UIInputFloat")
       .bind<bindings::native_ui_input_float2>("UIInputFloat2")
@@ -193,6 +197,8 @@ namespace other {
       /// UI - Popups / Modals.
       .bind<bindings::native_ui_open_popup>("UIOpenPopup")
       .bind<bindings::native_ui_begin_popup>("UIBeginPopup")
+      .bind<bindings::native_ui_begin_popup_context_item>("UIBeginPopupContextItem")
+      .bind<bindings::native_ui_begin_popup_context_window>("UIBeginPopupContextWindow")
       .bind<bindings::native_ui_begin_popup_modal>("UIBeginPopupModal")
       .bind<bindings::native_ui_end_popup>("UIEndPopup")
       .bind<bindings::native_ui_close_current_popup>("UICloseCurrentPopup");
@@ -217,6 +223,8 @@ namespace other {
       .bind<bindings::native_ui_is_item_hovered>("UIIsItemHovered")
       .bind<bindings::native_ui_is_item_clicked>("UIIsItemClicked")
       .bind<bindings::native_ui_is_item_active>("UIIsItemActive")
+      .bind<bindings::native_ui_is_item_toggled_open>("UIIsItemToggledOpen")
+      .bind<bindings::native_ui_want_text_input>("UIWantTextInput")
       .bind<bindings::native_ui_is_window_focused>("UIIsWindowFocused")
       .bind<bindings::native_ui_is_window_hovered>("UIIsWindowHovered");
 
@@ -301,6 +309,7 @@ namespace other {
       .bind<bindings::native_ui_is_mouse_hovering_rect>("UIIsMouseHoveringRect")
       .bind<bindings::native_ui_is_key_down>("UIIsKeyDown")
       .bind<bindings::native_ui_is_key_pressed>("UIIsKeyPressed")
+      .bind<bindings::native_ui_shortcut>("UIShortcut")
       .bind<bindings::native_ui_get_key_mods>("UIGetKeyMods")
       /// UI - The last item.
       .bind<bindings::native_ui_get_item_rect_min>("UIGetItemRectMin")
@@ -347,6 +356,8 @@ namespace other {
       .bind<bindings::native_ui_window_draw_microseconds>("UIWindowDrawMicroseconds")
       .bind<bindings::native_ui_add_menu_item>("UIAddMenuItem")
       .bind<bindings::native_ui_remove_menu_item>("UIRemoveMenuItem")
+      .bind<bindings::native_ui_set_menu_item_shortcut>("UISetMenuItemShortcut")
+      .bind<bindings::native_ui_set_menu_item_enabled>("UISetMenuItemEnabled")
       .bind<bindings::native_ui_set_menu_item_click_function>("UISetMenuItemClickFunction");
 
     bindings::binding_context{ dn_host }
@@ -371,6 +382,9 @@ namespace other {
       .bind<bindings::native_scene_add_object_tag>("SceneAddObjectTag")
       .bind<bindings::native_scene_remove_object_tag>("SceneRemoveObjectTag")
       /// Object Visibility.
+      .bind<bindings::native_scene_revision>("SceneRevision")
+      .bind<bindings::native_scene_get_name>("SceneGetName")
+      .bind<bindings::native_scene_get_top_ids>("SceneGetTopIds")
       .bind<bindings::native_scene_get_object_visible>("SceneGetObjectVisible")
       .bind<bindings::native_scene_set_object_visible>("SceneSetObjectVisible");
 
@@ -664,10 +678,12 @@ namespace other {
 
     template <typename T>
       requires reflected_type<T>
-    void bind_dotnet_component(dotnet_host& dn_host, dotnet_object* managed_binder) {
+    void bind_dotnet_component(dotnet_host& dn_host, dotnet_object* managed_binder, const std::string_view display_name, bool removable = true) {
       // CORE_LOG_DEBUG(" - binding to .NET: '{}'", get_native_type_name<T>());
 
       auto desc = make_component_descriptor<T>(get_native_type_name<T>());
+      desc.display_name = display_name;
+      desc.removable = removable;
       set_ecs_lifecycle<T>(desc);
       abi::oe_get_registry().register_component(std::move(desc));
     }
@@ -734,17 +750,22 @@ namespace other {
       dotnet_object* obj = nullptr;
       // dn_host.instantiate_managed_object("Other.TypeBinder", "Binder");
 
-      bind_dotnet_component<transform>(dn_host, obj);
-      bind_dotnet_component<script_component>(dn_host, obj);
-      bind_dotnet_component<render_component>(dn_host, obj);
-      bind_dotnet_component<camera_component>(dn_host, obj);
-      bind_dotnet_component<grid_component>(dn_host, obj);
-      bind_dotnet_component<point_light_component>(dn_host, obj);
-      bind_dotnet_component<direction_light_component>(dn_host, obj);
-      bind_dotnet_component<animation_component>(dn_host, obj);
-      bind_dotnet_component<audio_source_component>(dn_host, obj);
-      bind_dotnet_component<audio_listener_component>(dn_host, obj);
-      bind_dotnet_component<physics_component>(dn_host, obj);
+      /// in the order a list of them shows, under the names an inspector uses. every object
+      ///  has a transform and its scripts, and keeps them
+      bind_dotnet_component<transform>(dn_host, obj, "Transform", false);
+      bind_dotnet_component<script_component>(dn_host, obj, "Scripts", false);
+      bind_dotnet_component<render_component>(dn_host, obj, "Graphics Object");
+      bind_dotnet_component<physics_component>(dn_host, obj, "Physics Object");
+      bind_dotnet_component<physics_joint_component>(dn_host, obj, "Physics Joint");
+      bind_dotnet_component<camera_component>(dn_host, obj, "Camera");
+      bind_dotnet_component<grid_component>(dn_host, obj, "Grid");
+      bind_dotnet_component<point_light_component>(dn_host, obj, "Point Light");
+      bind_dotnet_component<direction_light_component>(dn_host, obj, "Directional Light");
+      bind_dotnet_component<animation_component>(dn_host, obj, "Animation");
+      bind_dotnet_component<audio_source_component>(dn_host, obj, "Audio Source");
+      bind_dotnet_component<audio_listener_component>(dn_host, obj, "Audio Listener");
+      bind_dotnet_component<network_component>(dn_host, obj, "Network");
+      bind_dotnet_component<network_settings_component>(dn_host, obj, "Network Settings");
 
       // dn_host.destroy_managed_object(obj);
     }
@@ -764,6 +785,8 @@ namespace other {
         /// Validation.
         .bind<abi::oe_validate_handle>("OeValidateHandle")
         /// Component management.
+        .bind<abi::oe_component_type_count>("OeComponentTypeCount")
+        .bind<abi::oe_component_type_at>("OeComponentTypeAt")
         .bind<abi::oe_has_component>("OeHasComponent")
         .bind<abi::oe_add_component>("OeAddComponent")
         .bind<abi::oe_remove_component>("OeRemoveComponent");

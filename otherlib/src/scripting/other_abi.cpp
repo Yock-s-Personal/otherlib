@@ -74,7 +74,10 @@ namespace other {
   }
 
   void binding_registry::register_component(component_binding_descriptor desc) {
-    component_descriptors.emplace(desc.component_id, std::move(desc));
+    const uint64_t id = desc.component_id;
+    if (component_descriptors.emplace(id, std::move(desc)).second) {
+      component_order.push_back(id);
+    }
   }
 
   void binding_registry::register_service(service_binding_descriptor desc) {
@@ -119,6 +122,18 @@ namespace other {
       return obj.generation == generation;
     }
 
+    int32_t oe_component_type_count() {
+      return static_cast<int32_t>(detail::bindings.get_component_order().size());
+    }
+
+    const char* oe_component_type_at(int32_t index, uint64_t* out_id, nbool32* out_removable) {
+      const std::vector<uint64_t>& order = detail::bindings.get_component_order();
+      const component_binding_descriptor* desc = index >= 0 && static_cast<size_t>(index) < order.size() ? detail::bindings.find_component(order[index]) : nullptr;
+      *out_id = desc != nullptr ? desc->component_id : 0;
+      *out_removable = desc != nullptr && desc->removable;
+      return bindings::returned_string(desc != nullptr ? std::string_view{ desc->display_name } : std::string_view{});
+    }
+
     nbool32 oe_has_component(uint64_t obj_id, uint64_t comp_id) {
       scene* s = detail::get_active_scene();
       if (s == nullptr || !s->has_object(obj_id)) {
@@ -151,7 +166,7 @@ namespace other {
         return false;
       }
       const auto* desc = detail::bindings.find_component(comp_id);
-      if (desc == nullptr || desc->remove_fn == nullptr) {
+      if (desc == nullptr || desc->remove_fn == nullptr || !desc->removable) {
         return false;
       }
       return desc->remove_fn(s, obj_id);

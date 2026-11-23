@@ -1,3 +1,20 @@
+## the editor's services and their bindings: what an editor window works with that is not
+##  the scene itself. apart from the driver so that the test suite can link it, and apart
+##  from otherlib so that a packaged game, which links all of otherlib, has none of it
+add_library(other_editor_services STATIC)
+target_sources(other_editor_services
+  PRIVATE
+    src/services/edit_stack.cpp
+    src/services/editor_services.cpp
+    src/services/editor_bindings.cpp
+)
+target_include_directories(other_editor_services
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+    $<INSTALL_INTERFACE:${OTHER_INSTALL_INCLUDEDIR}/editor>
+)
+target_link_libraries(other_editor_services PUBLIC otherlib)
+
 add_static_driver(other_editor
   src/ui/asset-browser/asset_browser_widgets.cpp
   src/ui/asset-browser/asset_browser_tree_node.cpp
@@ -8,8 +25,6 @@ add_static_driver(other_editor
   src/ui/asset-editor/asset_editor_node.cpp
   src/ui/node-editor/node_editor_canvas.cpp
   src/ui/node-editor/node_editor_display.cpp
-  src/ui/scene-hierarchy/hierarchy_widgets.cpp
-  src/ui/scene-hierarchy/scene_hierarchy.cpp
   src/ui/object-editor/object_editor.cpp
   src/ui/object-editor/property_inspector_node.cpp
   src/ui/render-pipeline-ui/render_pipeline_widgets.cpp
@@ -17,10 +32,8 @@ add_static_driver(other_editor
   src/ui/render-pipeline-ui/render_pipeline_editor.cpp
   src/ui/project-compiler/project_compiler.cpp
   src/ui/project-creator/project_creator.cpp
-  src/ui/scene-graph-editor/scene_graph_editor.cpp
   src/ui/viewport/viewport.cpp
 
-  src/edit_stack.cpp
   src/editor_context.cpp
   src/editor_driver.cpp
 )
@@ -30,7 +43,10 @@ target_include_directories(other_editor
     $<INSTALL_INTERFACE:${OTHER_INSTALL_INCLUDEDIR}/editor>
 )
 
+target_link_libraries(other_editor PUBLIC other_editor_services)
+
 add_subdirectory(plugins)
+add_subdirectory(api)
 add_subdirectory(dotnet)
 
 install(TARGETS other_editor RUNTIME DESTINATION "${OTHER_INSTALL_BINDIR}/${OTHER_LIB_FAMILY}")
@@ -38,4 +54,9 @@ install(
   DIRECTORY "${CMAKE_BINARY_DIR}/other-editor/dotnet/${ASSEMBLY_CONFIG}/"
   DESTINATION "${OTHER_INSTALL_ASSEMBLIES}"
   FILES_MATCHING PATTERN "OtherEditorCs.*"
+)
+install(
+  DIRECTORY "${CMAKE_BINARY_DIR}/other-editor/api/${ASSEMBLY_CONFIG}/"
+  DESTINATION "${OTHER_INSTALL_ASSEMBLIES}"
+  FILES_MATCHING PATTERN "OtherEditor.*"
 )

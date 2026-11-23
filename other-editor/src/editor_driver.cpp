@@ -12,6 +12,7 @@
 
 #include "model/vertex.hpp"
 #include "renderer/colors.hpp"
+#include "script/scripting_environment.hpp"
 
 #include "object/camera_component.hpp"
 #include "object/light_component.hpp"
@@ -20,30 +21,87 @@
 #include "object/scene_object.hpp"
 #include "scene/scene.hpp"
 
+#include "driver/systems/project_system.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "ui/asset-browser/asset_browser.hpp"
-#include "ui/menu-bar/menu_item.hpp"
 #include "ui/object-editor/object_editor.hpp"
 #include "ui/project-compiler/project_compiler.hpp"
 #include "ui/project-creator/project_creator.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
-#include "ui/scene-graph-editor/scene_graph_editor.hpp"
-#include "ui/scene-hierarchy/scene_hierarchy.hpp"
 #include "ui/viewport/viewport.hpp"
 
+#include "services/editor_bindings.hpp"
+
 namespace other {
+
+  void editor_driver::on_system_initialization() {
+    PROFILE_SECTION("editor_driver::on_system_initialization");
+    bindings::set_editor_services(&context);
+    context.send_playback_command = [this](const std::string_view command) {
+      trigger_event("scene.playback-command", value{ std::string{ command } });
+    };
+    context.save_scene = [this]() -> bool {
+      return save_active_scene();
+    };
+    context.list_scenes = [this](ostd::vector<editor_services::scene_listing>& listed) {
+      auto& kernel = get_kernel();
+      const project& current_project = kernel.get_core_system<project_system>().get_project();
+      const natural_t starting_scene_id = current_project.get_starting_scene_id();
+      const scene* active = get_active_scene();
+      for (const auto& node : kernel.get_core_system<scene_system>().get_scene_graph()) {
+        if (node.value == nullptr) {
+          continue;
+        }
+        const scene& s = *node.value;
+        /// the project names a scene apart from its file; with no name there, the file's
+        std::string name = s.name;
+        for (const project::scene& entry : current_project.get_scenes()) {
+          if (entry.scene_id == s.id) {
+            name = entry.name;
+            break;
+          }
+        }
+        listed.push_back({
+          .id = s.id,
+          .name = std::move(name),
+          .scene_name = s.name,
+          .active = active != nullptr && active->id == s.id,
+          .starting = starting_scene_id != 0 && starting_scene_id == s.id,
+        });
+      }
+    };
+    if (subsystem<scripting_environment>::inert) {
+      return;
+    }
+
+    /// the editor's C# API is loaded before the modules written against it, and its
+    ///  bindings are the editor's own to make: the engine bound its own when it started
+    auto* env = subsystem<scripting_environment>::get();
+    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
+    const std::string api_path = get_config_value<std::string>("scripting.editor-api", "");
+    ref<assembly> api = api_path.empty() ? nullptr : env->load_dotnet_module(api_path);
+    if (api == nullptr) {
+      CORE_LOG_ERROR("The editor's C# API was not loaded from scripting.editor-api ('{}'): the editor's C# windows will not work.", api_path);
+      return;
+    }
+    api->driver_module = true;
+
+    const size_t refused = bindings::bind_editor_functions(env->get_dotnet_host());
+    if (refused > 0) {
+      OTHER_CRITICAL_FAILURE("{} of the editor's functions could not be bound to OtherEditor.dll. The error above each says how its native and C# declarations differ.", refused);
+    }
+    editor_api_bound = true;
+  }
 
   void editor_driver::on_early_initialize() {
     PROFILE_SECTION("editor_driver::on_early_initialize");
     auto& ui = get_ui();
     viewport_id = ui->register_window<ui::viewport>("viewport", context, *get_event_system(), get_renderer(), this);
-    ui->register_window<ui::scene_hierarchy>("scene-hierarchy", context, *get_event_system(), this);
     ui->register_window<ui::object_editor>("object-editor", context, *get_event_system(), this);
     ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
-    ui->register_window<ui::scene_graph_editor>("scene-graph-editor", context, *get_event_system(), this);
     ui->register_window<ui::project_compiler>("project-compiler", context, *get_event_system(), this);
     ui->register_window<ui::asset_browser>("asset-browser", *get_event_system(), this);
   }
@@ -79,11 +137,11 @@ namespace other {
       context.reset_scene_edit_tracking();
     });
 
-    /// editor.lua created the File menu before on_initialize ran; append the scene entry
-    get_ui()->register_main_menu_bar_menu_item("File", ui::menu_item{
-                                                         .name = "Save Scene",
-                                                         .action = action{ std::function<void()>([this]() { save_active_scene(); }) },
-                                                       });
+    /// undo, redo, save and the rest are commands, added by the editor's C# API now that
+    ///  there is a menu bar for them: their menu items and their keys are the commands'
+    if (editor_api_bound) {
+      subsystem<scripting_environment>::get()->call_static_dotnet_method<void>("Other.Editor.EditorCommands", "Add");
+    }
 
     auto& r = get_renderer();
     const ostd::vector<vertex_attribute> vtx = {
@@ -122,13 +180,6 @@ namespace other {
 
     ctx.add_action("orbit_hold")
       .bind_mouse_button(mouse_button::MIDDLE);
-
-    ctx.add_action("undo")
-      .bind_key(key_code::Z, modifier_flags::CTRL);
-    ctx.add_action("redo")
-      .bind_key(key_code::Y, modifier_flags::CTRL);
-    ctx.add_action("save-scene")
-      .bind_key(key_code::S, modifier_flags::CTRL);
   }
 
   void editor_driver::on_rendering_pipeline_loaded(natural_t asset_id, render_pipeline* pipeline) {
@@ -246,6 +297,11 @@ namespace other {
     }
   }
 
+  void editor_driver::on_ui_render() {
+    PROFILE_SECTION("editor_driver::on_ui_render");
+    bindings::run_editor_frame_function();
+  }
+
   void editor_driver::on_shutdown_request() {
     PROFILE_SECTION("editor_driver::on_shutdown_request");
     /// a compile reads the project through its mount and links against the VM's devices. the
@@ -258,6 +314,7 @@ namespace other {
     /// only a compile started after the shutdown was asked for can still be running
     context.project_compile.wait();
     context.remove_all_viewports();
+    bindings::set_editor_services(nullptr);
   }
 
   void editor_driver::update_running() {
@@ -292,6 +349,7 @@ namespace other {
       }
     }
 
+    context.tick_selection();
     context.tick_edit_tracker();
     update_input();
   }
@@ -358,20 +416,6 @@ namespace other {
   void editor_driver::on_create_project() {
     auto& ui = get_ui();
     ui->open_window("project-creator");
-  }
-
-  void editor_driver::on_input_event(const input_state_change_event& event) {
-    if (!event.pressed) {
-      return;
-    }
-
-    if (event.action_name == "undo") {
-      context.undo_scene_edit();
-    } else if (event.action_name == "redo") {
-      context.redo_scene_edit();
-    } else if (event.action_name == "save-scene") {
-      save_active_scene();
-    }
   }
 
   bool editor_driver::save_active_scene() {

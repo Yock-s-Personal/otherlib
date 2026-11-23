@@ -76,6 +76,10 @@ namespace other {
     bool is_playing() const {
       return playing;
     }
+    /// played and held: it is not running, and stop still has what it was to put back
+    bool is_paused() const {
+      return !playing && !play_snapshot.empty();
+    }
 
     void enable_physics_debug_rendering();
     void disable_physics_debug_rendering();
@@ -131,6 +135,12 @@ namespace other {
 
     /// sets the object's name and the label on its script object; names need not be unique
     void rename_object(natural_t id, const std::string_view name);
+    /// no such object: nothing is changed
+    void set_object_visible(natural_t id, bool visible);
+    /// goes up whenever what a list of this scene's objects would show changes: an object
+    ///  is made, destroyed, renamed, moved under another, hidden, shown or tagged. no two
+    ///  scenes hold the same number, so a change of scene is a change of it too
+    uint64_t revision() const { return change_revision; }
 
     /// document id of the record the next create_object call rebuilds; a play-stop restore
     ///  uses it to hand each managed instance back to the object it belonged to
@@ -413,6 +423,9 @@ namespace other {
     double fixed_accumulator = 0.0;
 
     bool playing = false;
+
+    void mark_changed();
+    uint64_t change_revision = 0;
     scope<scene_storage> storage = nullptr;
 
     opt<serialization::scene_document> pending_document = std::nullopt;

@@ -38,6 +38,7 @@ namespace other {
     void native_ui_dummy(float width, float height);
 
     nbool32 native_ui_input_text(const char* label, char* buffer, int32_t buffer_size, int32_t flags);
+    nbool32 native_ui_input_text_with_hint(const char* label, const char* hint, char* buffer, int32_t buffer_size, int32_t flags);
     nbool32 native_ui_input_text_multiline(const char* label, char* buffer, int32_t buffer_size, float width, float height, int32_t flags);
 
     nbool32 native_ui_input_float(const char* label, float* value, float step, float step_fast, int32_t decimal_precision);
@@ -89,6 +90,10 @@ namespace other {
     void native_ui_open_popup(const char* str_id);
 
     nbool32 native_ui_begin_popup(const char* str_id, int32_t flags);
+    /// a popup the last item, or the window, opens when it is clicked with the button the
+    ///  flags name (ImGuiPopupFlags; 1 is the right button). an empty id is the item's own
+    nbool32 native_ui_begin_popup_context_item(const char* str_id, int32_t flags);
+    nbool32 native_ui_begin_popup_context_window(const char* str_id, int32_t flags);
     nbool32 native_ui_begin_popup_modal(const char* name, int32_t flags);
     void native_ui_end_popup();
     void native_ui_close_current_popup();
@@ -110,6 +115,10 @@ namespace other {
     nbool32 native_ui_is_item_hovered();
     nbool32 native_ui_is_item_clicked(int32_t mouse_button);
     nbool32 native_ui_is_item_active();
+    /// the last item is a tree node whose arrow was just clicked: it opened or closed
+    nbool32 native_ui_is_item_toggled_open();
+    /// a text field is being typed in: a key is its, and not a shortcut's
+    nbool32 native_ui_want_text_input();
 
     nbool32 native_ui_is_window_focused(int32_t flags);
     nbool32 native_ui_is_window_hovered(int32_t flags);
@@ -195,6 +204,10 @@ namespace other {
     /// the keyboard. key is an ImGuiKey; one ImGui does not have reads as not down
     nbool32 native_ui_is_key_down(int32_t key);
     nbool32 native_ui_is_key_pressed(int32_t key, nbool32 repeat);
+    /// a key with its modifiers, pressed where it is this caller's to take. global: unless
+    ///  something that has the keyboard, a text field say, wants the keys itself. otherwise
+    ///  only while the window being drawn has the focus
+    nbool32 native_ui_shortcut(int32_t key, int32_t mods, nbool32 global);
     /// ImGuiMod bits
     int32_t native_ui_get_key_mods();
 

@@ -40,6 +40,9 @@ namespace other {
     ///  0 when there is no menu bar to add to
     natural_t native_ui_add_menu_item(const char* path, const char* label);
     void native_ui_remove_menu_item(natural_t id);
+    /// the text at an item's right edge ("Ctrl+S": text only), and whether it can be clicked
+    void native_ui_set_menu_item_shortcut(natural_t id, const char* shortcut);
+    void native_ui_set_menu_item_enabled(natural_t id, nbool32 enabled);
     /// fn is a void (*)(natural_t item_id), called when an item a script added is clicked
     void native_ui_set_menu_item_click_function(void* fn);
 

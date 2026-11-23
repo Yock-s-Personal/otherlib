@@ -148,7 +148,7 @@ namespace other {
           if (obj == nullptr) {
             device->write_return_register(0);
           } else {
-            obj->visible = visible;
+            active_scene->set_object_visible(obj->id, visible);
             device->write_return_register(1);
           }
         }

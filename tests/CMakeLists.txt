@@ -115,11 +115,13 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/project/project_compiler_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/project/project_file_changes_tests.cpp
 
+    ${CMAKE_CURRENT_SOURCE_DIR}/editor/editor_services_tests.cpp
+
     ${CMAKE_CURRENT_SOURCE_DIR}/scratch_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/other_test_main.cpp
 )
 target_include_directories(other_tests PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(other_tests PUBLIC otherlib gmock)
+target_link_libraries(other_tests PUBLIC otherlib other_editor_services gmock)
 ## what other_test.hpp includes; most suites start from it, and it has no include
 ##  guard, so it cannot be precompiled itself
 target_precompile_headers(other_tests PRIVATE

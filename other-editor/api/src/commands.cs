@@ -237,8 +237,8 @@ namespace Other.Editor
       }
     }
 
-    /// what the editor calls once a frame while the UI is drawn: the keys are checked, and
-    ///  each menu item is greyed or not
+    /// what the editor calls once a frame while the UI is drawn: the keys are checked, each
+    ///  menu item is greyed or not, and the play buttons are drawn
     [UnmanagedCallersOnly(CallConvs = new[] { typeof(CallConvCdecl) })]
     private static void Frame()
     {
@@ -254,6 +254,7 @@ namespace Other.Editor
           command.Run();
         }
       }
+      PlaybackBar.Draw();
     }
   }
 }

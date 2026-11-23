@@ -128,6 +128,10 @@ namespace Other
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginPopupContextWindow;
     [NativeFunction("UIInputTextWithHint")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, byte*, int, int, NativeBool32> NativeInputTextWithHint;
+    [NativeFunction("UIIsItemToggledOpen")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeIsItemToggledOpen;
+    [NativeFunction("UIWantTextInput")]
+    internal static unsafe delegate* unmanaged[Cdecl]<NativeBool32> NativeWantTextInput;
     [NativeFunction("UIShortcut")]
     internal static unsafe delegate* unmanaged[Cdecl]<int, int, NativeBool32, NativeBool32> NativeShortcut;
     [NativeFunction("UIBeginPopupModal")]
@@ -793,22 +797,22 @@ namespace Other
     }
     /// a popup that the item just drawn opens when it is clicked with the right mouse
     ///  button: drawn like BeginPopup, ended with EndPopup. with no id it is the item's own
-    public static bool BeginPopupContextItem(string? str_id = null, int flags = 1)
+    public static bool BeginPopupContextItem(string? str_id = null, PopupFlags flags = PopupFlags.MouseButtonRight)
     {
       unsafe
       {
         using var str_id_utf8 = new Utf8Arg(str_id ?? "", stackalloc byte[Utf8Arg.StackSize]);
-        return NativeBeginPopupContextItem(str_id_utf8.Pointer, flags);
+        return NativeBeginPopupContextItem(str_id_utf8.Pointer, (int)flags);
       }
     }
 
     /// the same for a click on the window where nothing else takes it
-    public static bool BeginPopupContextWindow(string? str_id = null, int flags = 1)
+    public static bool BeginPopupContextWindow(string? str_id = null, PopupFlags flags = PopupFlags.MouseButtonRight)
     {
       unsafe
       {
         using var str_id_utf8 = new Utf8Arg(str_id ?? "", stackalloc byte[Utf8Arg.StackSize]);
-        return NativeBeginPopupContextWindow(str_id_utf8.Pointer, flags);
+        return NativeBeginPopupContextWindow(str_id_utf8.Pointer, (int)flags);
       }
     }
 
@@ -873,6 +877,11 @@ namespace Other
     public static bool IsItemHovered() { unsafe { return NativeIsItemHovered(); } }
     public static bool IsItemClicked(MouseButton mouse_button = MouseButton.Left) { unsafe { return NativeIsItemClicked((int)mouse_button); } }
     public static bool IsItemActive() { unsafe { return NativeIsItemActive(); } }
+    /// the last item is a tree node whose arrow was clicked this frame, so that a click on
+    ///  the arrow can be told from a click on the row
+    public static bool IsItemToggledOpen() { unsafe { return NativeIsItemToggledOpen(); } }
+    /// a text field is being typed in: a key pressed now is its, and not a shortcut's
+    public static bool WantTextInput { get { unsafe { return NativeWantTextInput(); } } }
     public static bool IsWindowFocused(int flags = 0) { unsafe { return NativeIsWindowFocused(flags); } }
     public static bool IsWindowHovered(int flags = 0) { unsafe { return NativeIsWindowHovered(flags); } }
 

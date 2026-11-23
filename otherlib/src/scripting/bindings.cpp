@@ -223,6 +223,8 @@ namespace other {
       .bind<bindings::native_ui_is_item_hovered>("UIIsItemHovered")
       .bind<bindings::native_ui_is_item_clicked>("UIIsItemClicked")
       .bind<bindings::native_ui_is_item_active>("UIIsItemActive")
+      .bind<bindings::native_ui_is_item_toggled_open>("UIIsItemToggledOpen")
+      .bind<bindings::native_ui_want_text_input>("UIWantTextInput")
       .bind<bindings::native_ui_is_window_focused>("UIIsWindowFocused")
       .bind<bindings::native_ui_is_window_hovered>("UIIsWindowHovered");
 

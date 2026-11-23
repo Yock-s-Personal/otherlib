@@ -115,6 +115,10 @@ namespace other {
     nbool32 native_ui_is_item_hovered();
     nbool32 native_ui_is_item_clicked(int32_t mouse_button);
     nbool32 native_ui_is_item_active();
+    /// the last item is a tree node whose arrow was just clicked: it opened or closed
+    nbool32 native_ui_is_item_toggled_open();
+    /// a text field is being typed in: a key is its, and not a shortcut's
+    nbool32 native_ui_want_text_input();
 
     nbool32 native_ui_is_window_focused(int32_t flags);
     nbool32 native_ui_is_window_hovered(int32_t flags);

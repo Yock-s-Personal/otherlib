@@ -52,6 +52,14 @@ namespace other {
     void native_editor_playback_command(int32_t command);
     nbool32 native_editor_scene_save();
 
+    /// reads the project's scenes again and says how many there are. at and scene_name
+    ///  then answer from what was read: at gives the name the project has for the scene
+    int32_t native_editor_scenes_read();
+    const char* native_editor_scenes_at(int32_t index, natural_t* out_id, nbool32* out_active, nbool32* out_starting);
+    const char* native_editor_scenes_scene_name(int32_t index);
+    /// asks for that scene to be the active one; it is, after the frame
+    void native_editor_scenes_activate(natural_t scene_id);
+
     /// fn is a void (*)(), called once a frame while the UI is drawn: where the C# side
     ///  checks its commands' keys. null for none
     void native_editor_set_frame_function(void* fn);

@@ -37,7 +37,6 @@ namespace other {
 
     /// requested by ui, applied in editor_driver::update_running so the active scene
     ///  never changes while a frame is being rendered
-    opt<natural_t> pending_scene_activation;
 
     camera editor_camera;
     ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;

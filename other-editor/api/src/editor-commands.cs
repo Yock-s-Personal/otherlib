@@ -16,6 +16,8 @@ namespace Other.Editor
       Commands.Add("playback.play", "Play", () => Playback.Play(), enabled: () => Playback.State != PlaybackState.Playing);
       Commands.Add("playback.pause", "Pause", () => Playback.Pause(), enabled: () => Playback.State == PlaybackState.Playing);
       Commands.Add("playback.stop", "Stop", () => Playback.Stop(), enabled: () => Playback.State != PlaybackState.Stopped);
+      /// the three above have buttons in the menu bar
+      PlaybackBar.Shown = true;
     }
   }
 }

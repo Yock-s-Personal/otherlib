@@ -12,6 +12,11 @@ namespace Other.Editor
     public SceneViewItem? Parent { get; internal set; }
     /// how far under the top of the scene it is; 0 for an object at the top
     public int Depth { get; internal set; }
+    /// a number for its place in the tree, made of the names from the top down to it. an
+    ///  undo or a stop makes every object again under another id, and this stays what it
+    ///  was: it is what a window keeps something about an object by (whether it is open).
+    ///  two objects of one name under one parent share it
+    public ulong PathKey { get; internal set; }
 
     internal readonly List<SceneViewItem> children = new();
     public IReadOnlyList<SceneViewItem> Children => children;
@@ -107,6 +112,17 @@ namespace Other.Editor
       }
     }
 
+    /// FNV-1a over the name, begun from the parent's key
+    private static ulong PathKeyOf(SceneViewItem? parent, string name)
+    {
+      ulong hash = parent != null ? parent.PathKey ^ 0x9E3779B97F4A7C15UL : 14695981039346656037UL;
+      foreach (char c in name)
+      {
+        hash = (hash ^ c) * 1099511628211UL;
+      }
+      return hash;
+    }
+
     private static SceneViewItem? Read(ulong id, SceneViewItem? parent, int depth)
     {
       SceneObject? found = SceneObject.FromId(id);
@@ -123,6 +139,7 @@ namespace Other.Editor
         Parent = parent,
         Depth = depth,
       };
+      item.PathKey = PathKeyOf(parent, item.Name);
       all.Add(item);
       foreach (ulong child_id in Scene.GetChildrenIds(id))
       {

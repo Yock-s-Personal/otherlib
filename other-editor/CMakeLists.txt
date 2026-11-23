@@ -25,8 +25,6 @@ add_static_driver(other_editor
   src/ui/asset-editor/asset_editor_node.cpp
   src/ui/node-editor/node_editor_canvas.cpp
   src/ui/node-editor/node_editor_display.cpp
-  src/ui/scene-hierarchy/hierarchy_widgets.cpp
-  src/ui/scene-hierarchy/scene_hierarchy.cpp
   src/ui/object-editor/object_editor.cpp
   src/ui/object-editor/property_inspector_node.cpp
   src/ui/render-pipeline-ui/render_pipeline_widgets.cpp
@@ -34,7 +32,6 @@ add_static_driver(other_editor
   src/ui/render-pipeline-ui/render_pipeline_editor.cpp
   src/ui/project-compiler/project_compiler.cpp
   src/ui/project-creator/project_creator.cpp
-  src/ui/scene-graph-editor/scene_graph_editor.cpp
   src/ui/viewport/viewport.cpp
 
   src/editor_context.cpp

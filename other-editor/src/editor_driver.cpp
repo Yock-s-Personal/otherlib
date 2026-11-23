@@ -21,6 +21,7 @@
 #include "object/scene_object.hpp"
 #include "scene/scene.hpp"
 
+#include "driver/systems/project_system.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "ui/asset-browser/asset_browser.hpp"
 #include "ui/object-editor/object_editor.hpp"
@@ -28,8 +29,6 @@
 #include "ui/project-creator/project_creator.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
-#include "ui/scene-graph-editor/scene_graph_editor.hpp"
-#include "ui/scene-hierarchy/scene_hierarchy.hpp"
 #include "ui/viewport/viewport.hpp"
 
 #include "services/editor_bindings.hpp"
@@ -44,6 +43,33 @@ namespace other {
     };
     context.save_scene = [this]() -> bool {
       return save_active_scene();
+    };
+    context.list_scenes = [this](ostd::vector<editor_services::scene_listing>& listed) {
+      auto& kernel = get_kernel();
+      const project& current_project = kernel.get_core_system<project_system>().get_project();
+      const natural_t starting_scene_id = current_project.get_starting_scene_id();
+      const scene* active = get_active_scene();
+      for (const auto& node : kernel.get_core_system<scene_system>().get_scene_graph()) {
+        if (node.value == nullptr) {
+          continue;
+        }
+        const scene& s = *node.value;
+        /// the project names a scene apart from its file; with no name there, the file's
+        std::string name = s.name;
+        for (const project::scene& entry : current_project.get_scenes()) {
+          if (entry.scene_id == s.id) {
+            name = entry.name;
+            break;
+          }
+        }
+        listed.push_back({
+          .id = s.id,
+          .name = std::move(name),
+          .scene_name = s.name,
+          .active = active != nullptr && active->id == s.id,
+          .starting = starting_scene_id != 0 && starting_scene_id == s.id,
+        });
+      }
     };
     if (subsystem<scripting_environment>::inert) {
       return;
@@ -72,12 +98,10 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_early_initialize");
     auto& ui = get_ui();
     viewport_id = ui->register_window<ui::viewport>("viewport", context, *get_event_system(), get_renderer(), this);
-    ui->register_window<ui::scene_hierarchy>("scene-hierarchy", context, *get_event_system(), this);
     ui->register_window<ui::object_editor>("object-editor", context, *get_event_system(), this);
     ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
-    ui->register_window<ui::scene_graph_editor>("scene-graph-editor", context, *get_event_system(), this);
     ui->register_window<ui::project_compiler>("project-compiler", context, *get_event_system(), this);
     ui->register_window<ui::asset_browser>("asset-browser", *get_event_system(), this);
   }

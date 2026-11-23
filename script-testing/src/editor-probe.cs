@@ -166,6 +166,47 @@ public static class EditorProbe
 
   public static int CommandCount() { return Commands.All.Count; }
 
+  /// the test lists two scenes: "Menu" from menu.oscn, the starting one, and "Level", active
+  public static int ProjectScenesListed()
+  {
+    IReadOnlyList<ProjectScene> scenes = ProjectScenes.All;
+    if (scenes.Count != 2) { return 2; }
+    if (scenes[0].Name != "Menu" || scenes[0].SceneName != "menu" || scenes[0].IsActive || !scenes[0].IsStarting) { return 3; }
+    if (scenes[1].Name != "Level" || scenes[1].SceneName != "Level" || !scenes[1].IsActive || scenes[1].IsStarting) { return 4; }
+    /// nothing changed: the same list, not read again
+    ulong read = ProjectScenes.Revision;
+    if (!ReferenceEquals(ProjectScenes.All[0], scenes[0]) || ProjectScenes.Revision != read) { return 5; }
+
+    ProjectScenes.Activate(scenes[0]);
+    return (int)scenes[0].Id;
+  }
+
+  public static int ProjectScenesCount() { return ProjectScenes.All.Count; }
+
+  /// an object's place in the tree is the same number after an undo has made it again
+  public static int PathKeysOutliveAnUndo()
+  {
+    SceneViewItem under = SceneView.Find(SceneObject.Find("Under"));
+    SceneViewItem second = SceneView.Find(SceneObject.Find("Second"));
+    SceneViewItem first = SceneView.Find(SceneObject.Find("First"));
+    if (under == null || under.PathKey == 0 || under.PathKey == second.PathKey || first.PathKey == second.PathKey) { return 2; }
+    ulong key = under.PathKey;
+    ulong id = under.Object.ObjectID;
+
+    using (Edits.Begin("Tag"))
+    {
+      first.Object.AddTag("edited");
+    }
+    Edits.Undo();
+    SceneViewItem again = SceneView.Find(SceneObject.Find("Under"));
+    if (again == null || ReferenceEquals(again, under) || again.Object.ObjectID == id) { return 3; }
+    if (again.PathKey != key) { return 4; }
+
+    /// moved somewhere else, or named something else, it is another place
+    again.Object.SetParent(null);
+    return SceneView.Find(SceneObject.Find("Under")).PathKey != key ? 1 : 5;
+  }
+
   public static int SceneViewFollows()
   {
     if (SceneView.SceneName != "Editor Scene") { return 2; }

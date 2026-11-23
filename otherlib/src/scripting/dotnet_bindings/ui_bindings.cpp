@@ -336,6 +336,14 @@ namespace other {
       return ImGui::IsItemClicked(mouse_button);
     }
 
+    nbool32 native_ui_is_item_toggled_open() {
+      return ImGui::IsItemToggledOpen();
+    }
+
+    nbool32 native_ui_want_text_input() {
+      return ImGui::GetIO().WantTextInput;
+    }
+
     nbool32 native_ui_is_item_active() {
       return ImGui::IsItemActive();
     }

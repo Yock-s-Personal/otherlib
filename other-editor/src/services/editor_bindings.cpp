@@ -69,6 +69,11 @@ namespace other {
       bind<native_editor_playback_state>(host, "EditorPlaybackState", refused);
       bind<native_editor_playback_command>(host, "EditorPlaybackCommand", refused);
       bind<native_editor_scene_save>(host, "EditorSceneSave", refused);
+      /// ProjectScenes.
+      bind<native_editor_scenes_read>(host, "EditorScenesRead", refused);
+      bind<native_editor_scenes_at>(host, "EditorScenesAt", refused);
+      bind<native_editor_scenes_scene_name>(host, "EditorScenesSceneName", refused);
+      bind<native_editor_scenes_activate>(host, "EditorScenesActivate", refused);
       /// Commands.
       bind<native_editor_set_frame_function>(host, "EditorSetFrameFunction", refused);
       return refused;
@@ -186,6 +191,41 @@ namespace other {
 
     nbool32 native_editor_scene_save() {
       return editor != nullptr && editor->save_scene && editor->save_scene();
+    }
+
+    int32_t native_editor_scenes_read() {
+      if (editor == nullptr) {
+        return 0;
+      }
+      editor->listed_scenes.clear();
+      if (editor->list_scenes) {
+        editor->list_scenes(editor->listed_scenes);
+      }
+      return static_cast<int32_t>(editor->listed_scenes.size());
+    }
+
+    const char* native_editor_scenes_at(int32_t index, natural_t* out_id, nbool32* out_active, nbool32* out_starting) {
+      const editor_services::scene_listing* listed = nullptr;
+      if (editor != nullptr && index >= 0 && static_cast<size_t>(index) < editor->listed_scenes.size()) {
+        listed = &editor->listed_scenes[index];
+      }
+      *out_id = listed != nullptr ? listed->id : 0;
+      *out_active = listed != nullptr && listed->active;
+      *out_starting = listed != nullptr && listed->starting;
+      return returned_string(listed != nullptr ? std::string_view{ listed->name } : std::string_view{});
+    }
+
+    const char* native_editor_scenes_scene_name(int32_t index) {
+      if (editor == nullptr || index < 0 || static_cast<size_t>(index) >= editor->listed_scenes.size()) {
+        return returned_string({});
+      }
+      return returned_string(editor->listed_scenes[index].scene_name);
+    }
+
+    void native_editor_scenes_activate(natural_t scene_id) {
+      if (editor != nullptr && scene_id != 0) {
+        editor->pending_scene_activation = scene_id;
+      }
     }
 
     void native_editor_set_frame_function(void* fn) {

@@ -100,6 +100,24 @@ namespace other {
     std::function<void(const std::string_view)> send_playback_command = nullptr;
     std::function<bool()> save_scene = nullptr;
 
+    /// one scene of the project as a list of them shows it
+    struct scene_listing {
+      natural_t id = 0;
+      /// what the project calls it, and what the scene calls itself (its file)
+      std::string name = "";
+      std::string scene_name = "";
+      bool active = false;
+      bool starting = false;
+    };
+
+    /// set by the driver: the scenes that are loaded, in the scene graph's order
+    std::function<void(ostd::vector<scene_listing>&)> list_scenes = nullptr;
+    /// what list_scenes gave the last time it was asked
+    ostd::vector<scene_listing> listed_scenes = {};
+    /// a scene asked to be the active one. the driver makes it so after the frame, when
+    ///  no window is in the middle of drawing the scene that goes
+    opt<natural_t> pending_scene_activation = std::nullopt;
+
    private:
     /// records the scene as it is now against the baseline, when the two differ
     void record_since_baseline(const std::string_view name);

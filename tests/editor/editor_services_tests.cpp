@@ -361,6 +361,45 @@ namespace other {
     EXPECT_FALSE(bindings::run_editor_frame_function());
   }
 
+  TEST_F(editor_services_tests, the_projects_scenes_are_listed_and_one_is_asked_for) {
+    edited_scene edited;
+    editor_services& services = edited.services;
+    /// with no driver to list them there are none
+    EXPECT_EQ(probe("ProjectScenesCount"), 0);
+
+    uint32_t asked = 0;
+    services.list_scenes = [&asked](ostd::vector<editor_services::scene_listing>& listed) {
+      ++asked;
+      listed.push_back({ .id = 7, .name = "Menu", .scene_name = "menu", .active = false, .starting = true });
+      listed.push_back({ .id = 9, .name = "Level", .scene_name = "Level", .active = true, .starting = false });
+    };
+    /// the list is kept until the scene in the editor changes
+    EXPECT_EQ(probe("ProjectScenesCount"), 0);
+    EXPECT_EQ(asked, 0u);
+    edited.s.rename_object(edited.first, "Changed");
+
+    EXPECT_FALSE(services.pending_scene_activation.has_value());
+    EXPECT_EQ(probe("ProjectScenesListed"), 7);
+    EXPECT_EQ(asked, 1u);
+    ASSERT_TRUE(services.pending_scene_activation.has_value());
+    EXPECT_EQ(*services.pending_scene_activation, 7u);
+
+    /// an index that is none is no scene
+    natural_t id = 1;
+    nbool32 active = true;
+    nbool32 starting = true;
+    EXPECT_STREQ(bindings::native_editor_scenes_at(5, &id, &active, &starting), "");
+    EXPECT_EQ(id, 0u);
+    EXPECT_FALSE(active);
+    EXPECT_STREQ(bindings::native_editor_scenes_scene_name(-1), "");
+  }
+
+  TEST_F(editor_services_tests, an_objects_place_in_the_tree_is_the_same_after_an_undo) {
+    edited_scene edited;
+    edited.services.tick_edit_tracker();
+    EXPECT_EQ(probe("PathKeysOutliveAnUndo"), 1);
+  }
+
   TEST_F(editor_services_tests, with_no_editor_the_api_answers_nothing) {
     {
       edited_scene edited;
@@ -377,6 +416,8 @@ namespace other {
     EXPECT_EQ(bindings::native_editor_playback_state(), 0);
     EXPECT_NO_FATAL_FAILURE(bindings::native_editor_playback_command(0));
     EXPECT_FALSE(bindings::native_editor_scene_save());
+    EXPECT_EQ(bindings::native_editor_scenes_read(), 0);
+    EXPECT_NO_FATAL_FAILURE(bindings::native_editor_scenes_activate(3));
   }
 
 }  // namespace other

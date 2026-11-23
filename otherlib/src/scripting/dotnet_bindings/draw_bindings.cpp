@@ -133,7 +133,7 @@ namespace other {
                        { m10, m11, m12, m13 },
                        { m20, m21, m22, m23 },
                        { m30, m31, m32, m33 } };
-      draw.mesh(rc->obj_model.source->get_mesh_handle(), model, { r, g, b, a }, wireframe);
+      draw.mesh(rc->obj_model.source->get_mesh_handle(), model, { r, g, b, a }, wireframe, rc->obj_model.bone_matrices);
     }
 
     void native_draw_grid(uint64_t object_id, nbool32 in_scene) {

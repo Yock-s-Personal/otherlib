@@ -18,7 +18,9 @@ namespace other {
   void assembly::cache_types(type_cache* cache, const std::span<const int32_t> dotnet_type_ids) {
     PROFILE_SECTION("assembly::cache_types");
     for (auto id : dotnet_type_ids) {
-      types.emplace_back(cache->cache_type(host, id));
+      dotnet_type* type = cache->cache_type(host, id);
+      type->owner = this;
+      types.emplace_back(type);
     }
 
     CORE_LOG_DEBUG("Loaded [{}] types from assembly {}", types.size(), handle);

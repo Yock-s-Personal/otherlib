@@ -3,13 +3,34 @@
  **/
 #include "renderer/pass_context.hpp"
 
+#include <array>
+#include <cstring>
+#include <format>
+#include <string>
+
 #include "core/profiler.hpp"
 #include "thread/thread_safety.hpp"
 
+#include "model/animation_limits.hpp"
 #include "renderer/frame_node.hpp"
 #include "renderer/renderer.hpp"
 
 namespace other {
+  namespace {
+
+    /// the name of each element of the debug mesh shader's bone array, made once
+    const std::string& bone_uniform_name(size_t index) {
+      static const std::array<std::string, kMaxBones> kNames = []() -> std::array<std::string, kMaxBones> {
+        std::array<std::string, kMaxBones> names;
+        for (size_t i = 0; i < kMaxBones; ++i) {
+          names[i] = std::format("OE_bones[{}]", i);
+        }
+        return names;
+      }();
+      return kNames[index];
+    }
+
+  }  // namespace
 
   void pass_diagnostics::mark(std::string_view label) {
     /// \todo this
@@ -109,6 +130,18 @@ namespace other {
     OTHER_ASSERT(sh != nullptr, "draw_debug_mesh: pass '{}' has no shader bound", node->pass->name);
     sh->set_uniform("OE_model", instance.model);
     sh->set_uniform("OE_tint", instance.color);
+
+    /// an animated mesh is drawn in the pose its object is in, not as it was modelled
+    const std::span<const uint8_t> poses = renderer_ptr->get_draw_streams().view(builtin_debug_streams::kMeshBones);
+    const size_t first = static_cast<size_t>(instance.bone_offset) * sizeof(glm::mat4);
+    const size_t bone_count = std::min<size_t>(instance.bone_count, kMaxBones);
+    const bool posed = bone_count > 0 && first + static_cast<size_t>(instance.bone_count) * sizeof(glm::mat4) <= poses.size();
+    sh->set_uniform("OE_use_bones", static_cast<int32_t>(posed ? 1 : 0));
+    for (size_t i = 0; posed && i < bone_count; ++i) {
+      glm::mat4 bone{};
+      std::memcpy(&bone, poses.data() + first + i * sizeof(glm::mat4), sizeof(glm::mat4));
+      sh->set_uniform(bone_uniform_name(i), bone);
+    }
 
     auto& api = renderer_ptr->rendering()->api();
     const bool wire = (instance.flags & debug_mesh_instance::DEBUG_MESH_WIREFRAME) != 0;

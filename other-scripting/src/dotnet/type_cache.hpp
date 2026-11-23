@@ -25,6 +25,10 @@ namespace other {
 
     void clear_cache(dotnet_host* interop);
 
+    /// by full name. more than one loaded assembly may declare a type of the name: one that
+    ///  is not a driver's module is chosen over one that is, and it is said, once, that the
+    ///  name is taken twice. between two of a kind the choice is by assembly name, so it is
+    ///  the same choice every run, and that is said as an error
     dotnet_type* get_type(const std::string_view name);
     dotnet_type* get_type(int32_t id);
 

@@ -5,7 +5,7 @@ name = "spinning-donut"
 clear-color = [ 0.2, 0.22, 0.233, 1.0 ]
 
 [[objects]]
-id = 13
+id = 1
 name = "Floor"
 [objects.components.transform]
 local_position = [ 0.0, -5.0, 0.0 ]
@@ -39,7 +39,7 @@ half_height = 0.5
 fit_render_bounds = true
 
 [[objects]]
-id = 14
+id = 2
 name = "Donut"
 [objects.components.transform]
 local_position = [ 0.0, 0.0, 0.0 ]
@@ -66,7 +66,7 @@ speed = 1.0
 time = 0.0
 
 [[objects]]
-id = 15
+id = 3
 name = "GlassDonut"
 [objects.components.transform]
 local_position = [ 1.7, 0.15, 1.7 ]
@@ -100,7 +100,7 @@ half_height = 0.5
 fit_render_bounds = false
 
 [[objects]]
-id = 16
+id = 4
 name = "GoldDonut"
 [objects.components.transform]
 local_position = [ -2.2, 0.0, 0.4 ]
@@ -134,7 +134,7 @@ half_height = 0.5
 fit_render_bounds = false
 
 [[objects]]
-id = 17
+id = 5
 name = "Light"
 [objects.components.transform]
 local_position = [ 0.0, 2.0, 0.0 ]
@@ -161,7 +161,7 @@ max_distance = 50.0
 doppler_factor = 1.0
 
 [[objects]]
-id = 18
+id = 6
 name = "Camera"
 tags = [ "main-camera" ]
 [objects.components.transform]

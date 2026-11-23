@@ -4,6 +4,8 @@
 #ifndef OTHER_RENDERER_RENDERER_DEBUG_DRAW_HPP
 #define OTHER_RENDERER_RENDERER_DEBUG_DRAW_HPP
 
+#include <span>
+
 #include <glm/glm.hpp>
 
 #include "math/bounding_box.hpp"
@@ -20,6 +22,8 @@ namespace other {
     std::string_view tris;
     std::string_view points;
     std::string_view meshes;
+    /// the poses of the meshes that have one: bone matrices, one mesh's after another's
+    std::string_view mesh_bones;
   };
 
   /// drawn on top of the frame by the editor debug-overlay pipeline
@@ -29,8 +33,9 @@ namespace other {
     constexpr std::string_view kTris = "__debug.tris";
     constexpr std::string_view kPoints = "__debug.points";
     constexpr std::string_view kMeshes = "__debug.meshes";
+    constexpr std::string_view kMeshBones = "__debug.mesh-bones";
 
-    constexpr draw_stream_set kSet{ kLines, kTris, kPoints, kMeshes };
+    constexpr draw_stream_set kSet{ kLines, kTris, kPoints, kMeshes, kMeshBones };
 
   }  // namespace builtin_debug_streams
 
@@ -42,7 +47,7 @@ namespace other {
     constexpr std::string_view kPoints = "__scene.points";
 
     /// meshes have no in-scene pass yet, in-scene mesh submissions fall back to the debug overlay
-    constexpr draw_stream_set kSet{ kLines, kTris, kPoints, builtin_debug_streams::kMeshes };
+    constexpr draw_stream_set kSet{ kLines, kTris, kPoints, builtin_debug_streams::kMeshes, builtin_debug_streams::kMeshBones };
 
   }  // namespace builtin_scene_streams
 
@@ -83,6 +88,10 @@ namespace other {
     glm::vec4 color;
     uint32_t submesh_index = 0;
     uint32_t flags = 0;
+    /// its pose: bone_count matrices of the mesh-bones stream, from bone_offset. none for a
+    ///  mesh that is drawn as it was modelled
+    uint32_t bone_offset = 0;
+    uint32_t bone_count = 0;
   };
 
   class debug_draw {
@@ -104,7 +113,9 @@ namespace other {
     void frustum(const glm::mat4& inv_view_proj, const glm::vec4& c = basic_colors::kWhite);
     void transform(const glm::mat4& m, float scale = 1.0f);  // R/G/B axes
 
-    void mesh(resource_handle h, const glm::mat4& model, const glm::vec4& tint = basic_colors::kWhite, bool wireframe = false);
+    /// bones is the pose to draw the mesh in, as its model has it this frame; without one
+    ///  the mesh is drawn as it was modelled
+    void mesh(resource_handle h, const glm::mat4& model, const glm::vec4& tint = basic_colors::kWhite, bool wireframe = false, std::span<const glm::mat4> bones = {});
 
    private:
     render_stream* sink;

@@ -215,16 +215,31 @@ namespace other {
     line(o, o + scale * glm::vec3(m[2]), basic_colors::kBlue);
   }
 
-  void debug_draw::mesh(resource_handle h, const glm::mat4& model, const glm::vec4& tint, bool wireframe) {
+  void debug_draw::mesh(resource_handle h, const glm::mat4& model, const glm::vec4& tint, bool wireframe, std::span<const glm::mat4> bones) {
     if (sink == nullptr) {
       return;
     }
+
+    /// the pose goes into a stream of its own and the mesh says where in it. a driver that
+    ///  has registered no such stream draws the mesh as it was modelled
+    uint32_t bone_offset = 0;
+    uint32_t bone_count = 0;
+    if (!bones.empty() && sink->element_size(streams.mesh_bones) == sizeof(glm::mat4)) {
+      bone_offset = static_cast<uint32_t>(sink->count(streams.mesh_bones));
+      for (const glm::mat4& bone : bones) {
+        sink->submit(streams.mesh_bones, bone);
+      }
+      bone_count = static_cast<uint32_t>(bones.size());
+    }
+
     sink->submit(streams.meshes, debug_mesh_instance{
                                    .mesh_handle = h,
                                    .model = model,
                                    .color = tint,
                                    .submesh_index = 0,
                                    .flags = static_cast<uint32_t>(wireframe ? debug_mesh_instance::DEBUG_MESH_WIREFRAME : debug_mesh_instance::DEBUG_MESH_NONE),
+                                   .bone_offset = bone_offset,
+                                   .bone_count = bone_count,
                                  });
   }
 

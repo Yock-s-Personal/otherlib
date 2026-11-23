@@ -9,132 +9,63 @@
 
 namespace other {
 
+  namespace {
+
+    scripting_environment& environment() {
+      auto* env = subsystem<scripting_environment>::get();
+      OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
+      return *env;
+    }
+
+  }  // namespace
+
   void script_component::fixed_update(double delta_time) {
     OTHER_ASSERT(script_object_id >= 0, "Invalid script object ID: {}", script_object_id);
-    PROFILE_SECTION("script_component::fixed_update");
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    OTHER_ASSERT(script_obj != nullptr, "Script object with ID {} not found in scripting environment.", script_object_id);
-
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("FixedUpdate");
-    }
+    environment().call_behaviors(script_object_id, behavior_callback::FIXED_UPDATE);
   }
 
-  void script_component::dispatch_physics_event(const char* method, natural_t other_id, const glm::vec3& point, const glm::vec3& normal) {
+  void script_component::dispatch_physics_event(behavior_callback callback, natural_t other_id, const glm::vec3& point, const glm::vec3& normal) {
     if (script_object_id < 0) {
       return;
     }
-    PROFILE_SECTION("script_component::dispatch_physics_event");
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    if (script_obj == nullptr) {
-      return;
-    }
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>(method, static_cast<uint64_t>(other_id),
-                       point.x, point.y, point.z, normal.x, normal.y, normal.z);
-    }
+    const behavior_contact contact = {
+      .other_object_id = other_id,
+      .point = { point.x, point.y, point.z },
+      .normal = { normal.x, normal.y, normal.z },
+    };
+    environment().call_behaviors(script_object_id, callback, &contact);
   }
 
   void script_component::dispatch_joint_break(float force) {
     if (script_object_id < 0) {
       return;
     }
-    PROFILE_SECTION("script_component::dispatch_joint_break");
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    if (script_obj == nullptr) {
-      return;
-    }
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("JointBreak", force);
-    }
+    environment().call_behaviors(script_object_id, behavior_callback::JOINT_BREAK, &force);
   }
 
   void script_component::update(double delta_time) {
     OTHER_ASSERT(script_object_id >= 0, "Invalid script object ID: {}", script_object_id);
-    PROFILE_SECTION("script_component::update");
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    OTHER_ASSERT(script_obj != nullptr, "Script object with ID {} not found in scripting environment.", script_object_id);
-
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("Update");
-    }
+    environment().call_behaviors(script_object_id, behavior_callback::UPDATE);
   }
 
   void script_component::late_update(double delta_time) {
     OTHER_ASSERT(script_object_id >= 0, "Invalid script object ID: {}", script_object_id);
-    PROFILE_SECTION("script_component::late_update");
-    if (script_object_id < 0) {
-      return;
-    }
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    OTHER_ASSERT(script_obj != nullptr, "Script object with ID {} not found in scripting environment.", script_object_id);
-
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("LateUpdate");
-    }
+    environment().call_behaviors(script_object_id, behavior_callback::LATE_UPDATE);
   }
 
   void script_component::render_update(double delta_time) {
     OTHER_ASSERT(script_object_id >= 0, "Invalid script object ID: {}", script_object_id);
-    PROFILE_SECTION("script_component::render_update");
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    OTHER_ASSERT(script_obj != nullptr, "Script object with ID {} not found in scripting environment.", script_object_id);
-
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("Render");
-    }
+    environment().call_behaviors(script_object_id, behavior_callback::RENDER);
   }
 
   void script_component::scene_start() {
     OTHER_ASSERT(script_object_id >= 0, "Invalid script object ID: {}", script_object_id);
-    PROFILE_SECTION("script_component::scene_start");
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    OTHER_ASSERT(script_obj != nullptr, "Script object with ID {} not found in scripting environment.", script_object_id);
-
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("SceneStart");
-    }
+    environment().set_object_playing(script_object_id, true);
   }
 
   void script_component::scene_stop() {
     OTHER_ASSERT(script_object_id >= 0, "Invalid script object ID: {}", script_object_id);
-    PROFILE_SECTION("script_component::scene_stop");
-
-    auto* env = subsystem<scripting_environment>::get();
-    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
-
-    script_object* script_obj = env->get_object(script_object_id);
-    OTHER_ASSERT(script_obj != nullptr, "Script object with ID {} not found in scripting environment.", script_object_id);
-
-    if (auto* dn_obj = script_obj->dotnet_object; dn_obj != nullptr) {
-      dn_obj->invoke<>("SceneStop");
-    }
+    environment().set_object_playing(script_object_id, false);
   }
 
   void script_component::reset_dotnet_binding() {

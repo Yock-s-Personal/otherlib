@@ -6,7 +6,7 @@
 
 #include <glm/vec2.hpp>
 
-#include "dotnet/behavior_descriptor.hpp"
+#include "core/defines.hpp"
 
 #include "asset/asset.hpp"
 
@@ -43,8 +43,6 @@ namespace other {
       driver* driver_ptr = nullptr;
       field_flags flags = {};
     };
-
-    field_flags field_flags_from_behavior(const behavior_field_descriptor& f);
 
   }  // namespace ui
 }  // namespace other

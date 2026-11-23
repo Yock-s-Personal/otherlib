@@ -33,6 +33,78 @@ namespace other {
   }  // namespace detail
   namespace bindings {
 
+    namespace {
+
+      /// what a matrix does to lengths along each axis, and the turn that is left without it
+      glm::vec3 scale_of(const glm::mat4& matrix) {
+        return { glm::length(glm::vec3(matrix[0])), glm::length(glm::vec3(matrix[1])), glm::length(glm::vec3(matrix[2])) };
+      }
+
+      glm::quat rotation_of(const glm::mat4& matrix) {
+        constexpr float kMinScale = 1e-6f;
+        const glm::vec3 scale = scale_of(matrix);
+        const glm::mat3 turn{
+          glm::vec3(matrix[0]) / std::max(scale.x, kMinScale),
+          glm::vec3(matrix[1]) / std::max(scale.y, kMinScale),
+          glm::vec3(matrix[2]) / std::max(scale.z, kMinScale)
+        };
+        return glm::quat_cast(turn);
+      }
+
+      /// null when there is no scene, or no such object in it
+      scene* scene_with(natural_t id) {
+        scene* active_scene = detail::get_active_scene();
+        return active_scene != nullptr && active_scene->has_object(id) ? active_scene : nullptr;
+      }
+
+      /// what the object's own transform is placed under; the scene itself for one at the top
+      glm::mat4 parent_world_of(scene& s, natural_t id) {
+        const scene_object* parent = s.get_parent(id);
+        return parent != nullptr ? s.get_world_transform(parent->id) : glm::mat4(1.f);
+      }
+
+    }  // namespace
+
+    void native_transform_get_world_position(natural_t id, float* out_position) {
+      ASSERT_MAIN_THREAD();
+      const scene* s = scene_with(id);
+      const glm::vec3 position = s != nullptr ? glm::vec3(s->get_world_transform(id)[3]) : glm::vec3(0.f);
+      std::memcpy(out_position, &position[0], sizeof(float) * 3);
+    }
+
+    void native_transform_set_world_position(natural_t id, float x, float y, float z) {
+      ASSERT_MAIN_THREAD();
+      scene* s = scene_with(id);
+      if (s == nullptr) {
+        return;
+      }
+      s->get_transform(id).local_position = glm::vec3(glm::inverse(parent_world_of(*s, id)) * glm::vec4(x, y, z, 1.f));
+    }
+
+    void native_transform_get_world_rotation(natural_t id, float* out_rotation) {
+      ASSERT_MAIN_THREAD();
+      const scene* s = scene_with(id);
+      const glm::quat rotation = s != nullptr ? rotation_of(s->get_world_transform(id)) : glm::quat(1.f, 0.f, 0.f, 0.f);
+      const float xyzw[4] = { rotation.x, rotation.y, rotation.z, rotation.w };
+      std::memcpy(out_rotation, xyzw, sizeof(xyzw));
+    }
+
+    void native_transform_set_world_rotation(natural_t id, float x, float y, float z, float w) {
+      ASSERT_MAIN_THREAD();
+      scene* s = scene_with(id);
+      if (s == nullptr) {
+        return;
+      }
+      s->get_transform(id).local_rotation_quat = glm::inverse(rotation_of(parent_world_of(*s, id))) * glm::quat{ w, x, y, z };
+    }
+
+    void native_transform_get_world_scale(natural_t id, float* out_scale) {
+      ASSERT_MAIN_THREAD();
+      const scene* s = scene_with(id);
+      const glm::vec3 scale = s != nullptr ? scale_of(s->get_world_transform(id)) : glm::vec3(1.f);
+      std::memcpy(out_scale, &scale[0], sizeof(float) * 3);
+    }
+
     void native_transform_get_world_matrix(natural_t id, float* out_matrix) {
       ASSERT_MAIN_THREAD();
       OTHER_ASSERT(out_matrix != nullptr, "Output matrix pointer is null.");

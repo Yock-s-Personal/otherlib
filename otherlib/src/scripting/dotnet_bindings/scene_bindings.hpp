@@ -9,6 +9,8 @@
 #include "dotnet/native_string.hpp"
 #include "dotnet/types.hpp"
 
+#include "scripting/scene_for_bindings.hpp"
+
 namespace other {
 
   class scene;
@@ -16,6 +18,8 @@ namespace other {
   namespace detail {
 
     scene* get_active_scene_checked();
+    /// the scene the bindings act on; null when there is none
+    scene* get_active_scene();
 
   }  // namespace detail
   namespace bindings {
@@ -28,6 +32,17 @@ namespace other {
     void native_scene_get_object_ids(natural_t* out_ids, int32_t* out_count, int32_t max_count);
     natural_t native_scene_get_object_count();
     natural_t native_scene_find_object_by_name(const char* name);
+
+    /// the runtime's handle to the object's own script object; null when there is no such
+    ///  object, and for the root, which is not an object a script holds
+    void* native_scene_object_instance(natural_t id);
+    /// parent 0 is the scene itself. keep_world leaves the object where it is in the
+    ///  world; without it, where it was under its old parent is where it is under the new.
+    ///  false when the parent is the object or one under it, or either is no object
+    nbool32 native_scene_set_parent(natural_t id, natural_t parent_id, nbool32 keep_world);
+    /// 0 when no object has the tag
+    natural_t native_scene_find_object_with_tag(const char* tag);
+    void native_scene_find_objects_with_tag(const char* tag, natural_t* out_ids, int32_t* out_count, int32_t max_count);
 
     natural_t native_scene_get_parent_id(natural_t id);
     void native_scene_get_children_ids(natural_t id, natural_t* out_ids, int32_t* out_count, int32_t max_count);

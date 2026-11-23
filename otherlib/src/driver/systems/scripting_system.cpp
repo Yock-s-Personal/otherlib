@@ -189,6 +189,8 @@ namespace other {
       CORE_LOG_ERROR("Failed to load .NET module: {}", module.path);
       return;
     }
+    /// where a project declares a type of the same name, a scene means the project's
+    module.loaded->driver_module = true;
 
     /// a driver's own modules may declare editor windows
     bindings::host_script_windows_of(module.loaded->dotnet_id);

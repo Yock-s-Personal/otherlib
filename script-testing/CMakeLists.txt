@@ -15,5 +15,8 @@ target_sources(DotnetTesting PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-probe.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/ui-enum-probe.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/theme-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/behavior-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/fields-probe.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/object-probe.cs
 )
 target_link_libraries(DotnetTesting PRIVATE OtherCs)

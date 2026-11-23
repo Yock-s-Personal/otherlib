@@ -18,6 +18,7 @@
 
 #include "driver/driver.hpp"
 #include "scripting/binding_descriptor.hpp"
+#include "scripting/dotnet_bindings/behavior_bindings.hpp"
 #include "scripting/dotnet_bindings/component_bindings.hpp"
 #include "scripting/dotnet_bindings/core_bindings.hpp"
 #include "scripting/dotnet_bindings/draw_bindings.hpp"
@@ -359,6 +360,10 @@ namespace other {
       .bind<bindings::native_scene_get_object_count>("SceneGetObjectCount")
       .bind<bindings::native_scene_find_object_by_name>("SceneFindObjectByName")
       /// Object Hierarchy.
+      .bind<bindings::native_scene_object_instance>("SceneObjectInstance")
+      .bind<bindings::native_scene_set_parent>("SceneSetParent")
+      .bind<bindings::native_scene_find_object_with_tag>("SceneFindObjectWithTag")
+      .bind<bindings::native_scene_find_objects_with_tag>("SceneFindObjectsWithTag")
       .bind<bindings::native_scene_get_parent_id>("SceneGetParentId")
       .bind<bindings::native_scene_get_children_ids>("SceneGetChildrenIds")
       /// Object Tags.
@@ -484,12 +489,16 @@ namespace other {
 
     bindings::binding_context{ dn_host }
       /// OtherObject
-      .bind<bindings::native_validate_object_handle>("ValidateObjectHandle")
       .bind<bindings::native_get_object_id>("GetObjectID");
 
     bindings::binding_context{ dn_host }
       /// Scene Object
-      .bind<bindings::native_transform_get_world_matrix>("GetWorldMatrix");
+      .bind<bindings::native_transform_get_world_matrix>("GetWorldMatrix")
+      .bind<bindings::native_transform_get_world_position>("TransformGetWorldPosition")
+      .bind<bindings::native_transform_set_world_position>("TransformSetWorldPosition")
+      .bind<bindings::native_transform_get_world_rotation>("TransformGetWorldRotation")
+      .bind<bindings::native_transform_set_world_rotation>("TransformSetWorldRotation")
+      .bind<bindings::native_transform_get_world_scale>("TransformGetWorldScale");
 
     bindings::binding_context{ dn_host }
       /// Component Helpers
@@ -542,7 +551,16 @@ namespace other {
       .bind<bindings::native_audio_set_bus_volume>("AudioSetBusVolume")
       .bind<bindings::native_audio_get_bus_volume>("AudioGetBusVolume");
 
+    bindings::binding_context{ dn_host }
+      /// Behaviors.
+      .bind<bindings::native_behavior_set_runtime>("BehaviorSetRuntime")
+      .bind<bindings::native_behavior_add>("BehaviorAdd")
+      .bind<bindings::native_behavior_remove>("BehaviorRemove")
+      .bind<bindings::native_behavior_set_enabled>("BehaviorSetEnabled");
+
     bindings::validate_binding_points(dn_host);
+    /// behaviors can be made from here on
+    bindings::attach_behavior_runtime();
   }
 
   void bind_otherlib_lua_functions(lua_host& lua_host) {

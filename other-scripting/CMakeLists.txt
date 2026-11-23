@@ -19,7 +19,7 @@ PRIVATE
   src/lua/lua_host.cpp
   src/lua/lua_script.cpp
 
-  src/script/script_object.cpp
+  src/script/behavior_fields.cpp
   src/script/scripting_environment.cpp
 )
 

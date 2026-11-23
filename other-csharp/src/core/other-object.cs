@@ -67,53 +67,37 @@ namespace Other.Core
       internal_handles.object_id = ObjectID;
     }
 
-    public void AddBehavior(OtherBehavior behavior)
-    {
-      behavior.OnAddToObject(this);
-      behaviors.Add(behavior);
-      // Networking.ReplicatedSync.Track(behavior);
-    }
+    /// which script object the engine knows this object as. -1 while it knows it as none
+    internal long script_object_id = -1;
 
-    public void AddNativeBehavior(IntPtr native_handle)
+    /// the engine's record of an object's behaviours is the one that counts. these two are
+    ///  the host keeping this list the same as it
+    internal void HostAdd(OtherBehavior behavior)
     {
-      GCHandle behavior_handle = GCHandle.FromIntPtr(native_handle);
-      if (behavior_handle.Target is OtherBehavior behavior)
+      if (!behaviors.Contains(behavior))
       {
-        AddBehavior(behavior);
-      }
-      else
-      {
-        throw new InvalidOperationException("The provided native handle does not point to a valid OtherBehavior instance.");
+        behaviors.Add(behavior);
       }
     }
 
-    public void RemoveBehavior(string class_name)
+    internal void HostRemove(OtherBehavior behavior)
     {
-      for (int i = behaviors.Count - 1; i >= 0; i--)
-      {
-        if (behaviors[i].GetType().Name == class_name || behaviors[i].GetType().FullName == class_name)
-        {
-          behaviors[i].OnRemoveFromObject(this);
-          // Networking.ReplicatedSync.Untrack(behaviors[i]);
-          behaviors.RemoveAt(i);
-        }
-      }
-    }
-
-    public void RemoveBehavior(OtherBehavior behavior)
-    {
-      behavior.OnRemoveFromObject(this);
-      // Networking.ReplicatedSync.Untrack(behavior);
       behaviors.Remove(behavior);
     }
 
-    public void RemoveAllBehaviors()
+    /// the behaviour of that type on this object, added if it has none: there is one of a
+    ///  type on an object. null when the engine could not make it
+    public T AddBehavior<T>() where T : OtherBehavior
     {
-      for (int i = behaviors.Count - 1; i >= 0; i--)
-      {
-        RemoveBehavior(behaviors[i]);
-      }
-      behaviors.Clear();
+      T existing = GetBehavior<T>();
+      return existing != null ? existing : BehaviorHost.Add(this, typeof(T)) as T;
+    }
+
+    /// false when this object has no behaviour of that type
+    public bool RemoveBehavior<T>() where T : OtherBehavior
+    {
+      T existing = GetBehavior<T>();
+      return existing != null && BehaviorHost.Remove(this, existing.engine_name);
     }
 
     /// play/stop keeps managed instances alive while the native scene rebuilds; the native id
@@ -141,6 +125,19 @@ namespace Other.Core
         if (behaviors[i] is T typed)
         {
           return typed;
+        }
+      }
+      return null;
+    }
+
+    /// the behaviour that is of that type, for when the type is only known as it runs
+    internal OtherBehavior FindBehavior(Type type)
+    {
+      for (int i = 0; i < behaviors.Count; i++)
+      {
+        if (type.IsInstanceOfType(behaviors[i]))
+        {
+          return behaviors[i];
         }
       }
       return null;
@@ -180,108 +177,5 @@ namespace Other.Core
       return names;
     }
 
-    public void SceneStart()
-    {
-      OnStart();
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].Enabled = true;
-      }
-    }
-
-    public void SceneStop()
-    {
-      OnStop();
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].Enabled = false;
-      }
-    }
-
-    public void Update()
-    {
-      OnUpdate();
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectUpdate();
-      }
-    }
-    private void LateUpdate()
-    {
-      OnLateUpdate();
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectLateUpdate();
-      }
-    }
-    private void FixedUpdate()
-    {
-      OnFixedUpdate();
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectFixedUpdate();
-      }
-    }
-
-    /// physics dispatch entry points, invoked from native by name with flat primitives
-    ///  (no new marshal-table surface); the CollisionInfo is assembled managed-side
-    private void CollisionEnter(ulong other_id, float px, float py, float pz, float nx, float ny, float nz)
-    {
-      CollisionInfo info = new CollisionInfo(other_id, new Vec3(px, py, pz), new Vec3(nx, ny, nz));
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectCollisionEnter(info);
-      }
-    }
-    private void CollisionExit(ulong other_id, float px, float py, float pz, float nx, float ny, float nz)
-    {
-      CollisionInfo info = new CollisionInfo(other_id, new Vec3(px, py, pz), new Vec3(nx, ny, nz));
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectCollisionExit(info);
-      }
-    }
-    private void TriggerEnter(ulong other_id, float px, float py, float pz, float nx, float ny, float nz)
-    {
-      CollisionInfo info = new CollisionInfo(other_id, new Vec3(px, py, pz), new Vec3(nx, ny, nz));
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectTriggerEnter(info);
-      }
-    }
-    private void TriggerExit(ulong other_id, float px, float py, float pz, float nx, float ny, float nz)
-    {
-      CollisionInfo info = new CollisionInfo(other_id, new Vec3(px, py, pz), new Vec3(nx, ny, nz));
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectTriggerExit(info);
-      }
-    }
-    private void JointBreak(float force)
-    {
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectJointBreak(force);
-      }
-    }
-    /// invoked from native every frame, whether or not the scene is playing
-    public void Render()
-    {
-      OnRender();
-      for (int i = 0; i < behaviors.Count; i++)
-      {
-        behaviors[i].ObjectRender();
-      }
-    }
-
-    public abstract void OnStart();
-    public abstract void OnStop();
-
-    public abstract void OnUpdate();
-    public abstract void OnLateUpdate();
-    public abstract void OnFixedUpdate();
-    public virtual void OnRender() {}
-
-    public virtual void OnDestroy() {}
   }
 }

@@ -12,6 +12,14 @@ namespace other {
   namespace bindings {
 
     void native_transform_get_world_matrix(natural_t id, float* out_matrix);
+    /// where an object is in the world, whatever it is under. out_position and out_scale
+    ///  are three floats, out_rotation four (x y z w). an id that is no object reads as
+    ///  the origin, no rotation and a scale of one, and is not set
+    void native_transform_get_world_position(natural_t id, float* out_position);
+    void native_transform_set_world_position(natural_t id, float x, float y, float z);
+    void native_transform_get_world_rotation(natural_t id, float* out_rotation);
+    void native_transform_set_world_rotation(natural_t id, float x, float y, float z, float w);
+    void native_transform_get_world_scale(natural_t id, float* out_scale);
 
     int32_t native_render_component_get_num_vertices(natural_t object_id);
     int32_t native_render_component_get_num_indices(natural_t object_id);

@@ -10,6 +10,7 @@
 
 #include "serialization/reflection.hpp"
 
+#include "script/behavior.hpp"
 #include "script/script_object.hpp"
 
 #include "asset/asset.hpp"
@@ -29,9 +30,8 @@ namespace other {
     void update(double delta_time);
     void late_update(double delta_time);
 
-    /// collision/trigger dispatch: method is the managed entry point name
-    ///  ("CollisionEnter"/"CollisionExit"/"TriggerEnter"/"TriggerExit")
-    void dispatch_physics_event(const char* method, natural_t other_id, const glm::vec3& point, const glm::vec3& normal);
+    /// collision/trigger dispatch: callback is one of the four contact callbacks
+    void dispatch_physics_event(behavior_callback callback, natural_t other_id, const glm::vec3& point, const glm::vec3& normal);
     void dispatch_joint_break(float force);
     /// per-frame draw hook, dispatched whether or not the scene is playing
     void render_update(double delta_time);

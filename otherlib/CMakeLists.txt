@@ -63,6 +63,7 @@ target_sources(otherlib
     src/scripting/dotnet_bindings/scene_bindings.cpp
     src/scripting/dotnet_bindings/scene_object_bindings.cpp
     src/scripting/dotnet_bindings/component_bindings.cpp
+    src/scripting/dotnet_bindings/behavior_bindings.cpp
     src/scripting/dotnet_bindings/draw_bindings.cpp
     src/scripting/dotnet_bindings/event_bindings.cpp
     src/scripting/dotnet_bindings/input_bindings.cpp
@@ -151,7 +152,6 @@ target_sources(otherlib
     src/ui/menu-bar/menu_bar.cpp
     src/ui/asset_picker.cpp
     src/ui/component_widget_registry.cpp
-    src/ui/field_ui.cpp
     src/ui/field_editor_registry.cpp
     src/ui/inspector_widgets.cpp
     src/ui/ui_widgets.cpp

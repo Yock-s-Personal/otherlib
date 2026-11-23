@@ -17,6 +17,7 @@
 namespace other {
 
   class dotnet_host;
+  class assembly;
   class dotnet_object;
 
   class dotnet_type {
@@ -68,6 +69,9 @@ namespace other {
     }
 
     int32_t dotnet_id = -1;
+    /// the assembly that declares it; null for a type no loaded assembly does (one that is
+    ///  only known as what a method returns)
+    const assembly* owner = nullptr;
 
    private:
     dotnet_host* host = nullptr;

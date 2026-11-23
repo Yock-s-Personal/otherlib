@@ -9,6 +9,8 @@
 #include "core/profiler.hpp"
 #include "serialization/scene_field_codec.hpp"
 
+#include "script/scripting_environment.hpp"
+
 #include "scene/scene.hpp"
 
 namespace other {
@@ -72,6 +74,13 @@ namespace other {
       /// @p root_parent (nullptr = scene root)
       void instantiate_records(scene& s, const scene_document& doc, scene_object* root_parent,
                                const codec_services& services, ostd::map<natural_t, natural_t>& id_remap) {
+        /// a behavior is told it is awake once every object of the document is made, not
+        ///  while the ones after its own are still missing
+        scripting_environment* script_env = subsystem<scripting_environment>::inert ? nullptr : subsystem<scripting_environment>::get();
+        if (script_env != nullptr) {
+          script_env->defer_behavior_awake(true);
+        }
+
         for (const object_record& record : doc.objects) {
           scene_object* parent = root_parent;
           if (record.parent_file_id != 0) {
@@ -100,6 +109,25 @@ namespace other {
             }
             codec->apply(s, &object, component.payload, services);
           }
+        }
+
+        /// what refers to another object of the document waits until all of them exist
+        for (const object_record& record : doc.objects) {
+          const auto made = id_remap.find(record.file_id);
+          scene_object* object = made != id_remap.end() ? s.find_object(made->second) : nullptr;
+          if (object == nullptr) {
+            continue;
+          }
+          for (const component_record& component : record.components) {
+            const component_codec* codec = find_component_codec(component.key_hash);
+            if (codec != nullptr && codec->finish != nullptr) {
+              codec->finish(s, object, component.payload, services, id_remap);
+            }
+          }
+        }
+
+        if (script_env != nullptr) {
+          script_env->defer_behavior_awake(false);
         }
       }
 

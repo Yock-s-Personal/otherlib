@@ -15,9 +15,11 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/serializable-field.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/callback_binding_attribute.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/debug.cs
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/behavior-descriptor.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/other-object.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/other-behavior.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/behavior-host.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/behavior-fields.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/asset-ref.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/filesystem.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec2.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec3.cs
@@ -73,7 +75,6 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/physics.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/audio-source-component.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/audio-listener-component.cs
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/scene-object-handle.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/scene-behavior.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/scene-object.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/scene.cs

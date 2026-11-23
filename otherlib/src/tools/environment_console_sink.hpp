@@ -17,14 +17,21 @@ namespace other {
   class console_sink : public spdlog::sinks::base_sink<Mutex> {
    public:
     console_sink(scope<event_system>& events)
-        : events(events) {}
+        : events(&events) {}
     ~console_sink() override = default;
 
+    /// the logger keeps this sink for as long as it lives, which is longer than the driver
+    ///  whose event system this writes to: the driver says so before it goes
+    void detach() {
+      std::lock_guard<Mutex> lock(spdlog::sinks::base_sink<Mutex>::mutex_);
+      events = nullptr;
+    }
+
    protected:
-    scope<event_system>& events;
+    scope<event_system>* events = nullptr;
 
     void sink_it_(const spdlog::details::log_msg& msg) override {
-      if (!events) {
+      if (events == nullptr || *events == nullptr) {
         return;
       }
 
@@ -34,12 +41,12 @@ namespace other {
       base_sink<Mutex>::formatter_->format(msg, formatted);
       std::string output_msg = std::string{ formatted };
       switch (msg.level) {
-        case spdlog::level::trace: events->trigger_event("console.trace", output_msg); break;
-        case spdlog::level::debug: events->trigger_event("console.debug", output_msg); break;
-        case spdlog::level::info: events->trigger_event("console.info", output_msg); break;
-        case spdlog::level::warn: events->trigger_event("console.warn", output_msg); break;
-        case spdlog::level::err: events->trigger_event("console.error", output_msg); break;
-        case spdlog::level::critical: events->trigger_event("console.critical", output_msg); break;
+        case spdlog::level::trace: (*events)->trigger_event("console.trace", output_msg); break;
+        case spdlog::level::debug: (*events)->trigger_event("console.debug", output_msg); break;
+        case spdlog::level::info: (*events)->trigger_event("console.info", output_msg); break;
+        case spdlog::level::warn: (*events)->trigger_event("console.warn", output_msg); break;
+        case spdlog::level::err: (*events)->trigger_event("console.error", output_msg); break;
+        case spdlog::level::critical: (*events)->trigger_event("console.critical", output_msg); break;
         default:
           OTHER_ASSERT(false, "Unhandled log level in console sink: {}", msg.level);
           break;

@@ -57,6 +57,9 @@ namespace other {
     int32_t dotnet_id = -1;
     std::string dotnet_name;
     assembly_load_status load_status = assembly_load_status::UNKNOWN_ERROR;
+    /// loaded for a driver's own use (an editor's windows and tools), not as a project's
+    ///  scripts. where a type's name is in both, the project's is the one a scene means
+    bool driver_module = false;
 
    private:
     friend class assembly_context;

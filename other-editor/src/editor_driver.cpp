@@ -94,6 +94,7 @@ namespace other {
     r.register_draw_stream(builtin_debug_streams::kTris, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 16, .draw_recipe = { "debug_overlay", mesh::TRIANGLES, vtx } });
     r.register_draw_stream(builtin_debug_streams::kPoints, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 14, .draw_recipe = { "debug_overlay", mesh::POINTS, vtx } });
     r.register_draw_stream(builtin_debug_streams::kMeshes, { .element_size = sizeof(debug_mesh_instance), .max_per_frame = 4096, .draw_recipe = {} });
+    r.register_draw_stream(builtin_debug_streams::kMeshBones, { .element_size = sizeof(glm::mat4), .max_per_frame = kMaxBones * 64, .draw_recipe = {} });
   }
 
   void editor_driver::on_build_driver_input_map(input_map& map) {
@@ -218,7 +219,7 @@ namespace other {
         /// obj_model.source stays null until the model asset finishes its async load
         if (auto* render = scene->try_get_component<render_component>(obj.id);
             render != nullptr && render->obj_model.source != nullptr) {
-          draw.mesh(render->obj_model.source->get_mesh_handle(), world_trans, select_color, true);
+          draw.mesh(render->obj_model.source->get_mesh_handle(), world_trans, select_color, true, render->obj_model.bone_matrices);
         }
 
         if (auto* pl_comp = scene->try_get_component<point_light_component>(obj.id);

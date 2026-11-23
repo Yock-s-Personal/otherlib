@@ -15,6 +15,7 @@
 
 #include "driver/driver.hpp"
 #include "scripting/main_thread_only.hpp"
+#include "scripting/scene_for_bindings.hpp"
 
 namespace other {
   namespace detail {
@@ -28,6 +29,10 @@ namespace other {
       };
 
       scene* get_active_scene() {
+        /// a scene the test suite put in place of the driver's
+        if (scene* bound = get_scene_for_bindings(); bound != nullptr) {
+          return bound;
+        }
         driver* native_driver = bindings.get_driver();
         OTHER_ASSERT(native_driver != nullptr, "Driver pointer is null in get_active_scene.");
         scene* s = native_driver->get_active_scene();

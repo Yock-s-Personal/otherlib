@@ -30,6 +30,10 @@ namespace other {
   }
 
   driver::~driver() {
+    /// what is logged after this would reach an event system that is gone
+    if (console_log_sink != nullptr) {
+      console_log_sink->detach();
+    }
   }
 
   void driver::initialize(const command_line& cmd, const subsystem_registry& registry) {
@@ -64,7 +68,9 @@ namespace other {
         .sink_pattern = "[%l] %v",
         .level = spdlog::level::info,
         .sink_factory = [&](const config_table& config) -> spdlog::sink_ptr {
-          return std::make_shared<console_sink_mt>(get_event_system());
+          auto sink = std::make_shared<console_sink_mt>(get_event_system());
+          this->console_log_sink = sink.get();
+          return sink;
         }
       };
 

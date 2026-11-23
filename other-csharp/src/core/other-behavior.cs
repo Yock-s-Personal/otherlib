@@ -19,12 +19,18 @@ namespace Other.Core
     }
   }
 
+  /// a script on an object. the engine keeps its life and calls what is written here: a
+  ///  callback that is left as it is costs nothing
   public abstract class OtherBehavior
   {
-    
   #nullable enable
     OtherObject? parent_object = null;
   #nullable disable
+
+    /// what the engine calls this behaviour, told when it joins its object
+    internal string engine_name = "";
+    /// the engine's switch, kept here to be read. changed through Enabled
+    internal bool enabled = true;
 
     public UInt64 ObjectID
     {
@@ -38,7 +44,9 @@ namespace Other.Core
       }
     }
 
-    private bool enabled = false;
+    /// false stops this behaviour's updates, what physics tells it and its render callback,
+    ///  until it is true again. a behaviour runs while its scene plays and this is true:
+    ///  Enable and Disable are called as that starts and stops
     public bool Enabled
     {
       get => enabled;
@@ -48,101 +56,60 @@ namespace Other.Core
         {
           return;
         }
-
-        enabled = value;
-        if (enabled)
+        /// the engine sets the field back through the host; one that is on no object has
+        ///  nobody to ask
+        if (parent_object == null || !BehaviorHost.SetEnabled(parent_object, engine_name, value))
         {
-          Enable();
-        }
-        else
-        {
-          Disable();
+          enabled = value;
         }
       }
     }
 
     public OtherObject ParentObject => parent_object;
 
-    public void OnAddToObject(OtherObject obj) 
+    internal void Bind(OtherObject obj)
     {
       parent_object = obj;
-      ObjectAwake();
-    }
-    public void OnRemoveFromObject(OtherObject obj) 
-    {
-      ObjectRemove();
-      parent_object = null;
     }
 
-    public void ObjectAwake()
-    {
-      Awake();
-    }
-    public void ObjectRemove()
-    {
-      Remove();
-    }
+    /// the host's way in: the callbacks themselves are for the behaviour's own class
+    internal void CallAwake() { Awake(); }
+    internal void CallEnable() { Enable(); }
+    internal void CallStart() { Start(); }
+    internal void CallFixedUpdate() { FixedUpdate(); }
+    internal void CallUpdate() { Update(); }
+    internal void CallLateUpdate() { LateUpdate(); }
+    internal void CallRender() { Render(); }
+    internal void CallCollisionEnter(CollisionInfo info) { CollisionEnter(info); }
+    internal void CallCollisionExit(CollisionInfo info) { CollisionExit(info); }
+    internal void CallTriggerEnter(CollisionInfo info) { TriggerEnter(info); }
+    internal void CallTriggerExit(CollisionInfo info) { TriggerExit(info); }
+    internal void CallJointBreak(float force) { JointBreak(force); }
+    internal void CallDisable() { Disable(); }
+    internal void CallDestroy() { Destroy(); }
 
-    public void ObjectUpdate()
-    {
-      Update();
-    }
+    /// once, when the behaviour is made: after its scene is loaded whole, or when it is added
+    protected virtual void Awake() {}
+    /// when it begins running, and when it stops: its scene plays or stops, or Enabled changes
+    protected virtual void Enable() {}
+    protected virtual void Disable() {}
+    /// once after it begins running, before the first update it gets
+    protected virtual void Start() {}
+    /// while it runs
+    protected virtual void Update() {}
+    protected virtual void LateUpdate() {}
+    protected virtual void FixedUpdate() {}
+    /// when it goes: it was removed, its object was destroyed or its scene was unloaded
+    protected virtual void Destroy() {}
 
-    public void ObjectLateUpdate()
-    {
-      LateUpdate();
-    }
-
-    public void ObjectFixedUpdate()
-    {
-      FixedUpdate();
-    }
-
-    public void ObjectCollisionEnter(CollisionInfo info)
-    {
-      CollisionEnter(info);
-    }
-    public void ObjectCollisionExit(CollisionInfo info)
-    {
-      CollisionExit(info);
-    }
-    public void ObjectTriggerEnter(CollisionInfo info)
-    {
-      TriggerEnter(info);
-    }
-    public void ObjectTriggerExit(CollisionInfo info)
-    {
-      TriggerExit(info);
-    }
-    public void ObjectJointBreak(float force)
-    {
-      JointBreak(force);
-    }
-
-    public void ObjectRender()
-    {
-      Render();
-    }
-
-    /// on load and unload
-    protected abstract void Awake();
-    protected abstract void Remove();
-    /// on enable and disable
-    protected abstract void Enable();
-    protected abstract void Disable();
-    /// primary run loop updating, rendering, physics, etc. goes here
-    protected abstract void Update();
-    protected abstract void LateUpdate();
-    protected abstract void FixedUpdate();
-
-    /// physics callbacks are virtual no-ops: behaviors opt in by overriding. an exit is not
-    /// guaranteed if either body was destroyed the same tick
+    /// physics callbacks, while it runs. an exit is not guaranteed if either body was
+    /// destroyed the same tick
     protected virtual void CollisionEnter(CollisionInfo info) {}
     protected virtual void CollisionExit(CollisionInfo info) {}
     protected virtual void TriggerEnter(CollisionInfo info) {}
     protected virtual void TriggerExit(CollisionInfo info) {}
     protected virtual void JointBreak(float force) {}
-    /// per-frame draw hook, called whether or not the scene is playing
+    /// per-frame draw hook, called while Enabled is true whether or not the scene is playing
     protected virtual void Render() {}
   }
 }

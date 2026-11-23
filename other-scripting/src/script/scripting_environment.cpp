@@ -688,7 +688,23 @@ namespace other {
     if (!behavior_fields::read_description(stream, described)) {
       CORE_LOG_ERROR("What the fields of the behavior '{}' are could not be read.", handle->type_name);
     }
+    description_streams[handle->type_name] = std::move(stream);
     return described;
+  }
+
+  std::span<const uint8_t> scripting_environment::describe_behavior_stream(integer_t parent_id, const std::string_view behavior_name) {
+    /// asked through describe_behavior, which says what it has once and keeps it
+    (void)describe_behavior(parent_id, behavior_name);
+    const script_object* parent = get_object(parent_id);
+    if (parent == nullptr) {
+      return {};
+    }
+    const auto handle = std::ranges::find(parent->behavior_handles, behavior_name, &script_object::behavior_handle::type_name);
+    if (handle == parent->behavior_handles.end() || handle->instance == nullptr) {
+      return {};
+    }
+    const auto kept = description_streams.find(handle->type_name);
+    return kept != description_streams.end() ? std::span<const uint8_t>{ kept->second } : std::span<const uint8_t>{};
   }
 
   void scripting_environment::set_behavior_object_resolver(behavior_object_resolver resolve) {
@@ -777,6 +793,8 @@ namespace other {
       /// the next build's type may have other fields
       descriptions.erase(type_class_name);
       descriptions.erase(type_full_name);
+      description_streams.erase(type_class_name);
+      description_streams.erase(type_full_name);
       for (auto& live_obj : live_objects) {
         if (live_obj.status != live_script_object::LIVE || live_obj.object == nullptr) {
           continue;

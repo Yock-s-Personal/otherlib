@@ -134,6 +134,22 @@ namespace other {
       return bindings::returned_string(desc != nullptr ? std::string_view{ desc->display_name } : std::string_view{});
     }
 
+    void oe_component_type_color(int32_t index, float* out_rgba) {
+      const std::vector<uint64_t>& order = detail::bindings.get_component_order();
+      const component_binding_descriptor* desc = index >= 0 && static_cast<size_t>(index) < order.size() ? detail::bindings.find_component(order[index]) : nullptr;
+      const glm::vec4 color = desc != nullptr && desc->color != nullptr ? *desc->color : glm::vec4{ 0.6f, 0.6f, 0.6f, 1.f };
+      out_rgba[0] = color.r;
+      out_rgba[1] = color.g;
+      out_rgba[2] = color.b;
+      out_rgba[3] = color.a;
+    }
+
+    const char* oe_component_type_native_name(int32_t index) {
+      const std::vector<uint64_t>& order = detail::bindings.get_component_order();
+      const component_binding_descriptor* desc = index >= 0 && static_cast<size_t>(index) < order.size() ? detail::bindings.find_component(order[index]) : nullptr;
+      return bindings::returned_string(desc != nullptr ? std::string_view{ desc->name } : std::string_view{});
+    }
+
     nbool32 oe_has_component(uint64_t obj_id, uint64_t comp_id) {
       scene* s = detail::get_active_scene();
       if (s == nullptr || !s->has_object(obj_id)) {

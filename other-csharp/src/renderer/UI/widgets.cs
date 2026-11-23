@@ -4,7 +4,7 @@ using System;
 namespace Other.UI
 {
   /// the widgets the native windows are built from, so a window in C# looks like one of them
-  public static class Widgets
+  public static partial class Widgets
   {
     [NativeFunction("UIBeginPropertyRow")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, float, void> NativeBeginPropertyRow;

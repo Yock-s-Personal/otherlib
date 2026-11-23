@@ -25,8 +25,6 @@ add_static_driver(other_editor
   src/ui/asset-editor/asset_editor_node.cpp
   src/ui/node-editor/node_editor_canvas.cpp
   src/ui/node-editor/node_editor_display.cpp
-  src/ui/object-editor/object_editor.cpp
-  src/ui/object-editor/property_inspector_node.cpp
   src/ui/render-pipeline-ui/render_pipeline_widgets.cpp
   src/ui/render-pipeline-ui/render_pipeline_viewer.cpp
   src/ui/render-pipeline-ui/render_pipeline_editor.cpp

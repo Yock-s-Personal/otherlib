@@ -709,12 +709,12 @@ namespace Other
       }
     }
 
-    public static bool Selectable(string label, bool selected = false, int flags = 0)
+    public static bool Selectable(string label, bool selected = false, SelectableFlags flags = SelectableFlags.None)
     {
       unsafe
       {
         using var label_utf8 = new Utf8Arg(label, stackalloc byte[Utf8Arg.StackSize]);
-        return NativeSelectable(label_utf8.Pointer, selected, flags);
+        return NativeSelectable(label_utf8.Pointer, selected, (int)flags);
       }
     }
     public static bool BeginCombo(string label, string preview_value, int flags = 0)
@@ -916,7 +916,7 @@ namespace Other
     public static bool BeginTooltip() { unsafe { return NativeBeginTooltip(); } }
     public static void EndTooltip() { unsafe { NativeEndTooltip(); } }
 
-    public static bool BeginDragDropSource(int flags = 0) { unsafe { return NativeBeginDragDropSource(flags); } }
+    public static bool BeginDragDropSource(DragDropFlags flags = DragDropFlags.None) { unsafe { return NativeBeginDragDropSource((int)flags); } }
 
     /// type names what is carried, so a target can tell whether it wants it; ImGui copies the bytes
     public static bool SetDragDropPayload(string type, IntPtr data, int size)
@@ -1191,13 +1191,13 @@ namespace Other
 
     /// between BeginDragDropTarget and EndDragDropTarget: the bytes that were dropped here,
     ///  when what was dropped is of that type. null while nothing of the type has been
-    public static byte[]? AcceptDragDropPayload(string type, int flags = 0)
+    public static byte[]? AcceptDragDropPayload(string type, DragDropFlags flags = DragDropFlags.None)
     {
       unsafe
       {
         using var type_utf8 = new Utf8Arg(type, stackalloc byte[Utf8Arg.StackSize]);
         int size = 0;
-        void* data = NativeAcceptDragDropPayload(type_utf8.Pointer, flags, &size);
+        void* data = NativeAcceptDragDropPayload(type_utf8.Pointer, (int)flags, &size);
         if (data == null)
         {
           return null;

@@ -111,6 +111,10 @@ namespace other {
       return ImGui::InputText(label, buffer, static_cast<size_t>(buffer_size), static_cast<ImGuiInputTextFlags>(flags));
     }
 
+    nbool32 native_ui_input_text_with_hint(const char* label, const char* hint, char* buffer, int32_t buffer_size, int32_t flags) {
+      return ImGui::InputTextWithHint(label, hint, buffer, static_cast<size_t>(buffer_size), static_cast<ImGuiInputTextFlags>(flags));
+    }
+
     nbool32 native_ui_input_text_multiline(const char* label, char* buffer, int32_t buffer_size, float width, float height, int32_t flags) {
       return ImGui::InputTextMultiline(label, buffer, static_cast<size_t>(buffer_size), ImVec2(width, height), static_cast<ImGuiInputTextFlags>(flags));
     }
@@ -248,6 +252,14 @@ namespace other {
 
     nbool32 native_ui_begin_popup(const char* str_id, int32_t flags) {
       return ImGui::BeginPopup(str_id, static_cast<ImGuiWindowFlags>(flags));
+    }
+
+    nbool32 native_ui_begin_popup_context_item(const char* str_id, int32_t flags) {
+      return ImGui::BeginPopupContextItem(str_id != nullptr && str_id[0] != '\0' ? str_id : nullptr, static_cast<ImGuiPopupFlags>(flags));
+    }
+
+    nbool32 native_ui_begin_popup_context_window(const char* str_id, int32_t flags) {
+      return ImGui::BeginPopupContextWindow(str_id != nullptr && str_id[0] != '\0' ? str_id : nullptr, static_cast<ImGuiPopupFlags>(flags));
     }
 
     nbool32 native_ui_begin_popup_modal(const char* name, int32_t flags) {
@@ -604,6 +616,10 @@ namespace other {
 
     nbool32 native_ui_is_key_down(int32_t key) {
       return is_key(key) && ImGui::IsKeyDown(static_cast<ImGuiKey>(key));
+    }
+
+    nbool32 native_ui_shortcut(int32_t key, int32_t mods, nbool32 global) {
+      return ImGui::Shortcut(static_cast<ImGuiKeyChord>(key | mods), global ? ImGuiInputFlags_RouteGlobal : ImGuiInputFlags_RouteFocused);
     }
 
     nbool32 native_ui_is_key_pressed(int32_t key, nbool32 repeat) {

@@ -11,6 +11,10 @@ namespace Other
 
     [NativeFunction("OeValidateHandle")]
     internal static unsafe delegate* unmanaged[Cdecl]<UInt64, uint, uint, NativeBool32> NativeValidateHandle;
+    [NativeFunction("OeComponentTypeCount")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int> NativeComponentTypeCount;
+    [NativeFunction("OeComponentTypeAt")]
+    internal static unsafe delegate* unmanaged[Cdecl]<int, UInt64*, NativeBool32*, byte*> NativeComponentTypeAt;
     [NativeFunction("OeHasComponent")]
     internal static unsafe delegate* unmanaged[Cdecl]<UInt64, UInt64, NativeBool32> NativeHasComponent;
     [NativeFunction("OeAddComponent")]

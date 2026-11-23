@@ -51,6 +51,13 @@ namespace other {
     void native_scene_add_object_tag(natural_t id, const char* tag);
     void native_scene_remove_object_tag(natural_t id, const char* tag);
 
+    /// goes up whenever what a list of the scene's objects would show changes, and when
+    ///  another scene becomes the one in use. 0 while there is no scene
+    uint64_t native_scene_revision();
+    const char* native_scene_get_name();
+    /// the objects at the top of the scene, in its order
+    void native_scene_get_top_ids(natural_t* out_ids, int32_t* out_count, int32_t max_count);
+
     nbool32 native_scene_get_object_visible(natural_t id);
     void native_scene_set_object_visible(natural_t id, nbool32 visible);
 

@@ -36,4 +36,5 @@ dotnet-runtime-config = "${other-directory}/dotnet-assemblies/OtherCsBindings.ru
 dotnet-bindings = "${other-directory}/dotnet-assemblies/OtherCsBindings.dll"
 other-csharp = "${other-directory}/dotnet-assemblies/OtherCs.dll"
 other-lua-directory = "${other-directory}/lua"
+editor-api = "${other-directory}/dotnet-assemblies/OtherEditor.dll"
 dotnet-modules = [ "${other-directory}/dotnet-assemblies/OtherEditorCs.dll" ]

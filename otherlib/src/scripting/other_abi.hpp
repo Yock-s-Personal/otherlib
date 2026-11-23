@@ -25,6 +25,8 @@ namespace other {
     const service_binding_descriptor* find_service(uint64_t id) const;
 
     const std::unordered_map<uint64_t, component_binding_descriptor>& get_component_descriptors() const { return component_descriptors; }
+    /// the components' ids in the order they were registered, which is the order a list shows
+    const std::vector<uint64_t>& get_component_order() const { return component_order; }
     const std::unordered_map<uint64_t, service_binding_descriptor>& get_service_descriptors() const { return service_descriptors; }
 
     driver* get_driver() const { return driver_ptr; }
@@ -34,6 +36,7 @@ namespace other {
     driver* driver_ptr = nullptr;
 
     std::unordered_map<uint64_t, component_binding_descriptor> component_descriptors;
+    std::vector<uint64_t> component_order;
     std::unordered_map<uint64_t, service_binding_descriptor> service_descriptors;
   };
 
@@ -45,6 +48,10 @@ namespace other {
 
     nbool32 oe_validate_handle(uint64_t obj_id, uint32_t generation, uint32_t scene_id);
 
+    /// the component types there are, in the order a list shows them. at gives the name an
+    ///  inspector shows, and empty for an index that is none
+    int32_t oe_component_type_count();
+    const char* oe_component_type_at(int32_t index, uint64_t* out_id, nbool32* out_removable);
     nbool32 oe_has_component(uint64_t obj_id, uint64_t comp_id);
     nbool32 oe_add_component(uint64_t obj_id, uint64_t comp_id);
     nbool32 oe_remove_component(uint64_t obj_id, uint64_t comp_id);

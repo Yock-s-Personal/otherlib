@@ -48,6 +48,9 @@ namespace other {
     ///  the item out again; 0 when the path names no menu
     natural_t add_menu_item(const std::string_view path, const std::string_view label, std::function<void(natural_t)> on_click);
     void remove_menu_item(natural_t id);
+    /// for an item add_menu_item made: the text at its right edge, and whether it can be clicked
+    void set_menu_item_shortcut(natural_t id, const std::string_view shortcut);
+    void set_menu_item_enabled(natural_t id, bool enabled);
 
     /// 0 when the name is taken
     natural_t register_window(const std::string_view name, scope<ui_window> window, ui::window_source source = ui::window_source::DRIVER);

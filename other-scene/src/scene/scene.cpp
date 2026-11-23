@@ -238,6 +238,19 @@ namespace other {
     }
     PROFILE_SECTION("scene::play");
 
+    if (playing) {
+      return;
+    }
+    /// played again after a pause it goes on from where it was held: what stop puts back is
+    ///  still the scene from before the first play, and nothing is started a second time
+    if (is_paused()) {
+      playing = true;
+      if (storage->physics != nullptr) {
+        storage->physics->start_simulation();
+      }
+      return;
+    }
+
     play_snapshot = capture_snapshot();
 
     /// the snapshot records each object under its runtime id; the generation tells stop()
@@ -1023,6 +1036,23 @@ namespace other {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("scene::destroy_object");
     storage->tree.destroy_object(id);
+    mark_changed();
+  }
+
+  void scene::set_object_visible(natural_t id, bool visible) {
+    ASSERT_MAIN_THREAD();
+    scene_object* object = has_object(id) ? find_object(id) : nullptr;
+    if (object == nullptr || object->visible == visible) {
+      return;
+    }
+    object->visible = visible;
+    mark_changed();
+  }
+
+  void scene::mark_changed() {
+    /// one count for every scene: main thread only, as every change to a scene is
+    static uint64_t changes = 0;
+    change_revision = ++changes;
   }
 
   void scene::rename_object(natural_t id, const std::string_view name) {
@@ -1039,6 +1069,7 @@ namespace other {
       return;
     }
     object->name = name;
+    mark_changed();
 
     /// the script object carries the name as a label; keep the two in step
     const script_component* script = try_get_component<script_component>(id);
@@ -1059,6 +1090,7 @@ namespace other {
     if (!storage->tree.reparent(id, new_parent_id)) {
       return false;
     }
+    mark_changed();
 
     /// recompute the local transform so the object does not visually move
     const glm::mat4 new_local = glm::inverse(parent_world) * child_world;
@@ -1666,6 +1698,7 @@ namespace other {
     scene_tree::node* n = storage->tree.node_at(id);
     OTHER_ASSERT(n != nullptr, "Node with the given ID does not exist in the scene storage->tree.");
     n->tags.push_back(object_tag{ std::string{ tag } });
+    mark_changed();
   }
 
   void scene::remove_object_tag(natural_t id, const std::string_view tag) {
@@ -1674,6 +1707,7 @@ namespace other {
     scene_tree::node* n = storage->tree.node_at(id);
     OTHER_ASSERT(n != nullptr, "Node with the given ID does not exist in the scene storage->tree.");
     n->tags.erase(std::remove_if(n->tags.begin(), n->tags.end(), [&](const object_tag& t) { return t.name == tag; }), n->tags.end());
+    mark_changed();
   }
 
   std::string scene::as_string(const scene& s) {
@@ -1720,6 +1754,7 @@ namespace other {
 
     OTHER_ASSERT(name.size() > 0, "Scene object name cannot be empty.");
     OTHER_ASSERT(object != nullptr, "Cannot register a null scene object.");
+    mark_changed();
 
     CORE_LOG_DEBUG(" - registering scene object '{}' in scene '{}'", name, this->name);
     entt::entity entity = storage->registry.create();

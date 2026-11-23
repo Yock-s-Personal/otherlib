@@ -261,7 +261,31 @@ namespace other {
       if (active_scene == nullptr) {
         return;
       }
-      active_scene->get_object(id).visible = visible;
+      active_scene->set_object_visible(id, visible != 0);
+    }
+
+    uint64_t native_scene_revision() {
+      const scene* active_scene = detail::get_active_scene();
+      return active_scene != nullptr ? active_scene->revision() : 0;
+    }
+
+    const char* native_scene_get_name() {
+      const scene* active_scene = detail::get_active_scene();
+      return returned_string(active_scene != nullptr ? std::string_view{ active_scene->name } : std::string_view{});
+    }
+
+    void native_scene_get_top_ids(natural_t* out_ids, int32_t* out_count, int32_t max_count) {
+      *out_count = 0;
+      scene* active_scene = detail::get_active_scene();
+      if (active_scene == nullptr) {
+        return;
+      }
+      for (const natural_t id : active_scene->get_children_ids(active_scene->root_object().id)) {
+        if (*out_count >= max_count) {
+          break;
+        }
+        out_ids[(*out_count)++] = id;
+      }
     }
 
   }  // namespace bindings

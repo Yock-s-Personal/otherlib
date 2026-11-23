@@ -13,15 +13,16 @@
 
 #include "project/compile_session.hpp"
 
-#include "edit_stack.hpp"
-#include "editor_selection.hpp"
 #include "editor_settings.hpp"
+#include "services/editor_services.hpp"
 
 namespace other {
 
   class editor_driver;
 
-  struct editor_context {
+  /// the selection and the edits that can be undone are the services'; what is here is the
+  ///  driver's own: its viewports, its camera, its compile
+  struct editor_context : editor_services {
     struct viewport_info {
       natural_t vp_id;
       std::string viewport_name;
@@ -42,55 +43,8 @@ namespace other {
     ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
     ImGuizmo::OPERATION gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;
 
-    edit_stack editing_history;
-
-    /// snapshot-based edit coalescing: continuous widget edits open a session on first notify,
-    ///  committing one {baseline, after} pair once quiet; discrete ops use commit_discrete_scene_edit
-    struct scene_edit_tracker {
-      constexpr static uint32_t kIdleFramesToCommit = 12;
-
-      ostd::vector<uint8_t> baseline = {};
-      bool session_active = false;
-      uint32_t idle_frames = 0;
-    } edit_tracker;
-
-    /// a scene-mutating widget changed this frame (no-op while the scene plays)
-    void notify_scene_edited();
-    /// once per frame: commits the open edit session after the widgets go quiet
-    void tick_edit_tracker();
-    /// re-baselines and clears history (scene switched)
-    void reset_scene_edit_tracking();
-
-    void undo_scene_edit();
-    void redo_scene_edit();
-
-    /// the history's change count when the active scene was last written to disk
-    uint64_t saved_change_count = 0;
-
-    /// true while the active scene holds an edit that is only in memory. an undo back to the
-    ///  saved state still counts: the count moved
-    bool has_unsaved_scene_edits() const;
-    /// the active scene is on disk as it is now
-    void mark_scene_saved();
-
-    selection current_selection;
-
-    /// stop's snapshot restore reassigns every runtime id, so the selection is carried
-    ///  across a play/stop cycle by name (same identity rule as undo/redo restores)
-    ostd::vector<std::string> playback_selection_names = {};
-
-    void capture_playback_selection();
-    void restore_playback_selection();
-
     std::string current_primary_viewport = "default-instancing";
     ostd::vector<viewport_info> viewports;
-
-    void select_object(natural_t object_id);
-    void deselect_object(natural_t object_id);
-
-    bool has_selection() const;
-    bool multi_select_enabled() const;
-    bounding_box get_selection_bounding_box() const;
 
     natural_t register_viewport(const std::string_view name, const std::string_view render_pipeline_name);
     natural_t register_viewport(const std::string_view name, const std::string_view render_pipeline_name, camera* cam);

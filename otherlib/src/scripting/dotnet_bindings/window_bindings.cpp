@@ -124,6 +124,18 @@ namespace other {
       }
     }
 
+    void native_ui_set_menu_item_shortcut(natural_t id, const char* shortcut) {
+      if (bridge().menus != nullptr) {
+        bridge().menus->set_menu_item_shortcut(id, shortcut != nullptr ? std::string_view{ shortcut } : std::string_view{});
+      }
+    }
+
+    void native_ui_set_menu_item_enabled(natural_t id, nbool32 enabled) {
+      if (bridge().menus != nullptr) {
+        bridge().menus->set_menu_item_enabled(id, enabled);
+      }
+    }
+
     void native_ui_set_menu_item_click_function(void* fn) {
       bridge().menu_item_clicked = reinterpret_cast<void (*)(natural_t)>(fn);
     }

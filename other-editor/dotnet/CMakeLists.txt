@@ -9,4 +9,4 @@ set_target_properties(OtherEditorCs PROPERTIES
 target_sources(OtherEditorCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-overview-window.cs
 )
-target_link_libraries(OtherEditorCs PUBLIC OtherCs OtherCsBindings)
+target_link_libraries(OtherEditorCs PUBLIC OtherEditor OtherCs OtherCsBindings)

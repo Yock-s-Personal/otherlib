@@ -16,6 +16,10 @@ namespace other {
       opt<action> action = std::nullopt;
       /// 0 unless the item was added to be taken out again by this
       natural_t id = 0;
+      /// shown at the item's right edge, "Ctrl+S". only text: nothing here checks the keys
+      std::string shortcut = "";
+      /// false: drawn greyed, and cannot be clicked
+      bool enabled = true;
 
       void render();
     };

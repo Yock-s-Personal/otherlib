@@ -1,8 +1,8 @@
 /**
- * \file editor_selection.hpp
+ * \file services/editor_selection.hpp
  **/
-#ifndef OTHER_EDITOR_EDITOR_SELECTION_HPP
-#define OTHER_EDITOR_EDITOR_SELECTION_HPP
+#ifndef OTHER_EDITOR_SERVICES_EDITOR_SELECTION_HPP
+#define OTHER_EDITOR_SERVICES_EDITOR_SELECTION_HPP
 
 #include <glm/glm.hpp>
 
@@ -33,4 +33,4 @@ namespace other {
 
 }  // namespace other
 
-#endif  // OTHER_EDITOR_EDITOR_SELECTION_HPP
+#endif  // OTHER_EDITOR_SERVICES_EDITOR_SELECTION_HPP

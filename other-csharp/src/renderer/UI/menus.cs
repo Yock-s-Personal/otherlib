@@ -12,10 +12,44 @@ namespace Other.UI
   public sealed class MenuItem : IDisposable
   {
     internal ulong id;
+    private bool enabled = true;
 
     internal MenuItem(ulong id)
     {
       this.id = id;
+    }
+
+    /// what the item shows at its right edge: "Ctrl+S". it is only text, nothing here
+    ///  checks the keys
+    public void SetShortcutText(string text)
+    {
+      if (id == 0)
+      {
+        return;
+      }
+      unsafe
+      {
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        Menus.NativeSetMenuItemShortcut(id, text_utf8.Pointer);
+      }
+    }
+
+    /// false: drawn greyed, and cannot be clicked
+    public bool Enabled
+    {
+      get => enabled;
+      set
+      {
+        if (value == enabled)
+        {
+          return;
+        }
+        enabled = value;
+        if (id != 0)
+        {
+          unsafe { Menus.NativeSetMenuItemEnabled(id, value); }
+        }
+      }
     }
 
     public void Dispose()
@@ -31,6 +65,10 @@ namespace Other.UI
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, byte*, ulong> NativeAddMenuItem;
     [NativeFunction("UIRemoveMenuItem")]
     internal static unsafe delegate* unmanaged[Cdecl]<ulong, void> NativeRemoveMenuItem;
+    [NativeFunction("UISetMenuItemShortcut")]
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, byte*, void> NativeSetMenuItemShortcut;
+    [NativeFunction("UISetMenuItemEnabled")]
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, NativeBool32, void> NativeSetMenuItemEnabled;
     [NativeFunction("UISetMenuItemClickFunction")]
     internal static unsafe delegate* unmanaged[Cdecl]<void*, void> NativeSetMenuItemClickFunction;
 

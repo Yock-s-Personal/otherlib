@@ -12,6 +12,7 @@
 
 #include "model/vertex.hpp"
 #include "renderer/colors.hpp"
+#include "script/scripting_environment.hpp"
 
 #include "object/camera_component.hpp"
 #include "object/light_component.hpp"
@@ -22,7 +23,6 @@
 
 #include "driver/systems/scene_system.hpp"
 #include "ui/asset-browser/asset_browser.hpp"
-#include "ui/menu-bar/menu_item.hpp"
 #include "ui/object-editor/object_editor.hpp"
 #include "ui/project-compiler/project_compiler.hpp"
 #include "ui/project-creator/project_creator.hpp"
@@ -32,7 +32,41 @@
 #include "ui/scene-hierarchy/scene_hierarchy.hpp"
 #include "ui/viewport/viewport.hpp"
 
+#include "services/editor_bindings.hpp"
+
 namespace other {
+
+  void editor_driver::on_system_initialization() {
+    PROFILE_SECTION("editor_driver::on_system_initialization");
+    bindings::set_editor_services(&context);
+    context.send_playback_command = [this](const std::string_view command) {
+      trigger_event("scene.playback-command", value{ std::string{ command } });
+    };
+    context.save_scene = [this]() -> bool {
+      return save_active_scene();
+    };
+    if (subsystem<scripting_environment>::inert) {
+      return;
+    }
+
+    /// the editor's C# API is loaded before the modules written against it, and its
+    ///  bindings are the editor's own to make: the engine bound its own when it started
+    auto* env = subsystem<scripting_environment>::get();
+    OTHER_ASSERT(env != nullptr, "Scripting environment is not initialized.");
+    const std::string api_path = get_config_value<std::string>("scripting.editor-api", "");
+    ref<assembly> api = api_path.empty() ? nullptr : env->load_dotnet_module(api_path);
+    if (api == nullptr) {
+      CORE_LOG_ERROR("The editor's C# API was not loaded from scripting.editor-api ('{}'): the editor's C# windows will not work.", api_path);
+      return;
+    }
+    api->driver_module = true;
+
+    const size_t refused = bindings::bind_editor_functions(env->get_dotnet_host());
+    if (refused > 0) {
+      OTHER_CRITICAL_FAILURE("{} of the editor's functions could not be bound to OtherEditor.dll. The error above each says how its native and C# declarations differ.", refused);
+    }
+    editor_api_bound = true;
+  }
 
   void editor_driver::on_early_initialize() {
     PROFILE_SECTION("editor_driver::on_early_initialize");
@@ -79,11 +113,11 @@ namespace other {
       context.reset_scene_edit_tracking();
     });
 
-    /// editor.lua created the File menu before on_initialize ran; append the scene entry
-    get_ui()->register_main_menu_bar_menu_item("File", ui::menu_item{
-                                                         .name = "Save Scene",
-                                                         .action = action{ std::function<void()>([this]() { save_active_scene(); }) },
-                                                       });
+    /// undo, redo, save and the rest are commands, added by the editor's C# API now that
+    ///  there is a menu bar for them: their menu items and their keys are the commands'
+    if (editor_api_bound) {
+      subsystem<scripting_environment>::get()->call_static_dotnet_method<void>("Other.Editor.EditorCommands", "Add");
+    }
 
     auto& r = get_renderer();
     const ostd::vector<vertex_attribute> vtx = {
@@ -122,13 +156,6 @@ namespace other {
 
     ctx.add_action("orbit_hold")
       .bind_mouse_button(mouse_button::MIDDLE);
-
-    ctx.add_action("undo")
-      .bind_key(key_code::Z, modifier_flags::CTRL);
-    ctx.add_action("redo")
-      .bind_key(key_code::Y, modifier_flags::CTRL);
-    ctx.add_action("save-scene")
-      .bind_key(key_code::S, modifier_flags::CTRL);
   }
 
   void editor_driver::on_rendering_pipeline_loaded(natural_t asset_id, render_pipeline* pipeline) {
@@ -246,6 +273,11 @@ namespace other {
     }
   }
 
+  void editor_driver::on_ui_render() {
+    PROFILE_SECTION("editor_driver::on_ui_render");
+    bindings::run_editor_frame_function();
+  }
+
   void editor_driver::on_shutdown_request() {
     PROFILE_SECTION("editor_driver::on_shutdown_request");
     /// a compile reads the project through its mount and links against the VM's devices. the
@@ -258,6 +290,7 @@ namespace other {
     /// only a compile started after the shutdown was asked for can still be running
     context.project_compile.wait();
     context.remove_all_viewports();
+    bindings::set_editor_services(nullptr);
   }
 
   void editor_driver::update_running() {
@@ -292,6 +325,7 @@ namespace other {
       }
     }
 
+    context.tick_selection();
     context.tick_edit_tracker();
     update_input();
   }
@@ -358,20 +392,6 @@ namespace other {
   void editor_driver::on_create_project() {
     auto& ui = get_ui();
     ui->open_window("project-creator");
-  }
-
-  void editor_driver::on_input_event(const input_state_change_event& event) {
-    if (!event.pressed) {
-      return;
-    }
-
-    if (event.action_name == "undo") {
-      context.undo_scene_edit();
-    } else if (event.action_name == "redo") {
-      context.redo_scene_edit();
-    } else if (event.action_name == "save-scene") {
-      save_active_scene();
-    }
   }
 
   bool editor_driver::save_active_scene() {

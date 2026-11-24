@@ -84,12 +84,18 @@ namespace other {
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
     SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);
     // SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
-    SDL_GL_SetSwapInterval(0);
 
     SDL_GLContext gpu_context = SDL_GL_CreateContext(window);
     if (gpu_context == nullptr) {
       CORE_LOG_ERROR("Failed to create OpenGL context: {}", SDL_GetError());
       return;
+    }
+
+    /// the swap interval belongs to the context that is current, so it is set once there is
+    ///  one: set before, it did nothing, and every frame waited for the display. the
+    ///  driver's own loop is what holds the frame rate
+    if (!SDL_GL_SetSwapInterval(0)) {
+      CORE_LOG_WARN("The swap interval could not be set, so frames wait for the display: {}", SDL_GetError());
     }
 
     if (!gladLoadGLLoader((GLADloadproc)SDL_GL_GetProcAddress)) {

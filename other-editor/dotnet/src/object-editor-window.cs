@@ -26,7 +26,7 @@ namespace Other.Editor
     {
       if (Scene.Revision == 0)
       {
-        UIBindings.TextColored(Theme.Color("core.text_friendly_alert"), "No active scene.");
+        UIWidgets.TextColored(Theme.Color("core.text_friendly_alert"), "No active scene.");
         return;
       }
 
@@ -39,12 +39,12 @@ namespace Other.Editor
           counted = selected;
           counted_text = $"Multiple objects selected ({selected}).";
         }
-        UIBindings.TextColored(Theme.Color("core.text_bright"), counted_text);
+        UIWidgets.TextColored(Theme.Color("core.text_bright"), counted_text);
         return;
       }
       if (item == null || !item.IsAlive)
       {
-        UIBindings.TextColored(Theme.Color("core.text_friendly_alert"), "No object selected.");
+        UIWidgets.TextColored(Theme.Color("core.text_friendly_alert"), "No object selected.");
         return;
       }
 
@@ -61,7 +61,7 @@ namespace Other.Editor
           item.Name = name;
         }
       }
-      UIBindings.Separator();
+      UIWidgets.Separator();
 
       ComponentType? scripts = ComponentType.Scripts;
       ComponentType? removed = null;
@@ -101,24 +101,24 @@ namespace Other.Editor
       if (Widgets.AddComponentButton("Add Component"))
       {
         search = "";
-        UIBindings.OpenPopup("##add-component");
+        UIWidgets.OpenPopup("##add-component");
       }
 
-      UIBindings.SetNextWindowSize(300f, 0f);
-      if (!UIBindings.BeginPopup("##add-component"))
+      UIWidgets.SetNextWindowSize(300f, 0f);
+      if (!UIWidgets.BeginPopup("##add-component"))
       {
         return;
       }
 
-      if (UIBindings.IsWindowAppearing())
+      if (UIWidgets.IsWindowAppearing())
       {
-        UIBindings.SetKeyboardFocusHere();
+        UIWidgets.SetKeyboardFocusHere();
       }
-      UIBindings.SetNextItemWidth(UIBindings.GetContentRegionAvail().X);
-      UIBindings.InputTextWithHint("##search", "search components...", ref search, kSearchLength);
-      UIBindings.Separator();
+      UIWidgets.SetNextItemWidth(UIWidgets.GetContentRegionAvail().X);
+      UIWidgets.InputTextWithHint("##search", "search components...", ref search, kSearchLength);
+      UIWidgets.Separator();
 
-      if (UIBindings.BeginChild("##list", 0f, 220f))
+      if (UIWidgets.BeginChild("##list", 0f, 220f))
       {
         int listed = 0;
         IReadOnlyList<ComponentType> all = ComponentType.All;
@@ -130,22 +130,22 @@ namespace Other.Editor
             continue;
           }
           listed++;
-          if (UIBindings.Selectable(type.Name))
+          if (UIWidgets.Selectable(type.Name))
           {
             using (Edits.Begin("Add Component"))
             {
               type.AddTo(item);
             }
-            UIBindings.CloseCurrentPopup();
+            UIWidgets.CloseCurrentPopup();
           }
         }
         if (listed == 0)
         {
-          UIBindings.TextDisabled("no matching components");
+          UIWidgets.TextDisabled("no matching components");
         }
       }
-      UIBindings.EndChild();
-      UIBindings.EndPopup();
+      UIWidgets.EndChild();
+      UIWidgets.EndPopup();
     }
   }
 }

@@ -25,10 +25,10 @@ namespace Other.UI
     /// the menu bar of a window declared with WindowFlags.MenuBar
     protected void DrawMenuBar(Action menu_contents)
     {
-      if (UIBindings.BeginMenuBar())
+      if (UIWidgets.BeginMenuBar())
       {
         menu_contents?.Invoke();
-        UIBindings.EndMenuBar();
+        UIWidgets.EndMenuBar();
       }
     }
 

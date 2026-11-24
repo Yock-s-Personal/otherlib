@@ -17,6 +17,7 @@
 #include "driver/systems/scripting_system.hpp"
 #include "render/default_pass_executor_resolver.hpp"
 #include "ui/field_ui.hpp"
+#include "ui/folder_dialog.hpp"
 #include "ui/inspector_widgets.hpp"
 
 #include "asset/pipelines/rendering_pipeline_pipeline.hpp"
@@ -312,7 +313,9 @@ namespace other {
   }
 
   void rendering_system::show_open_folder_dialog(file_dialog_callback_fn callback_fn, void* user_data, uint32_t props) {
-    detail::file_dialog(SDL_FILEDIALOG_OPENFOLDER, nullptr, callback_fn, user_data, props);
+    /// over the main window, so that it is in front of it and the window waits for it
+    renderer_backend* backend = subsystem<renderer_backend>::get();
+    ui::show_folder_dialog(backend != nullptr ? backend->get_main_window() : nullptr, callback_fn, user_data);
   }
 
   void rendering_system::show_save_file_dialog(file_dialog_callback_fn callback_fn, void* user_data, uint32_t props) {

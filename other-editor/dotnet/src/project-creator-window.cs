@@ -28,14 +28,14 @@ namespace Other.Editor
 
     protected override void OnRenderBody()
     {
-      UIBindings.SeparatorText("New Project");
+      UIWidgets.SeparatorText("New Project");
       Widgets.PropertyText("Name", ref name);
 
       Widgets.BeginPropertyRow("Folder");
-      UIBindings.SetNextItemWidth(UIBindings.GetContentRegionAvail().X - 90f);
-      UIBindings.InputText("##folder", ref folder, kPathLength);
-      UIBindings.SameLine();
-      if (UIBindings.Button("Browse..."))
+      UIWidgets.SetNextItemWidth(UIWidgets.GetContentRegionAvail().X - 90f);
+      UIWidgets.InputText("##folder", ref folder, kPathLength);
+      UIWidgets.SameLine();
+      if (UIWidgets.Button("Browse..."))
       {
         Dialogs.PickFolder(picked => folder = picked);
       }
@@ -43,11 +43,11 @@ namespace Other.Editor
 
       Widgets.PropertyText("Author", ref author);
       Widgets.PropertyText("Description", ref description);
-      UIBindings.TextDisabled("The project is made in a folder of its name inside that folder.");
+      UIWidgets.TextDisabled("The project is made in a folder of its name inside that folder.");
 
-      UIBindings.Spacing();
-      UIBindings.BeginDisabled(name.Length == 0 || folder.Length == 0);
-      if (UIBindings.Button("Create"))
+      UIWidgets.Spacing();
+      UIWidgets.BeginDisabled(name.Length == 0 || folder.Length == 0);
+      if (UIWidgets.Button("Create"))
       {
         made = "";
         if (Projects.Create(name, folder, author, description, out error))
@@ -58,17 +58,17 @@ namespace Other.Editor
             : $"Made {Projects.LastCreated}. It was not opened, since {why}. From the folder it is in, oecli open opens it.";
         }
       }
-      UIBindings.EndDisabled();
+      UIWidgets.EndDisabled();
 
       if (error.Length > 0)
       {
-        UIBindings.PushStyleColor(StyleColor.Text, Theme.Color("core.friendly_error_red"));
-        UIBindings.TextWrapped(error);
-        UIBindings.PopStyleColor();
+        UIWidgets.PushStyleColor(StyleColor.Text, Theme.Color("core.friendly_error_red"));
+        UIWidgets.TextWrapped(error);
+        UIWidgets.PopStyleColor();
       }
       else if (made.Length > 0)
       {
-        UIBindings.TextWrapped(made);
+        UIWidgets.TextWrapped(made);
       }
     }
   }

@@ -715,7 +715,8 @@ namespace other {
 
     for (auto& vp : viewports) {
       OTHER_ASSERT(vp.pipeline != nullptr, "Viewport pipeline must not be null in render_scene_to_viewports");
-      if (vp.cam == nullptr) {
+      /// a view nobody can see costs a whole drawing of the scene: it keeps its last picture
+      if (vp.cam == nullptr || !vp.visible) {
         continue;
       }
       PROFILE_SECTION("renderer::render--viewport");

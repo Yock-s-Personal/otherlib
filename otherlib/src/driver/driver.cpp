@@ -112,7 +112,8 @@ namespace other {
 
     CORE_LOG_DEBUG("Entering main driver loop");
 
-    frame_rate_enforcer<120> frame_rate_guard;
+    /// frames a second the loop is held to; 0 holds it to none
+    frame_rate_enforcer frame_rate_guard{ static_cast<integer_t>(get_config_value<uint32_t>("application.frame-rate-limit", 120)) };
     do {
       auto* falloc = arena::get_frame_allocator();
       OTHER_ASSERT(falloc != nullptr, "Failed to get frame allocator at start of main loop.");

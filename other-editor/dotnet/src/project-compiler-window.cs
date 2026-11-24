@@ -45,12 +45,12 @@ namespace Other.Editor
       CompileState state = Compile.Poll();
       if (state == CompileState.NoProject)
       {
-        UIBindings.TextDisabled("No project is open.");
+        UIWidgets.TextDisabled("No project is open.");
         return;
       }
       if (state == CompileState.Loading)
       {
-        UIBindings.TextDisabled("The project is still loading.");
+        UIWidgets.TextDisabled("The project is still loading.");
         return;
       }
 
@@ -110,52 +110,52 @@ namespace Other.Editor
     private static bool NameCombo(string id, IReadOnlyList<string> names, ref string chosen)
     {
       bool changed = false;
-      UIBindings.SetNextItemWidth(UIBindings.GetContentRegionAvail().X);
-      if (UIBindings.BeginCombo(id, chosen.Length == 0 ? "choose one" : chosen))
+      UIWidgets.SetNextItemWidth(UIWidgets.GetContentRegionAvail().X);
+      if (UIWidgets.BeginCombo(id, chosen.Length == 0 ? "choose one" : chosen))
       {
         for (int i = 0; i < names.Count; i++)
         {
-          if (UIBindings.Selectable(names[i], names[i] == chosen) && names[i] != chosen)
+          if (UIWidgets.Selectable(names[i], names[i] == chosen) && names[i] != chosen)
           {
             chosen = names[i];
             changed = true;
           }
         }
-        UIBindings.EndCombo();
+        UIWidgets.EndCombo();
       }
       return changed;
     }
 
     private void ErrorText(string text)
     {
-      UIBindings.PushStyleColor(StyleColor.Text, error_red);
-      UIBindings.TextWrapped(text);
-      UIBindings.PopStyleColor();
+      UIWidgets.PushStyleColor(StyleColor.Text, error_red);
+      UIWidgets.TextWrapped(text);
+      UIWidgets.PopStyleColor();
     }
 
     private void DrawChoices()
     {
-      UIBindings.SeparatorText("Package");
+      UIWidgets.SeparatorText("Package");
       Widgets.PropertyDisplay("Project", shown_project);
       Widgets.PropertyText("Public name", ref public_name);
 
       Widgets.BeginPropertyRow("Output folder");
-      UIBindings.SetNextItemWidth(UIBindings.GetContentRegionAvail().X - 90f);
-      UIBindings.InputText("##output-folder", ref output_folder, kPathLength);
-      UIBindings.SameLine();
-      if (UIBindings.Button("Browse..."))
+      UIWidgets.SetNextItemWidth(UIWidgets.GetContentRegionAvail().X - 90f);
+      UIWidgets.InputText("##output-folder", ref output_folder, kPathLength);
+      UIWidgets.SameLine();
+      if (UIWidgets.Button("Browse..."))
       {
         Dialogs.PickFolder(folder => output_folder = folder);
       }
       Widgets.EndPropertyRow();
 
       Widgets.BeginPropertyRow("Configuration");
-      if (UIBindings.RadioButton("Release", !debug_package))
+      if (UIWidgets.RadioButton("Release", !debug_package))
       {
         debug_package = false;
       }
-      UIBindings.SameLine();
-      if (UIBindings.RadioButton("Debug", debug_package))
+      UIWidgets.SameLine();
+      if (UIWidgets.RadioButton("Debug", debug_package))
       {
         debug_package = true;
       }
@@ -180,45 +180,45 @@ namespace Other.Editor
 
     private void DrawContents()
     {
-      UIBindings.SeparatorText("Boot Program");
+      UIWidgets.SeparatorText("Boot Program");
       IReadOnlyList<string> sources = Compile.VmSources;
       if (sources.Count == 0)
       {
-        UIBindings.TextDisabled("The project has no VM sources. The boot program only loads the project.");
+        UIWidgets.TextDisabled("The project has no VM sources. The boot program only loads the project.");
       }
       else
       {
-        if (UIBindings.BeginChild("##vm-sources", 0f, kListHeight, kListFlags))
+        if (UIWidgets.BeginChild("##vm-sources", 0f, kListHeight, kListFlags))
         {
           Bullets(sources);
           Bullets(Compile.Hooks);
         }
-        UIBindings.EndChild();
+        UIWidgets.EndChild();
       }
 
       IReadOnlyList<string> problems = Compile.Problems;
       for (int i = 0; i < problems.Count; i++)
       {
-        UIBindings.Bullet();
+        UIWidgets.Bullet();
         ErrorText(problems[i]);
       }
 
-      UIBindings.SeparatorText("Left Out");
+      UIWidgets.SeparatorText("Left Out");
       IReadOnlyList<string> left_out = Compile.LeftOut;
       if (left_out.Count == 0)
       {
-        UIBindings.TextDisabled("Every model, texture, material, sound and scene of the project is used.");
+        UIWidgets.TextDisabled("Every model, texture, material, sound and scene of the project is used.");
       }
       else
       {
-        UIBindings.TextWrapped(left_out_text);
-        if (UIBindings.BeginChild("##will-be-left-out", 0f, kListHeight, kListFlags))
+        UIWidgets.TextWrapped(left_out_text);
+        if (UIWidgets.BeginChild("##will-be-left-out", 0f, kListHeight, kListFlags))
         {
           Lines(left_out);
         }
-        UIBindings.EndChild();
+        UIWidgets.EndChild();
       }
-      if (UIBindings.SmallButton("Refresh"))
+      if (UIWidgets.SmallButton("Refresh"))
       {
         Compile.Refresh();
       }
@@ -228,8 +228,8 @@ namespace Other.Editor
     {
       for (int i = 0; i < lines.Count; i++)
       {
-        UIBindings.Bullet();
-        UIBindings.Text(lines[i]);
+        UIWidgets.Bullet();
+        UIWidgets.Text(lines[i]);
       }
     }
 
@@ -237,7 +237,7 @@ namespace Other.Editor
     {
       for (int i = 0; i < lines.Count; i++)
       {
-        UIBindings.Text(lines[i]);
+        UIWidgets.Text(lines[i]);
       }
     }
 
@@ -280,44 +280,44 @@ namespace Other.Editor
 
     private void DrawCompile()
     {
-      UIBindings.SeparatorText("Compile");
+      UIWidgets.SeparatorText("Compile");
       reason = BlockingReason();
       bool running = Compile.Running;
-      UIBindings.BeginDisabled(running || reason.Length > 0);
-      if (UIBindings.Button(running ? "Compiling..." : "Compile"))
+      UIWidgets.BeginDisabled(running || reason.Length > 0);
+      if (UIWidgets.Button(running ? "Compiling..." : "Compile"))
       {
         start_error = "";
         /// a package is made from the files on disk, so a scene with edits that are only in
         ///  memory is saved first or nothing is compiled
         if (Edits.HasUnsavedChanges)
         {
-          UIBindings.OpenPopup(kUnsavedPrompt);
+          UIWidgets.OpenPopup(kUnsavedPrompt);
         }
         else
         {
           StartCompile();
         }
       }
-      UIBindings.EndDisabled();
+      UIWidgets.EndDisabled();
       DrawUnsavedPrompt();
 
       if (running)
       {
         bool cancelling = Compile.Cancelling;
-        UIBindings.SameLine();
-        UIBindings.BeginDisabled(cancelling);
-        if (UIBindings.Button(cancelling ? "Cancelling..." : "Cancel"))
+        UIWidgets.SameLine();
+        UIWidgets.BeginDisabled(cancelling);
+        if (UIWidgets.Button(cancelling ? "Cancelling..." : "Cancel"))
         {
           Compile.Cancel();
         }
-        UIBindings.EndDisabled();
-        UIBindings.ProgressBar(Compile.Fraction, -1f, 0f, Compile.StageLabel);
+        UIWidgets.EndDisabled();
+        UIWidgets.ProgressBar(Compile.Fraction, -1f, 0f, Compile.StageLabel);
       }
 
       if (!running && reason.Length > 0)
       {
-        UIBindings.SameLine();
-        UIBindings.TextDisabled(reason);
+        UIWidgets.SameLine();
+        UIWidgets.TextDisabled(reason);
       }
       if (start_error.Length > 0)
       {
@@ -328,17 +328,17 @@ namespace Other.Editor
     /// asks before a compile of a scene with edits that are not on disk: save, or no compile
     private void DrawUnsavedPrompt()
     {
-      if (!UIBindings.BeginPopupModal(kUnsavedPrompt, (int)WindowFlags.AlwaysAutoResize))
+      if (!UIWidgets.BeginPopupModal(kUnsavedPrompt, (int)WindowFlags.AlwaysAutoResize))
       {
         return;
       }
 
-      UIBindings.Text("The active scene has edits that are not saved.");
-      UIBindings.Text("A package is made from the files on disk.");
-      UIBindings.Spacing();
-      if (UIBindings.Button("Save and compile"))
+      UIWidgets.Text("The active scene has edits that are not saved.");
+      UIWidgets.Text("A package is made from the files on disk.");
+      UIWidgets.Spacing();
+      if (UIWidgets.Button("Save and compile"))
       {
-        UIBindings.CloseCurrentPopup();
+        UIWidgets.CloseCurrentPopup();
         if (EditorScene.Save())
         {
           StartCompile();
@@ -348,13 +348,13 @@ namespace Other.Editor
           start_error = "The active scene could not be saved, so nothing was compiled. The log says why.";
         }
       }
-      UIBindings.SameLine();
+      UIWidgets.SameLine();
       /// declining the save is declining the compile
-      if (UIBindings.Button("Cancel"))
+      if (UIWidgets.Button("Cancel"))
       {
-        UIBindings.CloseCurrentPopup();
+        UIWidgets.CloseCurrentPopup();
       }
-      UIBindings.EndPopup();
+      UIWidgets.EndPopup();
     }
 
     private void DrawResult()
@@ -365,27 +365,27 @@ namespace Other.Editor
         return;
       }
 
-      UIBindings.SeparatorText("Result");
+      UIWidgets.SeparatorText("Result");
       if (result == CompileResult.Packaged)
       {
-        UIBindings.TextWrapped(packaged_text);
-        if (UIBindings.SmallButton("Copy path"))
+        UIWidgets.TextWrapped(packaged_text);
+        if (UIWidgets.SmallButton("Copy path"))
         {
-          UIBindings.ClipboardText = Compile.Package;
+          UIWidgets.ClipboardText = Compile.Package;
         }
         if (Compile.WasLeftOut.Count > 0)
         {
-          UIBindings.TextWrapped(was_left_out_text);
-          if (UIBindings.BeginChild("##left-out", 0f, kListHeight, kListFlags))
+          UIWidgets.TextWrapped(was_left_out_text);
+          if (UIWidgets.BeginChild("##left-out", 0f, kListHeight, kListFlags))
           {
             Lines(Compile.WasLeftOut);
           }
-          UIBindings.EndChild();
+          UIWidgets.EndChild();
         }
       }
       else if (result == CompileResult.Cancelled)
       {
-        UIBindings.TextWrapped("The compile was cancelled. Nothing was packaged, and the package that was there is as it was.");
+        UIWidgets.TextWrapped("The compile was cancelled. Nothing was packaged, and the package that was there is as it was.");
       }
       else
       {
@@ -395,14 +395,14 @@ namespace Other.Editor
       IReadOnlyList<string> errors = Compile.Errors;
       for (int i = 0; i < errors.Count; i++)
       {
-        UIBindings.Bullet();
+        UIWidgets.Bullet();
         ErrorText(errors[i]);
       }
       IReadOnlyList<string> warnings = Compile.Warnings;
       for (int i = 0; i < warnings.Count; i++)
       {
-        UIBindings.Bullet();
-        UIBindings.TextWrapped(warnings[i]);
+        UIWidgets.Bullet();
+        UIWidgets.TextWrapped(warnings[i]);
       }
     }
   }

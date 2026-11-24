@@ -79,6 +79,9 @@ namespace other {
     glm::ivec2 size;
 
     bool hovered = false;
+    /// false while nothing shows it (its window is shut, folded, or a tab behind another):
+    ///  the scene is then not drawn for it. whoever shows it says so each frame
+    bool visible = true;
 
     render_pipeline* pipeline = nullptr;
     camera* cam = nullptr;

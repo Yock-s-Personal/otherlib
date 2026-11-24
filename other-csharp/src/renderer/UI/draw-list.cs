@@ -5,7 +5,7 @@ namespace Other.UI
 {
   /// shapes drawn straight into the window being drawn, over or under its widgets in the
   ///  order they are asked for. positions are on the screen: start from
-  ///  UIBindings.CursorScreenPos or an item's rectangle. a colour is red, green, blue and
+  ///  UIWidgets.CursorScreenPos or an item's rectangle. a colour is red, green, blue and
   ///  alpha from 0 to 1
   public static class DrawList
   {

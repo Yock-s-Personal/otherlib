@@ -11,14 +11,16 @@
 
 namespace other {
 
-  template <integer_t FPS = 60>
+  /// holds a loop to a number of frames a second, by sleeping what is left of each frame.
+  ///  a rate of 0 or less holds nothing
   struct frame_rate_enforcer {
-    /// ms
-    static constexpr natural_t kFrameDuration = 1000 / FPS;
-
-    frame_rate_enforcer() {}
+    explicit frame_rate_enforcer(integer_t frames_a_second)
+        : frame_duration(frames_a_second > 0 ? static_cast<natural_t>(1000 / frames_a_second) : 0) {}
 
     void wait() {
+      if (frame_duration == 0) {
+        return;
+      }
       PROFILE_SECTION("frame_rate_enforcer::wait");
       auto now = std::chrono::steady_clock::now();
       if (last_frame_time.time_since_epoch().count() == 0) {
@@ -27,13 +29,15 @@ namespace other {
       }
 
       auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_frame_time).count();
-      if (elapsed < kFrameDuration) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(kFrameDuration - elapsed));
+      if (elapsed < static_cast<int64_t>(frame_duration)) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<int64_t>(frame_duration) - elapsed));
       }
       last_frame_time = std::chrono::steady_clock::now();
     }
 
    private:
+    /// ms
+    natural_t frame_duration = 0;
     std::chrono::time_point<std::chrono::steady_clock> last_frame_time;
   };
 

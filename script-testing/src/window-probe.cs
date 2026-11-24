@@ -17,7 +17,7 @@ public class CounterWindow : UIWindow
   protected override void OnRenderBody()
   {
     draws++;
-    UIBindings.Text("drawn by the testing assembly");
+    UIWidgets.Text("drawn by the testing assembly");
   }
 }
 
@@ -30,7 +30,7 @@ public class ThrowerWindow : UIWindow
   protected override void OnRenderBody()
   {
     draws++;
-    UIBindings.PushID("left pushed");
+    UIWidgets.PushID("left pushed");
     throw new InvalidOperationException("a window with a bug");
   }
 }
@@ -44,7 +44,7 @@ public class UnbalancedWindow : UIWindow
   protected override void OnRenderBody()
   {
     draws++;
-    UIBindings.PushID("left pushed");
+    UIWidgets.PushID("left pushed");
   }
 }
 
@@ -57,7 +57,7 @@ public class OverpopWindow : UIWindow
   protected override void OnRenderBody()
   {
     draws++;
-    UIBindings.PopID();
+    UIWidgets.PopID();
   }
 }
 
@@ -82,22 +82,22 @@ public class DrawingWindow : UIWindow
     int ok = 0;
 
     /// an item's rectangle is where the cursor was, and the size it was given
-    Vec2 origin = UIBindings.CursorScreenPos;
-    UIBindings.BeginGroup();
-    UIBindings.Dummy(40f, 20f);
-    Vec2 size = UIBindings.ItemRectSize;
-    Vec2 min = UIBindings.ItemRectMin;
-    Vec2 max = UIBindings.ItemRectMax;
-    UIBindings.EndGroup();
+    Vec2 origin = UIWidgets.CursorScreenPos;
+    UIWidgets.BeginGroup();
+    UIWidgets.Dummy(40f, 20f);
+    Vec2 size = UIWidgets.ItemRectSize;
+    Vec2 min = UIWidgets.ItemRectMin;
+    Vec2 max = UIWidgets.ItemRectMax;
+    UIWidgets.EndGroup();
     if (size.X == 40f && size.Y == 20f) { ok |= 1; }
     if (min.X == origin.X && min.Y == origin.Y && max.X == origin.X + 40f && max.Y == origin.Y + 20f) { ok |= 2; }
 
-    UIBindings.CursorPos = new Vec2(30f, 60f);
-    Vec2 moved = UIBindings.CursorPos;
+    UIWidgets.CursorPos = new Vec2(30f, 60f);
+    Vec2 moved = UIWidgets.CursorPos;
     if (moved.X == 30f && moved.Y == 60f) { ok |= 4; }
 
     /// every shape, inside a clip rectangle that is closed again
-    Vec2 at = UIBindings.CursorScreenPos;
+    Vec2 at = UIWidgets.CursorScreenPos;
     Vec4 color = new Vec4(1f, 0.5f, 0f, 1f);
     DrawList.PushClipRect(at, new Vec2(at.X + 200f, at.Y + 200f));
     DrawList.Line(at, new Vec2(at.X + 50f, at.Y + 50f), color, 2f);
@@ -116,7 +116,7 @@ public class DrawingWindow : UIWindow
     UITexture none = Textures.FromPipeline("no-such-pipeline", "nothing");
     Textures.Image(none, new Vec2(16f, 12f));
     DrawList.Image(none, at, new Vec2(at.X + 16f, at.Y + 12f));
-    Vec2 image_size = UIBindings.ItemRectSize;
+    Vec2 image_size = UIWidgets.ItemRectSize;
     if (!none.IsValid && none.Width == 0 && !Textures.FromAsset(12345ul).IsValid && !Textures.FromAsset("no/such/texture.png").IsValid &&
         image_size.X == 16f && image_size.Y == 12f)
     {
@@ -124,34 +124,34 @@ public class DrawingWindow : UIWindow
     }
 
     /// numbers nobody is editing stay what they are
-    UIBindings.SetNextItemWidth(120f);
-    bool edited = UIBindings.DragInt("count", ref count) | UIBindings.DragFloat2("pair", ref pair) | UIBindings.DragFloat4("four", ref four) |
-                  UIBindings.SliderFloat2("pair slider", ref pair, 0f, 10f) | UIBindings.SliderFloat3("triple slider", ref triple, 0f, 10f) |
-                  UIBindings.SliderFloat4("four slider", ref four, 0f, 10f);
-    if (!edited && !UIBindings.IsItemDeactivatedAfterEdit() && count == 3 && pair.Y == 2f && triple.Z == 3f && four.W == 4f) { ok |= 32; }
+    UIWidgets.SetNextItemWidth(120f);
+    bool edited = UIWidgets.DragInt("count", ref count) | UIWidgets.DragFloat2("pair", ref pair) | UIWidgets.DragFloat4("four", ref four) |
+                  UIWidgets.SliderFloat2("pair slider", ref pair, 0f, 10f) | UIWidgets.SliderFloat3("triple slider", ref triple, 0f, 10f) |
+                  UIWidgets.SliderFloat4("four slider", ref four, 0f, 10f);
+    if (!edited && !UIWidgets.IsItemDeactivatedAfterEdit() && count == 3 && pair.Y == 2f && triple.Z == 3f && four.W == 4f) { ok |= 32; }
 
     /// nothing is held down in a test
-    if (!UIBindings.IsKeyDown(Key.A) && !UIBindings.IsKeyPressed(Key.Enter) && UIBindings.KeyMods == KeyMods.None &&
-        !UIBindings.IsMouseDown() && !UIBindings.IsMouseClicked(MouseButton.Right) && !UIBindings.IsMouseDoubleClicked() &&
-        !UIBindings.IsMouseReleased() && UIBindings.GetMouseDragDelta().X == 0f && UIBindings.MouseWheel.Y == 0f)
+    if (!UIWidgets.IsKeyDown(Key.A) && !UIWidgets.IsKeyPressed(Key.Enter) && UIWidgets.KeyMods == KeyMods.None &&
+        !UIWidgets.IsMouseDown() && !UIWidgets.IsMouseClicked(MouseButton.Right) && !UIWidgets.IsMouseDoubleClicked() &&
+        !UIWidgets.IsMouseReleased() && UIWidgets.GetMouseDragDelta().X == 0f && UIWidgets.MouseWheel.Y == 0f)
     {
       ok |= 64;
     }
 
-    UIBindings.AlignTextToFramePadding();
-    UIBindings.SetNextItemOpen(true);
-    if (UIBindings.TreeNode("opened for it"))
+    UIWidgets.AlignTextToFramePadding();
+    UIWidgets.SetNextItemOpen(true);
+    if (UIWidgets.TreeNode("opened for it"))
     {
       ok |= 128;
-      UIBindings.TreePop();
+      UIWidgets.TreePop();
     }
 
-    if (UIBindings.IsWindowAppearing() == (draws == 1)) { ok |= 256; }
-    if (UIBindings.ScrollY == 0f && UIBindings.ScrollX == 0f && UIBindings.ScrollMaxY >= 0f && UIBindings.ScrollMaxX >= 0f) { ok |= 512; }
+    if (UIWidgets.IsWindowAppearing() == (draws == 1)) { ok |= 256; }
+    if (UIWidgets.ScrollY == 0f && UIWidgets.ScrollX == 0f && UIWidgets.ScrollMaxY >= 0f && UIWidgets.ScrollMaxX >= 0f) { ok |= 512; }
 
     /// the mouse is nowhere, so it is over nothing
-    Vec2 mouse = UIBindings.MousePos;
-    if (!UIBindings.IsMouseHoveringRect(at, new Vec2(at.X + 50f, at.Y + 50f)) && mouse.X < at.X) { ok |= 1024; }
+    Vec2 mouse = UIWidgets.MousePos;
+    if (!UIWidgets.IsMouseHoveringRect(at, new Vec2(at.X + 50f, at.Y + 50f)) && mouse.X < at.X) { ok |= 1024; }
 
     if (draws == 1) { first_checks = ok; }
     checks = ok;
@@ -167,7 +167,7 @@ public class ClipLeftOpenWindow : UIWindow
   protected override void OnRenderBody()
   {
     draws++;
-    Vec2 at = UIBindings.CursorScreenPos;
+    Vec2 at = UIWidgets.CursorScreenPos;
     DrawList.PushClipRect(at, new Vec2(at.X + 10f, at.Y + 10f));
   }
 }

@@ -19,7 +19,7 @@ namespace Other.Editor
       bool loading = Project.State == ProjectState.Loading;
       if (loading)
       {
-        UIBindings.TextDisabled("Project is loading...");
+        UIWidgets.TextDisabled("Project is loading...");
       }
 
       IReadOnlyList<ProjectScene> scenes = ProjectScenes.All;
@@ -30,19 +30,19 @@ namespace Other.Editor
         RefreshLabels(scenes);
       }
 
-      UIBindings.BeginDisabled(loading);
+      UIWidgets.BeginDisabled(loading);
       for (int i = 0; i < scenes.Count; i++)
       {
-        if (UIBindings.Selectable(labels[i], scenes[i].IsActive) && !scenes[i].IsActive)
+        if (UIWidgets.Selectable(labels[i], scenes[i].IsActive) && !scenes[i].IsActive)
         {
           ProjectScenes.Activate(scenes[i]);
         }
       }
-      UIBindings.EndDisabled();
+      UIWidgets.EndDisabled();
 
       if (scenes.Count == 0)
       {
-        UIBindings.TextDisabled("No scenes in the scene graph.");
+        UIWidgets.TextDisabled("No scenes in the scene graph.");
       }
     }
 

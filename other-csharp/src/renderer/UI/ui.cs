@@ -6,7 +6,7 @@ using System.Buffers;
 
 namespace Other
 {
-  public static class UIBindings
+  public static class UIWidgets
   {
     [NativeFunction("BeginWindow")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, int, NativeBool32> NativeBeginWindow;

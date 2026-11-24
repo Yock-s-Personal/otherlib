@@ -53,7 +53,10 @@ namespace other {
       auto& rendering_sys = kernel.get_core_system<rendering_system>();
 
       const bool begin = ImGui::Begin(vp.name.c_str(), nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+      /// folded, or a tab behind another: the scene is not drawn for it until it shows again
+      vp.visible = begin;
       if (!begin) {
+        vp.hovered = false;
         ImGui::End();
         return;
       }

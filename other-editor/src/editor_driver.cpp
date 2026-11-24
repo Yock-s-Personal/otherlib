@@ -3,6 +3,8 @@
  **/
 #include "editor_driver.hpp"
 
+#include <cmath>
+
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_keycode.h>
 
@@ -50,6 +52,9 @@ namespace other {
         }
       };
       get_kernel().get_core_system<rendering_system>().show_open_folder_dialog(picked, &context, 0);
+    };
+    context.begin_asset_load = [this](const std::string_view path) -> natural_t {
+      return begin_asset_load(filepath{ path });
     };
     context.list_scenes = [this](ostd::vector<editor_services::scene_listing>& listed) {
       auto& kernel = get_kernel();
@@ -127,6 +132,7 @@ namespace other {
     context.snaps.move = get_config_value<float>("editor.snap-move", context.snaps.move);
     context.snaps.turn_degrees = get_config_value<float>("editor.snap-rotate", context.snaps.turn_degrees);
     context.snaps.scale = get_config_value<float>("editor.snap-scale", context.snaps.scale);
+    context.view.grid = get_config_value<bool>("editor.grid", context.view.grid);
 
     get_event_system()->add_listener("scene.activated", [this](const value& data) {
       OTHER_ASSERT(data.type() == value_type::UINT64, "Expected scene.activated event data to be of type UINT64 representing the active scene ID.");
@@ -243,6 +249,10 @@ namespace other {
     auto in_world = get_renderer().debug_occluded();
     /// meshes that are not drawn again but have a line drawn round them
     auto outlined = get_renderer().debug_outlined();
+
+    if (context.view.grid) {
+      submit_ground_grid(in_world);
+    }
 
     if (scene->physics_debug_rendering()) {
       PROFILE_SECTION("editor_driver::on_begin_frame--physics_debug");
@@ -463,6 +473,41 @@ namespace other {
     return true;
   }
 
+  void editor_driver::submit_ground_grid(debug_draw& in_world) {
+    PROFILE_SECTION("editor_driver::submit_ground_grid");
+    /// how many cells out from its middle the grid goes, and how many make a heavy line
+    constexpr uint32_t kCells = 100;
+    constexpr uint32_t kHeavyEvery = 10;
+
+    /// the grid goes with the camera, a heavy line's worth at a time so that its lines
+    ///  stay where they are in the world. the shader draws its two axes through the
+    ///  grid's own middle, which is then not the world's, so they are drawn here
+    const float cell = context.settings.grid_granularity;
+    const float heavy = cell * static_cast<float>(kHeavyEvery);
+    const glm::vec3& eye = context.editor_camera.position;
+    const glm::vec3 middle{ std::round(eye.x / heavy) * heavy, 0.f, std::round(eye.z / heavy) * heavy };
+
+    get_renderer().submit_debug_grid({
+      .basis_u = { 1.f, 0.f, 0.f, 0.f },
+      .basis_v = { 0.f, 0.f, 1.f, 0.f },
+      .origin = { middle, 1.f },
+      .line_color = { 0.55f, 0.55f, 0.55f, 0.22f },
+      .major_line_color = { 0.65f, 0.65f, 0.65f, 0.45f },
+      .cell_size = cell,
+      .line_width = context.settings.grid_line_thickness,
+      .extent = kCells,
+      .major_line_every = kHeavyEvery,
+    });
+
+    const float reach = cell * static_cast<float>(kCells);
+    if (std::abs(middle.z) <= reach) {
+      in_world.line({ middle.x - reach, 0.f, 0.f }, { middle.x + reach, 0.f, 0.f }, { 0.92f, 0.26f, 0.24f, 0.8f });
+    }
+    if (std::abs(middle.x) <= reach) {
+      in_world.line({ 0.f, 0.f, middle.z - reach }, { 0.f, 0.f, middle.z + reach }, { 0.25f, 0.52f, 0.96f, 0.8f });
+    }
+  }
+
   pipeline_definition editor_driver::get_debug_overlay_pipeline_definition() const {
     PROFILE_SECTION("editor_driver::get_debug_overlay_pipeline_definition");
     pipeline_definition def;
@@ -481,6 +526,7 @@ namespace other {
     def.shaders.push_back({ .name = "debug_overlay", .vertex_path = "engine://resources/debug-overlay.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
     def.shaders.push_back({ .name = "debug_meshes", .vertex_path = "engine://resources/debug-mesh.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
     def.shaders.push_back({ .name = "selection_outline", .vertex_path = "engine://resources/basic-textured-quad.vert", .fragment_path = "engine://resources/selection-outline.frag" });
+    def.shaders.push_back({ .name = "grid", .vertex_path = "engine://resources/scene-grid.vert", .fragment_path = "engine://resources/scene-grid.frag" });
 
     def.passes.emplace_back() = {
       .name = "overlay-blit",
@@ -496,6 +542,25 @@ namespace other {
       },
       .executor = { .name = "debug_overlay_blit" },
     };
+    /// the ground grid: drawn over the frame and behind whatever the scene has nearer
+    def.passes.emplace_back() = {
+      .name = "overlay-grid",
+      .shader_name = "grid",
+      .inputs = {
+        { .resource_name = "camera_buffer", .uniform_name = "OE_camera", .binding = 0 },
+      },
+      .outputs = {
+        { .resource_name = "debug_frame", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
+        { .resource_name = "overlay_depth", .attachment = framebuffer::DEPTH, .access = access_flags::WRITE },
+      },
+      .executor = { .name = "debug_grids" },
+      .depends_on = { "overlay-blit" },
+      .bindings = {
+        { .name = "per_frame.camera_buffer", .tag = resource_tag(resource_tag::kCameraTag), .scope = binding_scope::PER_FRAME, .type = binding_type::UNIFORM_BUFFER, .binding = 0 },
+      },
+      .clear_flags = framebuffer::NONE,
+      .override_fb_clear = true,
+    };
     /// what stands in the world: behind whatever the scene has nearer. nothing is cleared,
     ///  which a pass says by overriding its framebuffer's own clear with none
     def.passes.emplace_back() = {
@@ -509,7 +574,7 @@ namespace other {
         { .resource_name = "overlay_depth", .attachment = framebuffer::DEPTH, .access = access_flags::WRITE },
       },
       .executor = { .name = "debug_overlay_occluded" },
-      .depends_on = { "overlay-blit" },
+      .depends_on = { "overlay-grid" },
       .bindings = {
         { .name = "per_frame.camera_buffer", .tag = resource_tag(resource_tag::kCameraTag), .scope = binding_scope::PER_FRAME, .type = binding_type::UNIFORM_BUFFER, .binding = 0 },
       },

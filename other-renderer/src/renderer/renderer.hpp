@@ -141,6 +141,10 @@ namespace other {
     ///   the next time the views are drawn and discarded then
     void submit_grid(const grid_draw_data& grid) { pending_grids.push_back(grid); }
     const ostd::vector<grid_draw_data>& get_pending_grids() const { return pending_grids; }
+    /// the same for a grid that is not the scene's: drawn by the debug overlay's grid pass,
+    ///   so only in a view that has the overlay
+    void submit_debug_grid(const grid_draw_data& grid) { pending_debug_grids.push_back(grid); }
+    const ostd::vector<grid_draw_data>& get_pending_debug_grids() const { return pending_debug_grids; }
 
     bool has_pipeline(const std::string_view name) const {
       return pipelines.find(FNV(name)) != pipelines.end();
@@ -284,6 +288,7 @@ namespace other {
     ///   emptied once the views are drawn
     render_stream draw_streams;
     ostd::vector<grid_draw_data> pending_grids;
+    ostd::vector<grid_draw_data> pending_debug_grids;
 
     ostd::map<natural_t, resource_handle> stream_meshes;
     ostd::map<natural_t, resource_handle> stream_shaders;

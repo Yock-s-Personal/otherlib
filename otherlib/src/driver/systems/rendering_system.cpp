@@ -46,6 +46,7 @@ namespace other {
     render_graph::pass_executor make_debug_outlined_meshes(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_scene_overlay(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_scene_grids(const pipeline_pass_definition& def, render_pipeline* pl);
+    render_graph::pass_executor make_debug_grids(const pipeline_pass_definition& def, render_pipeline* pl);
 
     void upload_camera_buffer_per_frame(render_pipeline& r, const render_data& d, resource_handle h);
     void upload_light_buffer_per_frame(render_pipeline& r, const render_data& d, resource_handle h);
@@ -561,6 +562,7 @@ namespace other {
     reg.register_executor("debug_outlined_meshes", &detail::make_debug_outlined_meshes);
     reg.register_executor("scene_overlay", &detail::make_scene_overlay);
     reg.register_executor("scene_grids", &detail::make_scene_grids);
+    reg.register_executor("debug_grids", &detail::make_debug_grids);
   }
 
   void rendering_system::register_builtin_draw_streams() {
@@ -919,9 +921,9 @@ namespace other {
 
     /// procedural anti-aliased grids (cartesian lattice or polar rings/spokes) drawn as one
     ///   world-space quad per grid submitted to the renderer this frame
-    render_graph::pass_executor make_scene_grids(const pipeline_pass_definition& def, render_pipeline* pl) {
-      return [pass = def.name](pass_context& ctx) {
-        const auto& grids = ctx.get_renderer().get_pending_grids();
+    render_graph::pass_executor make_grids(const pipeline_pass_definition& def, bool of_the_debug_overlay) {
+      return [pass = def.name, of_the_debug_overlay](pass_context& ctx) {
+        const auto& grids = of_the_debug_overlay ? ctx.get_renderer().get_pending_debug_grids() : ctx.get_renderer().get_pending_grids();
         if (grids.empty()) {
           return;
         }
@@ -955,6 +957,16 @@ namespace other {
         api->set_depth_mask(true);
         api->set_blending(false);
       };
+    }
+
+    render_graph::pass_executor make_scene_grids(const pipeline_pass_definition& def, render_pipeline* pl) {
+      return make_grids(def, false);
+    }
+
+    /// the grids submitted for the debug overlay, in the overlay's own pass: behind
+    ///   whatever the depth the pass was given says is nearer
+    render_graph::pass_executor make_debug_grids(const pipeline_pass_definition& def, render_pipeline* pl) {
+      return make_grids(def, true);
     }
 
     void upload_camera_buffer_per_frame(render_pipeline& r, const render_data& d, resource_handle h) {

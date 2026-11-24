@@ -17,6 +17,8 @@
 #include "model/model_source.hpp"
 #include "renderer/camera.hpp"
 
+#include "object/camera_component.hpp"
+#include "object/light_component.hpp"
 #include "object/render_component.hpp"
 #include "scene/scene.hpp"
 
@@ -332,6 +334,122 @@ namespace other {
 
     bindings::set_editor_services(nullptr);
     EXPECT_EQ(bindings::native_editor_view_pick(500.f, 350.f), 0u);
+  }
+
+  TEST_F(scene_pick_tests, a_light_and_a_camera_have_an_icon_that_is_clicked_before_what_is_behind_it) {
+    model_source source{ square_model() };
+    scene s{ "Pick Scene" };
+    const natural_t square = place(s, "Square", source, { 0.f, 0.f, 0.f });
+    scene_object& lamp = s.create_object("Lamp", glm::vec3{ 0.5f, 0.5f, 2.f });
+    s.add_component<point_light_component>(&lamp).light.position = { 0.f, 0.f, 0.f };
+    scene_object& filmed = s.create_object("Filmed", glm::vec3{ 9.f, 9.f, 9.f });
+    /// a camera is where it says it is, which is not where its object is
+    s.add_component<camera_component>(&filmed).camera.position = { -0.5f, 0.5f, 1.f };
+    scene_object& behind = s.create_object("Behind", glm::vec3{ 0.f, 0.f, 20.f });
+    s.add_component<point_light_component>(&behind).light.position = { 0.f, 0.f, 0.f };
+
+    camera cam;
+    cam.position = { 0.f, 0.f, 5.f };
+    cam.look_at({ 0.f, 0.f, 0.f });
+
+    editor_services services;
+    services.current_selection.scene_ptr = &s;
+    services.view_camera = &cam;
+    services.view = { .shown = true, .position = { 100.f, 50.f }, .size = { 800.f, 600.f } };
+    services.set_selection(lamp.id);
+
+    /// one for the lamp and one for the camera; the light behind the view's camera has none
+    ostd::vector<editor_services::view_icon> icons;
+    services.collect_view_icons(icons);
+    ASSERT_EQ(icons.size(), 2u);
+    const auto of = [&](natural_t object) -> const editor_services::view_icon& {
+      return *std::ranges::find(icons, object, &editor_services::view_icon::object);
+    };
+    EXPECT_EQ(of(lamp.id).what, editor_services::view_icon::POINT_LIGHT);
+    EXPECT_TRUE(of(lamp.id).selected);
+    EXPECT_EQ(of(filmed.id).what, editor_services::view_icon::CAMERA);
+    EXPECT_FALSE(of(filmed.id).selected);
+    const opt<glm::vec2> lamp_shown = view_place(cam, services.view.size, { 0.5f, 0.5f, 2.f });
+    ASSERT_TRUE(lamp_shown.has_value());
+    EXPECT_NEAR(of(lamp.id).place.x, lamp_shown->x, kNear);
+    EXPECT_NEAR(of(lamp.id).place.y, lamp_shown->y, kNear);
+
+    /// both icons are in front of the square: on an icon it is the icon's object, a little
+    ///  off it and past its reach it is the square
+    const glm::vec2 on_lamp = services.view.position + of(lamp.id).place;
+    EXPECT_EQ(services.pick_in_view(on_lamp), lamp.id);
+    EXPECT_EQ(services.pick_in_view(on_lamp + glm::vec2{ 5.f, 5.f }), lamp.id);
+    EXPECT_EQ(services.pick_in_view(on_lamp + glm::vec2{ 0.f, editor_services::kIconReach + 3.f }), square);
+    EXPECT_EQ(services.pick_in_view(services.view.position + of(filmed.id).place), filmed.id);
+
+    /// an object that is hidden has no icon
+    s.set_object_visible(lamp.id, false);
+    services.collect_view_icons(icons);
+    EXPECT_EQ(icons.size(), 1u);
+    EXPECT_EQ(services.pick_in_view(on_lamp), square);
+  }
+
+  TEST_F(scene_pick_tests, a_model_is_placed_where_the_pointer_is_over_the_scene_as_one_undo_step) {
+    model_source source{ square_model() };
+    scene s{ "Pick Scene" };
+    place(s, "Square", source, { 0.f, 0.f, 0.f });
+
+    camera cam;
+    cam.position = { 0.f, 2.f, 5.f };
+    cam.look_at({ 0.f, 0.f, 0.f });
+
+    editor_services services;
+    services.current_selection.scene_ptr = &s;
+    services.view_camera = &cam;
+    services.view = { .shown = true, .position = { 0.f, 0.f }, .size = { 800.f, 600.f } };
+    services.tick_edit_tracker();
+
+    /// with nothing to load a model with, nothing is placed
+    EXPECT_EQ(services.place_model("models/crate.fbx", { 400.f, 300.f }), 0u);
+
+    std::string asked_for;
+    services.begin_asset_load = [&asked_for](const std::string_view path) -> natural_t {
+      asked_for = path;
+      return path.ends_with(".fbx") ? 77u : 0u;
+    };
+    /// one that cannot be loaded is not placed either
+    EXPECT_EQ(services.place_model("models/crate.txt", { 400.f, 300.f }), 0u);
+    EXPECT_FALSE(services.can_undo_scene_edit());
+
+    /// the middle of the view is the square's middle: the model goes on it
+    const size_t before = s.get_all_object_ids().size();
+    const natural_t on_square = services.place_model("models/crate.fbx", { 400.f, 300.f });
+    ASSERT_NE(on_square, 0u);
+    EXPECT_EQ(asked_for, "models/crate.fbx");
+    EXPECT_EQ(s.get_object(on_square).name, "crate");
+    EXPECT_LT(glm::length(glm::vec3(s.get_world_transform(on_square)[3])), 1e-2f);
+    ASSERT_NE(s.try_get_component<render_component>(on_square), nullptr);
+    EXPECT_EQ(s.try_get_component<render_component>(on_square)->model_asset_id, 77u);
+    EXPECT_EQ(services.active_selection(), on_square);
+    EXPECT_EQ(s.get_all_object_ids().size(), before + 1);
+
+    /// below the square the pointer is over the ground and nothing else: it goes there
+    const opt<glm::vec2> ground = view_place(cam, services.view.size, { 3.f, 0.f, 2.f });
+    ASSERT_TRUE(ground.has_value());
+    const natural_t on_ground = services.place_model("models/crate.fbx", *ground);
+    ASSERT_NE(on_ground, 0u);
+    const glm::vec3 placed = glm::vec3(s.get_world_transform(on_ground)[3]);
+    EXPECT_NEAR(placed.x, 3.f, 1e-2f);
+    EXPECT_NEAR(placed.y, 0.f, 1e-2f);
+    EXPECT_NEAR(placed.z, 2.f, 1e-2f);
+
+    /// at the sky there is nothing to put it on: it is put a little in front of the camera
+    const natural_t in_the_air = services.place_model("models/crate.fbx", { 400.f, 5.f });
+    ASSERT_NE(in_the_air, 0u);
+    EXPECT_NEAR(glm::distance(glm::vec3(s.get_world_transform(in_the_air)[3]), cam.position), 5.f, 1e-2f);
+
+    /// each was one step: three undos and there is only the square again
+    for (int32_t i = 0; i < 3; ++i) {
+      ASSERT_TRUE(services.can_undo_scene_edit());
+      services.undo_scene_edit();
+    }
+    EXPECT_FALSE(services.can_undo_scene_edit());
+    EXPECT_EQ(s.get_all_object_ids().size(), before);
   }
 
 }  // namespace other

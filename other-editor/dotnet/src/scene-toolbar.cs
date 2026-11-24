@@ -52,6 +52,25 @@ namespace Other.Editor
       {
         UIWidgets.SetTooltip("The handles are along the world's axes, or the active object's own (X). Hold Ctrl while dragging to go in steps.");
       }
+
+      UIWidgets.SameLine(0f, 12f);
+      bool grid = SceneViewport.GridShown;
+      if (grid)
+      {
+        UIWidgets.PushStyleColor(StyleColor.Button, kChosen);
+      }
+      if (UIWidgets.Button("Grid"))
+      {
+        SceneViewport.GridShown = !grid;
+      }
+      if (grid)
+      {
+        UIWidgets.PopStyleColor();
+      }
+      if (UIWidgets.IsItemHovered())
+      {
+        UIWidgets.SetTooltip("The ground grid (G)");
+      }
     }
   }
 }

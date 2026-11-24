@@ -81,6 +81,8 @@ namespace other {
       bind<native_editor_view_place>(host, "EditorViewPlace", refused);
       bind<native_editor_view_pixel_size>(host, "EditorViewPixelSize", refused);
       bind<native_editor_view_pick>(host, "EditorViewPick", refused);
+      bind<native_editor_view_grid>(host, "EditorViewGrid", refused);
+      bind<native_editor_view_place_model>(host, "EditorViewPlaceModel", refused);
       /// Handles.
       bind<native_editor_handles_state>(host, "EditorHandlesState", refused);
       bind<native_editor_handles_snaps>(host, "EditorHandlesSnaps", refused);

@@ -73,6 +73,12 @@ namespace other {
     float native_editor_view_pixel_size(float x, float y, float z);
     /// the id of the object drawn at a place of the screen. 0 for none
     uint64_t native_editor_view_pick(float x, float y);
+    /// whether the ground grid is drawn in the view. shown is 1 to show it, 0 to hide it,
+    ///  and anything else to only ask
+    nbool32 native_editor_view_grid(int32_t shown);
+    /// makes an object with the model at that path where the ray from a place of the
+    ///  screen meets the scene, selects it, and gives its id. 0 when it could not
+    uint64_t native_editor_view_place_model(const char* path, float x, float y);
 
     /// the handles of the view's tools. each is asked for every frame its tool runs, by an
     ///  id of its own, and answers with handle_flags; vectors are three floats. they

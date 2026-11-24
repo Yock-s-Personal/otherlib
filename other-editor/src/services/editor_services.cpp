@@ -4,9 +4,14 @@
 #include "services/editor_services.hpp"
 
 #include <algorithm>
+#include <format>
 
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
+
+#include "object/camera_component.hpp"
+#include "object/light_component.hpp"
+#include "object/render_component.hpp"
 
 #include "services/scene_pick.hpp"
 
@@ -333,11 +338,102 @@ namespace other {
     return true;
   }
 
+  void editor_services::collect_view_icons(ostd::vector<view_icon>& icons) {
+    PROFILE_SECTION("editor_services::collect_view_icons");
+    icons.clear();
+    scene* s = current_selection.scene_ptr;
+    if (view_camera == nullptr || s == nullptr || view.size.x < 1.f || view.size.y < 1.f) {
+      return;
+    }
+
+    const auto add = [&](natural_t object, view_icon::kind what, const glm::vec3& at) -> void {
+      if (!s->is_visible(object)) {
+        return;
+      }
+      const opt<glm::vec2> place = view_place(*view_camera, view.size, at);
+      if (!place.has_value()) {
+        return;
+      }
+      icons.push_back({
+        .object = object,
+        .what = what,
+        .place = *place,
+        .selected = std::ranges::find(current_selection.objects, object) != current_selection.objects.end(),
+      });
+    };
+    /// a point light shines from a place of its own within its object; a camera is where
+    ///  it says it is, which is not its object's place
+    s->each_component<point_light_component>([&](const auto& handle, const point_light_component& light) -> void {
+      add(handle.id, view_icon::POINT_LIGHT, glm::vec3(s->get_world_transform(handle.id) * glm::vec4(light.light.position, 1.f)));
+    });
+    s->each_component<direction_light_component>([&](const auto& handle, const direction_light_component&) -> void {
+      add(handle.id, view_icon::DIRECTION_LIGHT, glm::vec3(s->get_world_transform(handle.id)[3]));
+    });
+    s->each_component<camera_component>([&](const auto& handle, const camera_component& cam) -> void {
+      add(handle.id, view_icon::CAMERA, cam.camera.position);
+    });
+  }
+
+  natural_t editor_services::place_model(const std::string_view path, const glm::vec2& screen_place) {
+    PROFILE_SECTION("editor_services::place_model");
+    scene* s = current_selection.scene_ptr;
+    if (view_camera == nullptr || s == nullptr || view.size.x < 1.f || view.size.y < 1.f || !begin_asset_load || path.empty()) {
+      return 0;
+    }
+    const natural_t model = begin_asset_load(path);
+    if (model == 0) {
+      CORE_LOG_ERROR("The model '{}' was not placed in the scene: it could not be loaded.", path);
+      return 0;
+    }
+
+    /// how far in front of the camera it is put when the pointer is over nothing at all
+    constexpr float kInFront = 5.f;
+    const pick_ray r = view_ray(*view_camera, view.size, screen_place - view.position);
+    glm::vec3 at = r.origin + r.direction * kInFront;
+    if (const opt<pick_hit> hit = pick_object(*s, r); hit.has_value()) {
+      at = r.origin + r.direction * hit->distance;
+    } else if (r.direction.y < -1e-4f && r.origin.y > 0.f) {
+      /// the ground is where the grid is drawn: y is 0. only when it is in sight
+      const float to_ground = -r.origin.y / r.direction.y;
+      if (to_ground < view_camera->clip.far_plane) {
+        at = r.origin + r.direction * to_ground;
+      }
+    }
+
+    const std::string name = filepath{ path }.stem().string();
+    begin_edit(std::format("Add {}", name));
+    scene_object& placed = s->create_object(name, at);
+    render_component render = {};
+    render.model_asset_id = model;
+    s->add_component<render_component>(&placed, std::move(render));
+    const natural_t id = placed.id;
+    end_edit();
+    set_selection(id);
+    return id;
+  }
+
   natural_t editor_services::pick_in_view(const glm::vec2& screen_place) {
     PROFILE_SECTION("editor_services::pick_in_view");
     scene* s = current_selection.scene_ptr;
     if (view_camera == nullptr || s == nullptr || view.size.x < 1.f || view.size.y < 1.f) {
       return 0;
+    }
+
+    /// an icon is drawn over everything, so one under the pointer is what is meant: the
+    ///  one whose middle is nearest, of those in reach
+    ostd::vector<view_icon> icons;
+    collect_view_icons(icons);
+    natural_t on_icon = 0;
+    float nearest = kIconReach;
+    for (const view_icon& icon : icons) {
+      const float distance = glm::distance(icon.place, screen_place - view.position);
+      if (distance <= nearest) {
+        nearest = distance;
+        on_icon = icon.object;
+      }
+    }
+    if (on_icon != 0) {
+      return on_icon;
     }
     const opt<pick_hit> hit = pick_object(*s, view_ray(*view_camera, view.size, screen_place - view.position));
     return hit.has_value() ? hit->object : 0;

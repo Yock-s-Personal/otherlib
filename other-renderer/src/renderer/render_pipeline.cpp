@@ -805,7 +805,7 @@ namespace other {
     for (const auto& pass : definition.passes) {
       /// scene_grids draws the quad as world-space grid geometry; debug_overlay_blit is a
       ///  fullscreen quad that writes depth as well
-      if (pass.executor.name == "fullscreen_quad" || pass.executor.name == "scene_grids" || pass.executor.name == "debug_overlay_blit") {
+      if (pass.executor.name == "fullscreen_quad" || pass.executor.name == "scene_grids" || pass.executor.name == "debug_grids" || pass.executor.name == "debug_overlay_blit") {
         needs_quad = true;
         break;
       }

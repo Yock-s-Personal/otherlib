@@ -100,5 +100,21 @@ namespace other {
       return editor != nullptr ? editor->pick_in_view({ x, y }) : 0u;
     }
 
+    nbool32 native_editor_view_grid(int32_t shown) {
+      editor_services* editor = get_editor_services();
+      if (editor == nullptr) {
+        return false;
+      }
+      if (shown == 0 || shown == 1) {
+        editor->view.grid = shown == 1;
+      }
+      return editor->view.grid;
+    }
+
+    uint64_t native_editor_view_place_model(const char* path, float x, float y) {
+      editor_services* editor = viewed();
+      return editor != nullptr && path != nullptr ? editor->place_model(path, { x, y }) : 0u;
+    }
+
   }  // namespace bindings
 }  // namespace other

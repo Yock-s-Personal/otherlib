@@ -27,6 +27,7 @@ namespace Other.Editor
       Commands.Add("tool.rotate", "Rotate Tool", () => SceneTools.Activate("rotate"), new KeyChord(Key.E), "Edit")?.KeyWhen(over_view);
       Commands.Add("tool.scale", "Scale Tool", () => SceneTools.Activate("scale"), new KeyChord(Key.R), "Edit")?.KeyWhen(over_view);
       Commands.Add("tool.toggle-axes", "Local or World Axes", () => SceneTools.WorldAxes = !SceneTools.WorldAxes, new KeyChord(Key.X), "Edit")?.KeyWhen(over_view);
+      Commands.Add("view.toggle-grid", "Show or Hide the Grid", () => SceneViewport.GridShown = !SceneViewport.GridShown, new KeyChord(Key.G), "View")?.KeyWhen(over_view);
       /// the three before the tools have buttons in the menu bar
       PlaybackBar.Shown = true;
       /// the Scene View's tools are run from here on

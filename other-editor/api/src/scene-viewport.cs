@@ -21,6 +21,10 @@ namespace Other.Editor
     internal static delegate* unmanaged[Cdecl]<float, float, float, float> NativePixelSize;
     [NativeFunction("EditorViewPick")]
     internal static delegate* unmanaged[Cdecl]<float, float, ulong> NativePick;
+    [NativeFunction("EditorViewGrid")]
+    internal static delegate* unmanaged[Cdecl]<int, NativeBool32> NativeGrid;
+    [NativeFunction("EditorViewPlaceModel")]
+    internal static delegate* unmanaged[Cdecl]<byte*, float, float, ulong> NativePlaceModel;
 
     private const uint kShown = 1u << 0;
     private const uint kHovered = 1u << 1;
@@ -141,6 +145,24 @@ namespace Other.Editor
     public static SceneObject? Pick(Vec2 screen)
     {
       return SceneObject.FromId(NativePick(screen.X, screen.Y));
+    }
+
+    /// the ground grid is drawn in the view
+    public static bool GridShown
+    {
+      get => NativeGrid(-1);
+      set => NativeGrid(value ? 1 : 0);
+    }
+
+    /// makes an object with the model in a file, where the ray from a place of the screen
+    ///  meets the scene; where it meets nothing, on the ground, or a little in front of the
+    ///  camera. the object is named for the file, is what is selected afterwards, and is
+    ///  one undo step. null when the model could not be loaded. it is what a model dragged
+    ///  from the asset browser onto the view does
+    public static SceneObject? PlaceModel(string path, Vec2 screen)
+    {
+      using var path_utf8 = new Utf8Arg(path, stackalloc byte[Utf8Arg.StackSize]);
+      return SceneObject.FromId(NativePlaceModel(path_utf8.Pointer, screen.X, screen.Y));
     }
 
     /// the object drawn under the pointer. null when there is none, or the pointer is not

@@ -155,7 +155,39 @@ namespace other {
       /// the left button was pressed and let go on the picture this frame, the pointer
       ///  not dragged between and alt not held: a drag, and alt, are the camera's
       bool clicked = false;
+      /// the ground grid is drawn in it. the user's to switch, and not a thing of the frame
+      bool grid = true;
     } view;
+
+    /// a light or a camera, which has nothing of its own to be seen or clicked by: an
+    ///  icon stands for it in the view
+    struct view_icon {
+      enum kind : uint8_t {
+        POINT_LIGHT,
+        DIRECTION_LIGHT,
+        CAMERA,
+      };
+      natural_t object = 0;
+      kind what = POINT_LIGHT;
+      /// where its middle is, from the top left of the view's picture
+      glm::vec2 place = { 0.f, 0.f };
+      bool selected = false;
+    };
+    /// how far from an icon's middle a click is still on it, in the picture's units
+    constexpr static float kIconReach = 12.f;
+    /// the icons of the scene's lights and cameras that are in front of the view's camera
+    ///  and not hidden, made again each time this is asked
+    void collect_view_icons(ostd::vector<view_icon>& icons);
+
+    /// set by the driver: begins loading the asset at a path and gives its id. 0 when
+    ///  it cannot be loaded
+    std::function<natural_t(const std::string_view)> begin_asset_load = nullptr;
+    /// makes an object with the model at that path, where the ray from a place of the
+    ///  screen meets the scene; where it meets nothing, on the ground, and where it does
+    ///  not meet the ground either, a little in front of the camera. the object is named
+    ///  for the file, is what is selected afterwards, and is one undo step. 0 when there is
+    ///  no view, no scene, or the model cannot be loaded
+    natural_t place_model(const std::string_view path, const glm::vec2& screen_place);
     /// the handles the view's tools ask for while its window is drawn
     scene_handles handles;
     /// what a drag goes in steps of while Ctrl is held: metres, degrees, and times the size

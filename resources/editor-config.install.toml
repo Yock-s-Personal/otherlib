@@ -40,6 +40,8 @@ camera-look-sensitivity = 0.25
 snap-move = 0.25
 snap-rotate = 15.0
 snap-scale = 0.1
+# the ground grid of the Scene View. G over the view, or its toolbar, switches it too
+grid = true
 
 [scripting]
 init-lua = "${other-directory}/resources/editor.lua"

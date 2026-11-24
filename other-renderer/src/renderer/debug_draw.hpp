@@ -51,6 +51,16 @@ namespace other {
 
   }  // namespace builtin_debug_occluded_streams
 
+  /// meshes that the editor debug-overlay pipeline draws an outline round and not
+  ///  themselves: only mesh() means anything here
+  namespace builtin_debug_outline_streams {
+
+    constexpr std::string_view kMeshes = "__debug.outlined-meshes";
+
+    constexpr draw_stream_set kSet{ builtin_debug_streams::kLines, builtin_debug_streams::kTris, builtin_debug_streams::kPoints, kMeshes, builtin_debug_streams::kMeshBones };
+
+  }  // namespace builtin_debug_outline_streams
+
   /// drawn inside the scene pipeline, depth tested against scene geometry
   namespace builtin_scene_streams {
 

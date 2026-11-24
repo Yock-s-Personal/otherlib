@@ -126,6 +126,9 @@ namespace other {
     debug_draw debug_occluded() {
       return debug_draw{ &draw_streams, builtin_debug_occluded_streams::kSet };
     }
+    debug_draw debug_outlined() {
+      return debug_draw{ &draw_streams, builtin_debug_outline_streams::kSet };
+    }
     debug_draw scene_overlay() {
       return debug_draw{ &draw_streams, builtin_scene_streams::kSet };
     }

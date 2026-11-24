@@ -159,6 +159,7 @@ target_sources(otherlib
     src/ui/type_database.cpp
     src/ui/window_registry.cpp
     src/ui/script_window.cpp
+    src/ui/script_draw_guard.cpp
     src/ui/driver_ui.cpp
 
     src/other.cpp

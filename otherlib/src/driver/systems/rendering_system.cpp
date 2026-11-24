@@ -43,6 +43,7 @@ namespace other {
     render_graph::pass_executor make_debug_overlay_blit(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_debug_overlay_occluded(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_debug_meshes(const pipeline_pass_definition& def, render_pipeline* pl);
+    render_graph::pass_executor make_debug_outlined_meshes(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_scene_overlay(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_scene_grids(const pipeline_pass_definition& def, render_pipeline* pl);
 
@@ -557,6 +558,7 @@ namespace other {
     reg.register_executor("debug_overlay_blit", &detail::make_debug_overlay_blit);
     reg.register_executor("debug_overlay_occluded", &detail::make_debug_overlay_occluded);
     reg.register_executor("debug_meshes", &detail::make_debug_meshes);
+    reg.register_executor("debug_outlined_meshes", &detail::make_debug_outlined_meshes);
     reg.register_executor("scene_overlay", &detail::make_scene_overlay);
     reg.register_executor("scene_grids", &detail::make_scene_grids);
   }
@@ -867,21 +869,34 @@ namespace other {
       };
     }
 
+    /// every mesh submitted to a stream of debug_mesh_instance, with the pass's shader
+    void draw_debug_mesh_stream(pass_context& ctx, const std::string_view stream) {
+      const render_stream& s = ctx.get_renderer().get_draw_streams();
+      const size_t n = s.count(stream);
+      if (n == 0) {
+        return;
+      }
+
+      const auto bytes = s.view(stream);
+      OTHER_ASSERT(bytes.size() == n * sizeof(debug_mesh_instance), "{}: stream byte size {} != {} instances", stream, bytes.size(), n);
+
+      const auto* inst = reinterpret_cast<const debug_mesh_instance*>(bytes.data());
+      for (size_t i = 0; i < n; ++i) {
+        ctx.draw_debug_mesh(inst[i]);
+      }
+    }
+
     render_graph::pass_executor make_debug_meshes(const pipeline_pass_definition& def, render_pipeline* pl) {
       return [pass = def.name](pass_context& ctx) {
-        const render_stream& s = ctx.get_renderer().get_draw_streams();
-        const size_t n = s.count(builtin_debug_streams::kMeshes);
-        if (n == 0) {
-          return;
-        }
+        draw_debug_mesh_stream(ctx, builtin_debug_streams::kMeshes);
+      };
+    }
 
-        const auto bytes = s.view(builtin_debug_streams::kMeshes);
-        OTHER_ASSERT(bytes.size() == n * sizeof(debug_mesh_instance), "debug_meshes: stream byte size {} != {} instances", bytes.size(), n);
-
-        const auto* inst = reinterpret_cast<const debug_mesh_instance*>(bytes.data());
-        for (size_t i = 0; i < n; ++i) {
-          ctx.draw_debug_mesh(inst[i]);
-        }
+    /// the meshes an outline is drawn round, into whatever the pass's framebuffer is: a
+    ///  mask that a later pass draws the edge of
+    render_graph::pass_executor make_debug_outlined_meshes(const pipeline_pass_definition& def, render_pipeline* pl) {
+      return [pass = def.name](pass_context& ctx) {
+        draw_debug_mesh_stream(ctx, builtin_debug_outline_streams::kMeshes);
       };
     }
 

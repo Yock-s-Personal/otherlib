@@ -8,6 +8,8 @@
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
 
+#include "services/scene_pick.hpp"
+
 namespace other {
 
   namespace {
@@ -309,6 +311,16 @@ namespace other {
     }
     camera_controller.focus(*view_camera, get_selection_bounding_box());
     return true;
+  }
+
+  natural_t editor_services::pick_in_view(const glm::vec2& screen_place) {
+    PROFILE_SECTION("editor_services::pick_in_view");
+    scene* s = current_selection.scene_ptr;
+    if (view_camera == nullptr || s == nullptr || view.size.x < 1.f || view.size.y < 1.f) {
+      return 0;
+    }
+    const opt<pick_hit> hit = pick_object(*s, view_ray(*view_camera, view.size, screen_place - view.position));
+    return hit.has_value() ? hit->object : 0;
   }
 
   void editor_services::set_selection(natural_t object_id) {

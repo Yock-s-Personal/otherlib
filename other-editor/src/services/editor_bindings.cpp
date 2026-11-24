@@ -23,6 +23,7 @@ namespace other {
       editor_services* editor = nullptr;
       /// code of OtherEditor.dll: set by it, and taken back by it before it is unloaded
       void (*frame_function)() = nullptr;
+      void (*scene_view_function)() = nullptr;
 
       template <auto Fn>
       void bind(dotnet_host& host, const std::string_view name, size_t& refused) {
@@ -46,6 +47,7 @@ namespace other {
       host.rediscover_binding_points();
       /// an assembly that was just loaded has given no function yet
       frame_function = nullptr;
+      scene_view_function = nullptr;
 
       size_t refused = 0;
       /// Selection.
@@ -73,6 +75,13 @@ namespace other {
       /// SceneViewport.
       bind<native_editor_view_camera>(host, "EditorViewCamera", refused);
       bind<native_editor_view_focus_selection>(host, "EditorViewFocusSelection", refused);
+      bind<native_editor_view_state>(host, "EditorViewState", refused);
+      bind<native_editor_view_ray>(host, "EditorViewRay", refused);
+      bind<native_editor_view_place>(host, "EditorViewPlace", refused);
+      bind<native_editor_view_pixel_size>(host, "EditorViewPixelSize", refused);
+      bind<native_editor_view_pick>(host, "EditorViewPick", refused);
+      /// SceneTools.
+      bind<native_editor_set_scene_view_function>(host, "EditorSetSceneViewFunction", refused);
       /// ProjectScenes.
       bind<native_editor_scenes_read>(host, "EditorScenesRead", refused);
       bind<native_editor_scenes_at>(host, "EditorScenesAt", refused);
@@ -229,24 +238,6 @@ namespace other {
       return editor != nullptr && editor->save_scene && editor->save_scene();
     }
 
-    nbool32 native_editor_view_camera(float* position, float* direction, float* focus_point) {
-      if (editor == nullptr || editor->view_camera == nullptr || position == nullptr || direction == nullptr || focus_point == nullptr) {
-        return false;
-      }
-      const camera& cam = *editor->view_camera;
-      const glm::vec3 focus = editor->camera_controller.focus_point(cam);
-      for (int32_t i = 0; i < 3; ++i) {
-        position[i] = cam.position[i];
-        direction[i] = cam.direction[i];
-        focus_point[i] = focus[i];
-      }
-      return true;
-    }
-
-    nbool32 native_editor_view_focus_selection() {
-      return editor != nullptr && editor->focus_view_on_selection();
-    }
-
     int32_t native_editor_scenes_read() {
       if (editor == nullptr) {
         return 0;
@@ -284,6 +275,18 @@ namespace other {
 
     void native_editor_set_frame_function(void* fn) {
       frame_function = reinterpret_cast<void (*)()>(fn);
+    }
+
+    void native_editor_set_scene_view_function(void* fn) {
+      scene_view_function = reinterpret_cast<void (*)()>(fn);
+    }
+
+    bool run_scene_view_function() {
+      if (scene_view_function == nullptr) {
+        return false;
+      }
+      scene_view_function();
+      return true;
     }
 
     bool run_editor_frame_function() {

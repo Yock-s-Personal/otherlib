@@ -55,7 +55,6 @@ namespace other {
 
     void on_create_project() override;
 
-    ostd::vector<selected_draw> get_selection_draws() const;
     pipeline_definition get_debug_overlay_pipeline_definition() const;
   };
 

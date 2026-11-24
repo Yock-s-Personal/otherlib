@@ -19,6 +19,8 @@ namespace Other.Editor
       Commands.Add("view.focus-selection", "Focus on Selection", () => SceneViewport.FocusOnSelection(), new KeyChord(Key.F), "View", () => Selection.Count > 0);
       /// the three before it have buttons in the menu bar
       PlaybackBar.Shown = true;
+      /// the Scene View's tools are run from here on
+      SceneTools.Host();
     }
   }
 }

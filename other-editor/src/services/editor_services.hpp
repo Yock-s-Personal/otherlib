@@ -138,6 +138,23 @@ namespace other {
     ///  no view
     bool focus_view_on_selection();
 
+    /// that view as its window drew it this frame, said by the window each frame
+    struct scene_view_state {
+      /// its window is open and in front, so its picture is on the screen
+      bool shown = false;
+      /// where the picture is on the screen and how big, in the UI's units
+      glm::vec2 position = { 0.f, 0.f };
+      glm::vec2 size = { 0.f, 0.f };
+      /// the pointer is over the picture with nothing in front of it
+      bool hovered = false;
+      /// the left button was pressed and let go on the picture this frame, the pointer
+      ///  not dragged between and alt not held: a drag, and alt, are the camera's
+      bool clicked = false;
+    } view;
+    /// the object drawn at a place of the screen, as the view's camera sees the scene.
+    ///  0 when there is none there, or no view
+    natural_t pick_in_view(const glm::vec2& screen_place);
+
     /// set by the driver: shows the system's folder dialog, which answers folder_was_picked
     ///  from a thread of its own, or not at all when it is cancelled
     std::function<void()> show_folder_dialog = nullptr;

@@ -156,6 +156,7 @@ namespace other {
     r.register_draw_stream(builtin_debug_occluded_streams::kPoints, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 14, .draw_recipe = { "debug_overlay", mesh::POINTS, vtx } });
     r.register_draw_stream(builtin_debug_streams::kMeshes, { .element_size = sizeof(debug_mesh_instance), .max_per_frame = 4096, .draw_recipe = {} });
     r.register_draw_stream(builtin_debug_streams::kMeshBones, { .element_size = sizeof(glm::mat4), .max_per_frame = kMaxBones * 64, .draw_recipe = {} });
+    r.register_draw_stream(builtin_debug_outline_streams::kMeshes, { .element_size = sizeof(debug_mesh_instance), .max_per_frame = 4096, .draw_recipe = {} });
   }
 
   void editor_driver::on_build_driver_input_map(input_map& map) {
@@ -237,6 +238,8 @@ namespace other {
     auto draw = get_renderer().debug();
     /// shapes that stand in the world, and are hidden by what stands in front of them
     auto in_world = get_renderer().debug_occluded();
+    /// meshes that are not drawn again but have a line drawn round them
+    auto outlined = get_renderer().debug_outlined();
 
     if (scene->physics_debug_rendering()) {
       PROFILE_SECTION("editor_driver::on_begin_frame--physics_debug");
@@ -255,7 +258,6 @@ namespace other {
       }
     }
 
-    glm::vec4 select_color = basic_colors::kGreen;
     if (context.has_selection()) {
       PROFILE_SECTION("editor_driver::on_begin_frame--selection_overlay");
       for (const auto& obj_id : context.current_selection.objects) {
@@ -264,9 +266,6 @@ namespace other {
         }
 
         auto& obj = scene->get_object(obj_id);
-        auto aabb = scene->get_bounding_box(obj.id);
-        draw.aabb(aabb, select_color);
-
         auto world_trans = scene->get_world_transform(obj_id);
 
         glm::vec3 local_up = { 0, 1, 0 };
@@ -281,10 +280,11 @@ namespace other {
         draw.arrow(origin, origin + world_up, basic_colors::kGreen);
         draw.arrow(origin, origin + world_forward, basic_colors::kBlue);
 
-        /// obj_model.source stays null until the model asset finishes its async load
+        /// what is selected has an outline round it, in the pose it is drawn in.
+        ///  obj_model.source stays null until the model asset finishes its async load
         if (auto* render = scene->try_get_component<render_component>(obj.id);
-            render != nullptr && render->obj_model.source != nullptr) {
-          draw.mesh(render->obj_model.source->get_mesh_handle(), world_trans, select_color, true, render->obj_model.bone_matrices);
+            render != nullptr && render->visible && render->obj_model.source != nullptr) {
+          outlined.mesh(render->obj_model.source->get_mesh_handle(), world_trans, basic_colors::kWhite, false, render->obj_model.bone_matrices);
         }
 
         if (auto* pl_comp = scene->try_get_component<point_light_component>(obj.id);
@@ -465,66 +465,6 @@ namespace other {
     return true;
   }
 
-  ostd::vector<selected_draw> editor_driver::get_selection_draws() const {
-    PROFILE_SECTION("editor_driver::get_selection_draws");
-    ostd::vector<selected_draw> draws;
-    if (!context.has_selection()) {
-      return draws;
-    }
-
-    auto* scene = context.current_selection.scene_ptr;
-    if (scene == nullptr) {
-      return draws;
-    }
-
-    for (const auto& obj_id : context.current_selection.objects) {
-      /// selection ids can be stale for a frame around a snapshot restore - skip
-      ///  entries that no longer resolve
-      scene_object* selected = scene->find_object(obj_id);
-      if (selected == nullptr) {
-        continue;
-      }
-      auto& obj = *selected;
-      auto* render = scene->try_get_component<render_component>(obj.id);
-      auto aabb = scene->get_bounding_box(obj.id);
-      if (aabb == bounding_box::empty) {
-        aabb = bounding_box(glm::vec3(-0.5f), glm::vec3(0.5f));
-      }
-
-      /// obj_model.source stays null until the model asset finishes its async load -
-      ///  draw the model outline only once it is ready
-      if (render != nullptr && render->obj_model.source != nullptr) {
-        const glm::mat4 world = scene->get_world_transform(obj_id);
-        model& m = render->obj_model;
-        const auto& submeshes = m.source->source_data().submeshes;
-
-        for (uint32_t sm_idx : m.submesh_indices) {
-          const submesh& sm = submeshes[sm_idx];
-          draws.emplace_back() = selected_draw{
-            .call = draw_call{
-              .mesh_handle = m.source->get_mesh_handle(),
-              .submesh_index = sm_idx,
-              .instance_count = 1,  // submit_draw_call asserts > 0
-              .vertex_offset = sm.base_vertex,
-              .vertex_count = sm.vert_cnt,
-              .index_offset = sm.base_idx,
-              .index_count = sm.idx_cnt,
-            },
-            .key = mesh_key{
-              .model_source_handle = m.source->get_mesh_handle(),
-              .render_state = POLYGON_MODE_FILL,
-              .draw_mode = mesh::TRIANGLES,
-              .submesh_index = sm_idx,
-            },
-            .world = world,
-          };
-        }
-      }
-    }
-
-    return draws;
-  }
-
   pipeline_definition editor_driver::get_debug_overlay_pipeline_definition() const {
     PROFILE_SECTION("editor_driver::get_debug_overlay_pipeline_definition");
     pipeline_definition def;
@@ -536,10 +476,13 @@ namespace other {
     def.textures.push_back({ .name = "depth", .use_window_size = true, .format = texture::format::DEPTHF });
     def.textures.push_back({ .name = "debug_frame", .use_window_size = true, .format = texture::format::RGBA16F });
     def.textures.push_back({ .name = "overlay_depth", .use_window_size = true, .format = texture::format::DEPTHF });
+    /// white where a selected mesh is, for the outline to be drawn round
+    def.textures.push_back({ .name = "selection_mask", .use_window_size = true, .format = texture::format::R8 });
     def.buffers.push_back({ .name = "camera_buffer", .type = gpu_buffer::UNIFORM_BUFFER, .usage = gpu_buffer::DYNAMIC, .tag = resource_tag(resource_tag::kCameraTag) });
     def.shaders.push_back({ .name = "blit", .vertex_path = "engine://resources/basic-textured-quad.vert", .fragment_path = "engine://resources/debug-overlay-blit.frag" });
     def.shaders.push_back({ .name = "debug_overlay", .vertex_path = "engine://resources/debug-overlay.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
     def.shaders.push_back({ .name = "debug_meshes", .vertex_path = "engine://resources/debug-mesh.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
+    def.shaders.push_back({ .name = "selection_outline", .vertex_path = "engine://resources/basic-textured-quad.vert", .fragment_path = "engine://resources/selection-outline.frag" });
 
     def.passes.emplace_back() = {
       .name = "overlay-blit",
@@ -575,6 +518,45 @@ namespace other {
       .clear_flags = framebuffer::NONE,
       .override_fb_clear = true,
     };
+    /// the selection's outline, in two passes: the selected meshes drawn flat into a mask
+    ///  of their own, whatever is in front of them, and the mask's edge drawn over the frame
+    def.passes.emplace_back() = {
+      .name = "overlay-selection-mask",
+      .shader_name = "debug_meshes",
+      .clear_color = glm::vec4{ 0.f, 0.f, 0.f, 0.f },
+      .inputs = {
+        { .resource_name = "camera_buffer", .uniform_name = "OE_camera", .binding = 0 },
+      },
+      .outputs = {
+        { .resource_name = "selection_mask", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
+      },
+      .executor = { .name = "debug_outlined_meshes" },
+      .depends_on = { "overlay-occluded" },
+      .bindings = {
+        { .name = "per_frame.camera_buffer", .tag = resource_tag(resource_tag::kCameraTag), .scope = binding_scope::PER_FRAME, .type = binding_type::UNIFORM_BUFFER, .binding = 0 },
+      },
+      .clear_flags = static_cast<framebuffer::clear_mask_bit>(framebuffer::COLOR_BIT | framebuffer::DEPTH_BIT),
+      .override_fb_clear = true,
+    };
+    def.passes.emplace_back() = {
+      .name = "overlay-selection-outline",
+      .shader_name = "selection_outline",
+      .inputs = {
+        { .resource_name = "selection_mask", .uniform_name = "OE_mask", .binding = 0 },
+      },
+      .outputs = {
+        { .resource_name = "debug_frame", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
+      },
+      .executor = { .name = "fullscreen_quad" },
+      .depends_on = { "overlay-selection-mask" },
+      .uniforms = {
+        { FNV("overlay-selection-outline.OE_outline_color"), { .name = "OE_outline_color", .val = context.settings.selection_outline_color } },
+        { FNV("overlay-selection-outline.OE_outline_width"), { .name = "OE_outline_width", .val = context.settings.selection_outline_width } },
+      },
+      /// the frame is kept; the pass's own depth is cleared so that its quad is drawn
+      .clear_flags = framebuffer::DEPTH_BIT,
+      .override_fb_clear = true,
+    };
     def.passes.emplace_back() = {
       .name = "overlay-geometry",
       .shader_name = "debug_overlay",
@@ -585,7 +567,7 @@ namespace other {
         { .resource_name = "debug_frame", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
       },
       .executor = { .name = "debug_overlay" },
-      .depends_on = { "overlay-occluded" },
+      .depends_on = { "overlay-selection-outline" },
       .bindings = {
         { .name = "per_frame.camera_buffer", .tag = resource_tag(resource_tag::kCameraTag), .scope = binding_scope::PER_FRAME, .type = binding_type::UNIFORM_BUFFER, .binding = 0 },
       },

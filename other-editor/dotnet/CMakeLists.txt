@@ -15,5 +15,6 @@ target_sources(OtherEditorCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-compiler-window.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-creator-window.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/profiler-window.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/select-tool.cs
 )
 target_link_libraries(OtherEditorCs PUBLIC OtherEditor OtherCs OtherCsBindings)

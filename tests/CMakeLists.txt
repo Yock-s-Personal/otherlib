@@ -118,6 +118,7 @@ target_sources(other_tests
 
     ${CMAKE_CURRENT_SOURCE_DIR}/editor/editor_services_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/editor/editor_camera_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/editor/scene_pick_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scratch_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/other_test_main.cpp

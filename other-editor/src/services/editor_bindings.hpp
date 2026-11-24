@@ -57,6 +57,26 @@ namespace other {
     nbool32 native_editor_view_camera(float* position, float* direction, float* focus_point);
     /// brings the selection to the middle of the view. false with nothing selected
     nbool32 native_editor_view_focus_selection();
+    /// where the view's picture is on the screen and its size, four floats, and what is
+    ///  true of it: bit 0 it is on the screen, bit 1 the pointer is over it, bit 2 it was
+    ///  clicked this frame
+    uint32_t native_editor_view_state(float* rectangle);
+    /// the ray from the view's camera through a place of the screen, three floats each.
+    ///  false when there is no view
+    nbool32 native_editor_view_ray(float x, float y, float* origin, float* direction);
+    /// where a point of the world is on the screen, two floats. false when it is behind
+    ///  the camera, or there is no view
+    nbool32 native_editor_view_place(float x, float y, float z, float* place);
+    /// how much of the world one unit of the screen covers at that point's distance
+    float native_editor_view_pixel_size(float x, float y, float z);
+    /// the id of the object drawn at a place of the screen. 0 for none
+    uint64_t native_editor_view_pick(float x, float y);
+
+    /// fn is a void (*)(), called while the view's window is drawn, after its picture:
+    ///  where the C# side runs its scene tools. null for none
+    void native_editor_set_scene_view_function(void* fn);
+    /// called by the view's window. false when there is nothing to call
+    bool run_scene_view_function();
 
     /// reads the project's scenes again and says how many there are. at and scene_name
     ///  then answer from what was read: at gives the name the project has for the scene

@@ -23,7 +23,10 @@ namespace other {
   }
 
   bool bounding_box::intersects(const ray& r) const {
-    real_t t0, t1;
+    /// the stretch of the ray that is between every pair of sides at once: it starts where
+    ///  the ray does and is cut down by each pair in turn. none left is a miss
+    real_t enter = 0;
+    real_t leave = infinity;
     for (uint32_t i = 0; i < 3; ++i) {
       if (std::abs(r.direction[i]) < epsilon) {
         if (r.origin[i] < min[i] || r.origin[i] > max[i]) {
@@ -33,16 +36,15 @@ namespace other {
       }
 
       const real_t inv_dir = 1.0f / r.direction[i];
-      t0 = (min[i] - r.origin[i]) * inv_dir;
-      t1 = (max[i] - r.origin[i]) * inv_dir;
-
+      real_t t0 = (min[i] - r.origin[i]) * inv_dir;
+      real_t t1 = (max[i] - r.origin[i]) * inv_dir;
       if (t0 > t1) {
         std::swap(t0, t1);
       }
 
-      real_t tmin = std::max(t0, std::max(t1, -infinity));
-      real_t tmax = std::min(t1, std::min(t0, infinity));
-      if (tmin > tmax || tmax < 0) {
+      enter = std::max(enter, t0);
+      leave = std::min(leave, t1);
+      if (enter > leave) {
         return false;
       }
     }

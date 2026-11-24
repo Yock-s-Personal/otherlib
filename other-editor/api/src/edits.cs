@@ -21,6 +21,17 @@ namespace Other.Editor
         Edits.End();
       }
     }
+
+    /// ends the action with nothing recorded, for one that was put back by hand: a drag
+    ///  that Escape cancelled. disposing it afterwards does nothing more
+    public void Drop()
+    {
+      if (open)
+      {
+        open = false;
+        Edits.Drop();
+      }
+    }
   }
 
   /// changes to the scene that can be undone. a window says what it changed and the editor
@@ -34,6 +45,8 @@ namespace Other.Editor
     internal static delegate* unmanaged[Cdecl]<byte*, void> NativeBegin;
     [NativeFunction("EditorEditsEnd")]
     internal static delegate* unmanaged[Cdecl]<void> NativeEnd;
+    [NativeFunction("EditorEditsDrop")]
+    internal static delegate* unmanaged[Cdecl]<void> NativeDrop;
     [NativeFunction("EditorEditsCanUndo")]
     internal static delegate* unmanaged[Cdecl]<NativeBool32> NativeCanUndo;
     [NativeFunction("EditorEditsCanRedo")]
@@ -67,6 +80,11 @@ namespace Other.Editor
     internal static void End()
     {
       NativeEnd();
+    }
+
+    internal static void Drop()
+    {
+      NativeDrop();
     }
 
     public static bool CanUndo => NativeCanUndo();

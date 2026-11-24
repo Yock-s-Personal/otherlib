@@ -109,6 +109,16 @@ namespace Other
     }
     public override int GetHashCode() => HashCode.Combine(X, Y, Z, W);
 
+    /// a turn of so many radians round an axis, counter-clockwise seen from where the axis
+    ///  points. the axis need not be of length one
+    public static Quaternion FromAxisAngle(Vec3 axis, float radians)
+    {
+      Vec3 unit = axis.Normalized();
+      float half = radians * 0.5f;
+      float s = MathF.Sin(half);
+      return new Quaternion(unit.X * s, unit.Y * s, unit.Z * s, MathF.Cos(half));
+    }
+
     public static Quaternion CreateFromYawPitchRoll(float yaw, float pitch, float roll)
     {
       float cy = MathF.Cos(yaw * 0.5f);

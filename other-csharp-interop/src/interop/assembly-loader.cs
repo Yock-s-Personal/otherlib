@@ -207,6 +207,11 @@ namespace OtherCsBindings
       return loaded_assemblies;
     }
 
+    internal static List<Assembly> LoadedScriptAssemblies()
+    {
+      return new List<Assembly>(assemblies.Values);
+    }
+
     internal static bool TryGetAssembly(Int32 id, out Assembly? asm)
     {
       return assemblies.TryGetValue(id, out asm);
@@ -347,6 +352,7 @@ namespace OtherCsBindings
         }
 
         last_load_status = AssemblyLoadStatus.Success;
+        ScriptAssemblies.RaiseLoaded(asm);
         return asm_id;
       }
       catch (Exception e)

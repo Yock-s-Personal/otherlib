@@ -4,37 +4,22 @@
 #include "ui/script_window.hpp"
 
 #include <chrono>
-#include <cstring>
 #include <format>
 
 #include <imgui/imgui.h>
-#include <imgui/imgui_internal.h>
 
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
 #include "thread/thread_safety.hpp"
 
-#include "scripting/dotnet_bindings/ui_draw_list_bindings.hpp"
 #include "theme/colors.hpp"
+#include "ui/script_draw_guard.hpp"
 
 namespace other {
   namespace ui {
     namespace {
 
       script_window::draw_fn draw = nullptr;
-
-      /// what ImGui objected to while a script drew: the first objection, and how many
-      struct draw_errors {
-        std::string first;
-        uint32_t count = 0;
-      };
-
-      void note_imgui_error(ImGuiContext*, void* user_data, const char* message) {
-        auto* errors = static_cast<draw_errors*>(user_data);
-        if (errors->count++ == 0) {
-          errors->first = message;
-        }
-      }
 
     }  // namespace
 
@@ -69,49 +54,14 @@ namespace other {
         return;
       }
 
-      /// a script's mistake with ImGui must not stop the editor, or be said every frame.
-      ///  while the script draws, ImGui hands what it objects to here: no assert, and
-      ///  nothing in its own log or tooltip
-      ImGuiContext& context = *ImGui::GetCurrentContext();
-      ImGuiIO& io = context.IO;
-      const bool asserts = io.ConfigErrorRecoveryEnableAssert;
-      const bool debug_log = io.ConfigErrorRecoveryEnableDebugLog;
-      const bool tooltip = io.ConfigErrorRecoveryEnableTooltip;
-      const ImGuiErrorCallback callback = context.ErrorCallback;
-      void* const callback_data = context.ErrorCallbackUserData;
-
-      draw_errors errors;
-      io.ConfigErrorRecoveryEnableAssert = false;
-      io.ConfigErrorRecoveryEnableDebugLog = false;
-      io.ConfigErrorRecoveryEnableTooltip = false;
-      context.ErrorCallback = note_imgui_error;
-      context.ErrorCallbackUserData = &errors;
-
-      ImGuiErrorRecoveryState before{};
-      ImGui::ErrorRecoveryStoreState(&before);
-
       /// the script catches what its window throws, so nothing unwinds through here
-      const auto started = std::chrono::steady_clock::now();
-      const bool drawn = draw(window_id);
-      last_draw_us = std::chrono::duration<float, std::micro>(std::chrono::steady_clock::now() - started).count();
-      ++draws;
-
-      /// what it left open (a clip rectangle, a tree node, a pushed id) is closed here, each
-      ///  as an objection
-      if (bindings::close_script_clip_rects() > 0) {
-        note_imgui_error(&context, &errors, "Missing PopClipRect()");
-      }
-      ImGuiErrorRecoveryState after{};
-      ImGui::ErrorRecoveryStoreState(&after);
-      if (std::memcmp(&before, &after, sizeof(before)) != 0) {
-        ImGui::ErrorRecoveryTryToRecoverState(&before);
-      }
-
-      io.ConfigErrorRecoveryEnableAssert = asserts;
-      io.ConfigErrorRecoveryEnableDebugLog = debug_log;
-      io.ConfigErrorRecoveryEnableTooltip = tooltip;
-      context.ErrorCallback = callback;
-      context.ErrorCallbackUserData = callback_data;
+      bool drawn = false;
+      const script_draw_errors errors = guard_script_draw([&]() {
+        const auto started = std::chrono::steady_clock::now();
+        drawn = draw(window_id);
+        last_draw_us = std::chrono::duration<float, std::micro>(std::chrono::steady_clock::now() - started).count();
+        ++draws;
+      });
 
       if (drawn && errors.count == 0) {
         return;
@@ -124,7 +74,7 @@ namespace other {
         return;
       }
 
-      reason = errors.count == 1 ? std::format("ImGui: {}", errors.first) : std::format("ImGui: {} (and {} more)", errors.first, errors.count - 1);
+      reason = errors.describe();
       CORE_LOG_ERROR("The window '{}' is stopped until it is asked to draw again. {}", name, reason);
     }
 

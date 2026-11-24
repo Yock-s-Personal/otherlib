@@ -23,6 +23,7 @@ namespace other {
       editor_services* editor = nullptr;
       /// code of OtherEditor.dll: set by it, and taken back by it before it is unloaded
       void (*frame_function)() = nullptr;
+      void (*scene_view_function)() = nullptr;
 
       template <auto Fn>
       void bind(dotnet_host& host, const std::string_view name, size_t& refused) {
@@ -46,6 +47,7 @@ namespace other {
       host.rediscover_binding_points();
       /// an assembly that was just loaded has given no function yet
       frame_function = nullptr;
+      scene_view_function = nullptr;
 
       size_t refused = 0;
       /// Selection.
@@ -60,6 +62,7 @@ namespace other {
       bind<native_editor_edits_changed>(host, "EditorEditsChanged", refused);
       bind<native_editor_edits_begin>(host, "EditorEditsBegin", refused);
       bind<native_editor_edits_end>(host, "EditorEditsEnd", refused);
+      bind<native_editor_edits_drop>(host, "EditorEditsDrop", refused);
       bind<native_editor_edits_can_undo>(host, "EditorEditsCanUndo", refused);
       bind<native_editor_edits_can_redo>(host, "EditorEditsCanRedo", refused);
       bind<native_editor_edits_undo>(host, "EditorEditsUndo", refused);
@@ -73,6 +76,32 @@ namespace other {
       /// SceneViewport.
       bind<native_editor_view_camera>(host, "EditorViewCamera", refused);
       bind<native_editor_view_focus_selection>(host, "EditorViewFocusSelection", refused);
+      bind<native_editor_view_state>(host, "EditorViewState", refused);
+      bind<native_editor_view_ray>(host, "EditorViewRay", refused);
+      bind<native_editor_view_place>(host, "EditorViewPlace", refused);
+      bind<native_editor_view_pixel_size>(host, "EditorViewPixelSize", refused);
+      bind<native_editor_view_pick>(host, "EditorViewPick", refused);
+      bind<native_editor_view_grid>(host, "EditorViewGrid", refused);
+      bind<native_editor_view_place_model>(host, "EditorViewPlaceModel", refused);
+      /// Handles.
+      bind<native_editor_handles_state>(host, "EditorHandlesState", refused);
+      bind<native_editor_handles_snaps>(host, "EditorHandlesSnaps", refused);
+      bind<native_editor_handles_slide_axis>(host, "EditorHandlesSlideAxis", refused);
+      bind<native_editor_handles_slide_plane>(host, "EditorHandlesSlidePlane", refused);
+      bind<native_editor_handles_turn>(host, "EditorHandlesTurn", refused);
+      bind<native_editor_handles_grab_direction>(host, "EditorHandlesGrabDirection", refused);
+      bind<native_editor_handles_stretch_axis>(host, "EditorHandlesStretchAxis", refused);
+      bind<native_editor_handles_stretch_all>(host, "EditorHandlesStretchAll", refused);
+      bind<native_editor_handles_line>(host, "EditorHandlesLine", refused);
+      bind<native_editor_handles_arrow>(host, "EditorHandlesArrow", refused);
+      bind<native_editor_handles_circle>(host, "EditorHandlesCircle", refused);
+      bind<native_editor_handles_arc>(host, "EditorHandlesArc", refused);
+      bind<native_editor_handles_pie>(host, "EditorHandlesPie", refused);
+      bind<native_editor_handles_quad>(host, "EditorHandlesQuad", refused);
+      bind<native_editor_handles_dot>(host, "EditorHandlesDot", refused);
+      bind<native_editor_handles_label>(host, "EditorHandlesLabel", refused);
+      /// SceneTools.
+      bind<native_editor_set_scene_view_function>(host, "EditorSetSceneViewFunction", refused);
       /// ProjectScenes.
       bind<native_editor_scenes_read>(host, "EditorScenesRead", refused);
       bind<native_editor_scenes_at>(host, "EditorScenesAt", refused);
@@ -178,6 +207,12 @@ namespace other {
       }
     }
 
+    void native_editor_edits_drop() {
+      if (editor != nullptr) {
+        editor->drop_edit();
+      }
+    }
+
     nbool32 native_editor_edits_can_undo() {
       return editor != nullptr && editor->can_undo_scene_edit();
     }
@@ -229,24 +264,6 @@ namespace other {
       return editor != nullptr && editor->save_scene && editor->save_scene();
     }
 
-    nbool32 native_editor_view_camera(float* position, float* direction, float* focus_point) {
-      if (editor == nullptr || editor->view_camera == nullptr || position == nullptr || direction == nullptr || focus_point == nullptr) {
-        return false;
-      }
-      const camera& cam = *editor->view_camera;
-      const glm::vec3 focus = editor->camera_controller.focus_point(cam);
-      for (int32_t i = 0; i < 3; ++i) {
-        position[i] = cam.position[i];
-        direction[i] = cam.direction[i];
-        focus_point[i] = focus[i];
-      }
-      return true;
-    }
-
-    nbool32 native_editor_view_focus_selection() {
-      return editor != nullptr && editor->focus_view_on_selection();
-    }
-
     int32_t native_editor_scenes_read() {
       if (editor == nullptr) {
         return 0;
@@ -284,6 +301,18 @@ namespace other {
 
     void native_editor_set_frame_function(void* fn) {
       frame_function = reinterpret_cast<void (*)()>(fn);
+    }
+
+    void native_editor_set_scene_view_function(void* fn) {
+      scene_view_function = reinterpret_cast<void (*)()>(fn);
+    }
+
+    bool run_scene_view_function() {
+      if (scene_view_function == nullptr) {
+        return false;
+      }
+      scene_view_function();
+      return true;
     }
 
     bool run_editor_frame_function() {

@@ -108,6 +108,7 @@ namespace other {
     ///  what it asks to be drawn would be gone before any view was drawn again
     draw_streams.clear();
     pending_grids.clear();
+    pending_debug_grids.clear();
   }
 
   void renderer::present_texture(const resource_handle& handle) {

@@ -14,16 +14,6 @@ namespace other {
 
   class scene;
 
-  struct selected_draw {
-    bool mesh = false;
-
-    bounding_box aabb;  //< in case of no mesh
-
-    draw_call call;
-    mesh_key key;
-    glm::mat4 world;
-  };
-
   struct selection {
     scene* scene_ptr = nullptr;
 

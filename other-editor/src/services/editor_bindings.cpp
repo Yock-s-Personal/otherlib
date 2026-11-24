@@ -70,6 +70,9 @@ namespace other {
       bind<native_editor_playback_state>(host, "EditorPlaybackState", refused);
       bind<native_editor_playback_command>(host, "EditorPlaybackCommand", refused);
       bind<native_editor_scene_save>(host, "EditorSceneSave", refused);
+      /// SceneViewport.
+      bind<native_editor_view_camera>(host, "EditorViewCamera", refused);
+      bind<native_editor_view_focus_selection>(host, "EditorViewFocusSelection", refused);
       /// ProjectScenes.
       bind<native_editor_scenes_read>(host, "EditorScenesRead", refused);
       bind<native_editor_scenes_at>(host, "EditorScenesAt", refused);
@@ -224,6 +227,24 @@ namespace other {
 
     nbool32 native_editor_scene_save() {
       return editor != nullptr && editor->save_scene && editor->save_scene();
+    }
+
+    nbool32 native_editor_view_camera(float* position, float* direction, float* focus_point) {
+      if (editor == nullptr || editor->view_camera == nullptr || position == nullptr || direction == nullptr || focus_point == nullptr) {
+        return false;
+      }
+      const camera& cam = *editor->view_camera;
+      const glm::vec3 focus = editor->camera_controller.focus_point(cam);
+      for (int32_t i = 0; i < 3; ++i) {
+        position[i] = cam.position[i];
+        direction[i] = cam.direction[i];
+        focus_point[i] = focus[i];
+      }
+      return true;
+    }
+
+    nbool32 native_editor_view_focus_selection() {
+      return editor != nullptr && editor->focus_view_on_selection();
     }
 
     int32_t native_editor_scenes_read() {

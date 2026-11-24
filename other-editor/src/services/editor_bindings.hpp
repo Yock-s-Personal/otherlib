@@ -52,6 +52,12 @@ namespace other {
     void native_editor_playback_command(int32_t command);
     nbool32 native_editor_scene_save();
 
+    /// where the camera of the editor's view is, which way it looks and the point it turns
+    ///  round, three floats each. false, and nothing written, when there is no view
+    nbool32 native_editor_view_camera(float* position, float* direction, float* focus_point);
+    /// brings the selection to the middle of the view. false with nothing selected
+    nbool32 native_editor_view_focus_selection();
+
     /// reads the project's scenes again and says how many there are. at and scene_name
     ///  then answer from what was read: at gives the name the project has for the scene
     int32_t native_editor_scenes_read();

@@ -5,7 +5,6 @@
 #define OTHER_EDITOR_EDITOR_CONTEXT_HPP
 
 #include <imgui/imgui.h>
-#include <imguizmo/ImGuizmo.h>
 
 #include "renderer/camera.hpp"
 
@@ -33,18 +32,14 @@ namespace other {
     camera* scene_active_camera = nullptr;
     natural_t scene_viewport_handle = 0;
 
-    /// requested by ui, applied in editor_driver::update_running so the active scene
-    ///  never changes while a frame is being rendered
-
     camera editor_camera;
-    ImGuizmo::MODE gizmo_mode = ImGuizmo::MODE::LOCAL;
-    ImGuizmo::OPERATION gizmo_operation = ImGuizmo::OPERATION::TRANSLATE;
 
     std::string current_primary_viewport = "default-instancing";
     ostd::vector<viewport_info> viewports;
 
-    natural_t register_viewport(const std::string_view name, const std::string_view render_pipeline_name);
-    natural_t register_viewport(const std::string_view name, const std::string_view render_pipeline_name, camera* cam);
+    /// title is what the view's window says it is; its layout is kept by its name
+    natural_t register_viewport(const std::string_view name, const std::string_view title, const std::string_view render_pipeline_name);
+    natural_t register_viewport(const std::string_view name, const std::string_view title, const std::string_view render_pipeline_name, camera* cam);
     void remove_viewport(natural_t vp_id);
     void remove_all_viewports();
 

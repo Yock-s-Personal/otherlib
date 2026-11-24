@@ -5,6 +5,7 @@ add_library(other_editor_services STATIC)
 target_sources(other_editor_services
   PRIVATE
     src/services/edit_stack.cpp
+    src/services/editor_camera.cpp
     src/services/editor_services.cpp
     src/services/editor_bindings.cpp
     src/services/editor_project_bindings.cpp

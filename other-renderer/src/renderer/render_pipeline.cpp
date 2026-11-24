@@ -461,6 +461,9 @@ namespace other {
       return;
     }
     replace_texture_resource(name, handle);
+    if (std::ranges::find(borrowed_textures, hash) == borrowed_textures.end()) {
+      borrowed_textures.push_back(hash);
+    }
   }
 
   void render_pipeline::register_buffer_resource(const std::string_view name, resource_handle handle) {
@@ -800,8 +803,9 @@ namespace other {
 
     bool needs_quad = false;
     for (const auto& pass : definition.passes) {
-      /// scene_grids draws the quad as world-space grid geometry
-      if (pass.executor.name == "fullscreen_quad" || pass.executor.name == "scene_grids") {
+      /// scene_grids draws the quad as world-space grid geometry; debug_overlay_blit is a
+      ///  fullscreen quad that writes depth as well
+      if (pass.executor.name == "fullscreen_quad" || pass.executor.name == "scene_grids" || pass.executor.name == "debug_overlay_blit") {
         needs_quad = true;
         break;
       }
@@ -831,7 +835,8 @@ namespace other {
 
     CORE_LOG_DEBUG("Replacing texture resource [{}] in pipeline '{}' with new handle {}.", name, definition.name, new_handle);
     graph->replace_texture_resource(itr->second.handle, new_handle);
-    if (renderer_ptr->resource_exists(itr->second.handle)) {
+    const bool borrowed = std::ranges::find(borrowed_textures, hash) != borrowed_textures.end();
+    if (!borrowed && renderer_ptr->resource_exists(itr->second.handle)) {
       renderer_ptr->destroy_resource(itr->second.handle);
     }
     itr->second.handle = new_handle;
@@ -930,8 +935,11 @@ namespace other {
       get_renderer()->destroy_resource(res.handle);
     }
     for (const auto& [hash, res] : texture_resources) {
-      get_renderer()->destroy_resource(res.handle);
+      if (std::ranges::find(borrowed_textures, hash) == borrowed_textures.end()) {
+        get_renderer()->destroy_resource(res.handle);
+      }
     }
+    borrowed_textures.clear();
     for (const auto& [name, handle] : shader_handles) {
       get_renderer()->destroy_resource(handle);
     }

@@ -4,7 +4,6 @@
 #include "renderer/rendering_api.hpp"
 
 #include <imgui/backends/imgui_impl_sdl3.h>
-#include <imguizmo/ImGuizmo.h>
 
 #include "core/defines.hpp"
 #include "core/enum_formatter.hpp"
@@ -99,7 +98,6 @@ namespace other {
     begin_ui_frame_backend_newframe();
     ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
-    ImGuizmo::BeginFrame();
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
   }
 

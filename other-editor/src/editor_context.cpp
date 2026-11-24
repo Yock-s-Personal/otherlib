@@ -9,7 +9,7 @@
 
 namespace other {
 
-  natural_t editor_context::register_viewport(const std::string_view name, const std::string_view render_pipeline_name) {
+  natural_t editor_context::register_viewport(const std::string_view name, const std::string_view title, const std::string_view render_pipeline_name) {
     PROFILE_SECTION("editor_context::register_viewport");
     auto& vp = viewports.emplace_back() = viewport_info{
       .viewport_name = std::format("{}:{}", name, render_pipeline_name),
@@ -17,6 +17,7 @@ namespace other {
     viewport_definition def = {
       .name = std::string(name),
       .render_pipeline_name = std::string(render_pipeline_name),
+      .title = std::string(title),
       .cam = &editor_camera,
     };
 
@@ -26,7 +27,7 @@ namespace other {
     return vp.vp_id;
   }
 
-  natural_t editor_context::register_viewport(const std::string_view name, const std::string_view render_pipeline_name, camera* cam) {
+  natural_t editor_context::register_viewport(const std::string_view name, const std::string_view title, const std::string_view render_pipeline_name, camera* cam) {
     PROFILE_SECTION("editor_context::register_viewport--with_camera");
     auto& vp = viewports.emplace_back() = viewport_info{
       .viewport_name = std::format("{}:{}", name, render_pipeline_name),
@@ -34,6 +35,7 @@ namespace other {
     viewport_definition def = {
       .name = std::string(name),
       .render_pipeline_name = std::string(render_pipeline_name),
+      .title = std::string(title),
       .cam = cam,
     };
 

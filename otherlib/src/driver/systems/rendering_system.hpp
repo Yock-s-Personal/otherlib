@@ -19,6 +19,8 @@ namespace other {
     natural_t id;
     std::string name;
     std::string render_pipeline_name;
+    /// what the view's window is titled. with none it is titled by its name
+    std::string title;
     camera* cam = nullptr;
 
     resource_handle texture;
@@ -71,6 +73,14 @@ namespace other {
     };
 
     ostd::vector<viewport> viewports;
+
+    /// the window's size the pipelines' textures were made at, the size it has been since,
+    ///  and for how many frames it has been that
+    glm::ivec2 pipelines_window_size = { 0, 0 };
+    glm::ivec2 awaited_window_size = { 0, 0 };
+    uint32_t window_size_still_frames = 0;
+
+    void follow_window_size();
 
     scope<renderer> renderer_ptr = nullptr;
     scope<pass_executor_resolver> pass_resolver_ptr = nullptr;

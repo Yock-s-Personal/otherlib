@@ -3,6 +3,8 @@
  **/
 #include "driver/systems/rendering_system.hpp"
 
+#include <chrono>
+
 #include <SDL3/SDL_dialog.h>
 
 #include "file/path_helpers.hpp"
@@ -38,6 +40,8 @@ namespace other {
     render_graph::pass_executor make_voxelize(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_downsample_chain(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_debug_overlay(const pipeline_pass_definition& def, render_pipeline* pl);
+    render_graph::pass_executor make_debug_overlay_blit(const pipeline_pass_definition& def, render_pipeline* pl);
+    render_graph::pass_executor make_debug_overlay_occluded(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_debug_meshes(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_scene_overlay(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_scene_grids(const pipeline_pass_definition& def, render_pipeline* pl);
@@ -151,6 +155,8 @@ namespace other {
     OTHER_ASSERT(kernel->has_core_system<asset_system>(), "Asset system is not available in driver kernel.");
     auto& asset_mgr = sibling<asset_system>(*kernel).get_asset_manager();
 
+    follow_window_size();
+
     render_data* data_ptr = nullptr;
     render_data prepared_data = {};
     if (active_scene != nullptr) {
@@ -179,6 +185,52 @@ namespace other {
 
       renderer_ptr->end_frame();
     }
+  }
+
+  void rendering_system::follow_window_size() {
+    /// a pipeline's textures are made at the window's size. once the window has been
+    ///  another size for this many frames, which is when a drag of its edge has ended,
+    ///  they are made again: making them is too slow to do for each size on the way
+    constexpr uint32_t kStillFrames = 12;
+
+    const glm::ivec2 size = renderer_ptr->get_window_size();
+    /// minimised: there is nothing to draw into
+    if (size.x <= 0 || size.y <= 0) {
+      return;
+    }
+    if (pipelines_window_size.x == 0) {
+      pipelines_window_size = size;
+    }
+    if (size == pipelines_window_size) {
+      window_size_still_frames = 0;
+      return;
+    }
+    if (size != awaited_window_size) {
+      awaited_window_size = size;
+      window_size_still_frames = 0;
+      return;
+    }
+    if (++window_size_still_frames < kStillFrames) {
+      return;
+    }
+
+    PROFILE_SECTION("rendering_system::follow_window_size--remake");
+    const auto begun = std::chrono::steady_clock::now();
+    renderer_ptr->remake_pipelines();
+    for (viewport& vp : viewports) {
+      /// a view's own texture is a copy of its pipeline's last one, and must be its size
+      const opt<resource_handle> output = vp.pipeline->get_final_output_texture();
+      if (!output.has_value()) {
+        CORE_LOG_ERROR("Pipeline '{}' has no screen texture after being made again; view '{}' keeps its old one.", vp.pipeline->get_name(), vp.name);
+        continue;
+      }
+      renderer_ptr->destroy_texture(vp.texture);
+      vp.texture = renderer_ptr->copy_texture(vp.pipeline->get_name(), *output, std::format("viewport-{}", vp.name));
+    }
+    pipelines_window_size = size;
+    window_size_still_frames = 0;
+    const double taken_ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - begun).count();
+    CORE_LOG_INFO("[RENDERING] the window is {}x{} now: the pipelines and {} views were made again at that size in {:.0f} ms", size.x, size.y, viewports.size(), taken_ms);
   }
 
   void rendering_system::open_ui_window(const std::string_view name) {
@@ -273,6 +325,8 @@ namespace other {
     viewports.push_back(viewport{
       .id = id,
       .name = std::string{ name },
+      /// after the hashes is what ImGui keeps the window by, whatever it is titled
+      .label = def.title.empty() ? std::string{ name } : std::format("{}###{}", def.title, name),
       .pipeline = pl,
       .cam = def.cam,
       .texture = viewport_texture,
@@ -500,6 +554,8 @@ namespace other {
     reg.register_executor("voxelize", &detail::make_voxelize);
     reg.register_executor("downsample_chain", &detail::make_downsample_chain);
     reg.register_executor("debug_overlay", &detail::make_debug_overlay);
+    reg.register_executor("debug_overlay_blit", &detail::make_debug_overlay_blit);
+    reg.register_executor("debug_overlay_occluded", &detail::make_debug_overlay_occluded);
     reg.register_executor("debug_meshes", &detail::make_debug_meshes);
     reg.register_executor("scene_overlay", &detail::make_scene_overlay);
     reg.register_executor("scene_grids", &detail::make_scene_grids);
@@ -779,6 +835,35 @@ namespace other {
         ctx.draw_debug_vertices(builtin_debug_streams::kTris, mesh::TRIANGLES);
         ctx.draw_debug_vertices(builtin_debug_streams::kLines, mesh::LINES);
         ctx.draw_debug_vertices(builtin_debug_streams::kPoints, mesh::POINTS);
+      };
+    }
+
+    /// a frame and its depth copied to where the debug overlay is drawn. every pixel is
+    ///  written: a test for "nearer" would leave out the far ones, the sky and whatever
+    ///  is seen through glass, which write no depth of their own
+    render_graph::pass_executor make_debug_overlay_blit(const pipeline_pass_definition& def, render_pipeline* pl) {
+      return [pass = def.name](pass_context& ctx) {
+        auto& api = ctx.get_renderer().rendering()->api();
+        api->set_depth_func(DEPTH_ALWAYS);
+        ctx.draw_quad();
+        api->set_depth_func(DEPTH_LESS);
+      };
+    }
+
+    /// the debug streams that the scene hides: tested against the depth the pass's
+    ///  framebuffer was given, and writing none, so that they blend over one another
+    render_graph::pass_executor make_debug_overlay_occluded(const pipeline_pass_definition& def, render_pipeline* pl) {
+      return [pass = def.name](pass_context& ctx) {
+        auto& api = ctx.get_renderer().rendering()->api();
+        api->set_blending(true);
+        api->set_depth_mask(false);
+
+        ctx.draw_debug_vertices(builtin_debug_occluded_streams::kTris, mesh::TRIANGLES);
+        ctx.draw_debug_vertices(builtin_debug_occluded_streams::kLines, mesh::LINES);
+        ctx.draw_debug_vertices(builtin_debug_occluded_streams::kPoints, mesh::POINTS);
+
+        api->set_depth_mask(true);
+        api->set_blending(false);
       };
     }
 

@@ -19,6 +19,7 @@
 
 #include "services/compile_service.hpp"
 #include "services/edit_stack.hpp"
+#include "services/editor_camera.hpp"
 #include "services/editor_selection.hpp"
 
 namespace other {
@@ -128,6 +129,14 @@ namespace other {
 
     /// the open project as a compile would see it, and the one compile that can run
     compile_service compile;
+
+    /// the camera the editor's own view of the scene is drawn with, set by the driver, and
+    ///  what moves it. null where there is no view, as in a test
+    camera* view_camera = nullptr;
+    editor_camera_controller camera_controller;
+    /// brings what is selected to the middle of the view. false with nothing selected or
+    ///  no view
+    bool focus_view_on_selection();
 
     /// set by the driver: shows the system's folder dialog, which answers folder_was_picked
     ///  from a thread of its own, or not at all when it is cancelled

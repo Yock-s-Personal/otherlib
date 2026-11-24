@@ -302,6 +302,15 @@ namespace other {
     return result;
   }
 
+  bool editor_services::focus_view_on_selection() {
+    PROFILE_SECTION("editor_services::focus_view_on_selection");
+    if (view_camera == nullptr || !has_selection() || current_selection.scene_ptr == nullptr) {
+      return false;
+    }
+    camera_controller.focus(*view_camera, get_selection_bounding_box());
+    return true;
+  }
+
   void editor_services::set_selection(natural_t object_id) {
     current_selection.objects.clear();
     add_to_selection(object_id);

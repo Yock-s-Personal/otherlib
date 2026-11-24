@@ -67,6 +67,7 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/component.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/component-type.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/field-stream.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/frame-stats.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/widgets-inspector.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/renderer/UI/widgets-behaviors.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/transform.cs

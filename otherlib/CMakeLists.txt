@@ -36,6 +36,7 @@ target_sources(otherlib
     src/driver/driver_kernel.cpp
     src/driver/subsystem_registry.cpp
     src/driver/driver.cpp
+    src/driver/frame_statistics.cpp
 
     # src/object/...
 

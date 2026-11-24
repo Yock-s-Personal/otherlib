@@ -1,5 +1,7 @@
 using System.Collections.Generic;
+using System;
 using Other;
+using Other.Core;
 using Other.UI;
 
 /// what the suite asks of the inspector's widgets, drawn with nobody at the mouse. the
@@ -61,6 +63,13 @@ public static class InspectorProbe
     if (Widgets.AddComponentButton("Add Component")) { changed++; }
     if (Widgets.AssetDropTarget() != null) { changed++; }
     return changed;
+  }
+
+  /// the suite has no driver, so there are no frames to say anything about
+  public static int FrameStatsWithNoDriver()
+  {
+    Span<float> history = stackalloc float[FrameStats.kHistory];
+    return FrameStats.FramesPerSecond == 0f && FrameStats.ScriptSecondsPerSecond == 0f && FrameStats.History(history) == 0 ? 1 : 0;
   }
 
   /// the kinds an object has, as an inspector lists them, with what each is called natively

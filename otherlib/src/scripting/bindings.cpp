@@ -445,7 +445,9 @@ namespace other {
       /// Time.
       .bind<bindings::native_time_get_delta_time>("TimeGetDeltaTime")
       .bind<bindings::native_time_get_elapsed_time>("TimeGetElapsedTime")
-      .bind<bindings::native_time_get_frame_count>("TimeGetFrameCount");
+      .bind<bindings::native_time_get_frame_count>("TimeGetFrameCount")
+      .bind<bindings::native_frame_stats_value>("FrameStatsValue")
+      .bind<bindings::native_frame_stats_history>("FrameStatsHistory");
 
     bindings::binding_context{ dn_host }
       /// Driver / Application State.

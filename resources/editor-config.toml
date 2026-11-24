@@ -40,6 +40,12 @@ enable-environment-menu-bar = true
 # colours, spacing and fonts of the UI. a driver that names none looks as ImGui does
 theme = "resources/editor-assets/theme.toml"
 
+[editor]
+# the camera of the Scene View: metres a second while flying, and degrees for each pixel
+#  the pointer goes while looking round
+camera-move-speed = 8.0
+camera-look-sensitivity = 0.25
+
 [scripting]
 init-lua = "resources/editor.lua"
 # runtime config for dotnet host

@@ -67,6 +67,8 @@ namespace other {
     int32_t native_project_get_scene_count();
     const char* native_project_get_starting_scene();
 
+    /// from here to the rebuild request: what only an editor shows about a project. the
+    ///  engine binds none of these; an editor binds them into its own assembly
     nbool32 native_project_has_file_notice();
     const char* native_project_get_file_notice_error();
     int32_t native_project_get_file_notice_part_count();

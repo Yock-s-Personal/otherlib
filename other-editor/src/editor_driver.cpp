@@ -24,8 +24,6 @@
 #include "driver/systems/project_system.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "ui/asset-browser/asset_browser.hpp"
-#include "ui/project-compiler/project_compiler.hpp"
-#include "ui/project-creator/project_creator.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
 #include "ui/viewport/viewport.hpp"
@@ -37,11 +35,21 @@ namespace other {
   void editor_driver::on_system_initialization() {
     PROFILE_SECTION("editor_driver::on_system_initialization");
     bindings::set_editor_services(&context);
+    context.driver_ptr = this;
     context.send_playback_command = [this](const std::string_view command) {
       trigger_event("scene.playback-command", value{ std::string{ command } });
     };
     context.save_scene = [this]() -> bool {
       return save_active_scene();
+    };
+    context.show_folder_dialog = [this]() {
+      /// answered on the dialog's own thread, with nothing when it was cancelled
+      const auto picked = [](void* userdata, const char* const* filelist, int32_t filter) -> void {
+        if (userdata != nullptr && filelist != nullptr && filelist[0] != nullptr) {
+          static_cast<editor_context*>(userdata)->folder_was_picked(filelist[0]);
+        }
+      };
+      get_kernel().get_core_system<rendering_system>().show_open_folder_dialog(picked, &context, 0);
     };
     context.list_scenes = [this](ostd::vector<editor_services::scene_listing>& listed) {
       auto& kernel = get_kernel();
@@ -97,10 +105,8 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_early_initialize");
     auto& ui = get_ui();
     viewport_id = ui->register_window<ui::viewport>("viewport", context, *get_event_system(), get_renderer(), this);
-    ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
-    ui->register_window<ui::project_compiler>("project-compiler", context, *get_event_system(), this);
     ui->register_window<ui::asset_browser>("asset-browser", *get_event_system(), this);
   }
 
@@ -108,20 +114,16 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_initialize");
     CORE_LOG_INFO("Initialized editor driver.");
 
-    get_event_system()->register_event("viewport.clicked");
-    get_event_system()->add_listener("viewport.clicked", [this](const value& data) {
-      OTHER_ASSERT(data.type() == value_type::VEC2, "Expected viewport.clicked event data to be of type VEC2 representing the click position.");
-      glm::vec2 click_position = data;
-      CORE_LOG_INFO("Viewport clicked at position: ({}, {})", click_position.x, click_position.y);
-    });
-
     auto* input_sys = subsystem<input_system>::get();
     OTHER_ASSERT(input_sys != nullptr, "Input system is null");
     input_sys->push_context("editor-controls");
 
     context.editor_camera.position = { 0.f, 1.f, 4.5f };
-    context.editor_camera.sensitivity = 10.f;
     context.editor_camera.look_at({ 0.f, 0.f, 0.f });
+    context.view_camera = &context.editor_camera;
+    context.camera_controller.focus_distance = glm::length(context.editor_camera.position);
+    context.camera_controller.settings.move_speed = get_config_value<float>("editor.camera-move-speed", context.camera_controller.settings.move_speed);
+    context.camera_controller.settings.look_sensitivity = get_config_value<float>("editor.camera-look-sensitivity", context.camera_controller.settings.look_sensitivity);
 
     get_event_system()->add_listener("scene.activated", [this](const value& data) {
       OTHER_ASSERT(data.type() == value_type::UINT64, "Expected scene.activated event data to be of type UINT64 representing the active scene ID.");
@@ -149,35 +151,41 @@ namespace other {
     r.register_draw_stream(builtin_debug_streams::kLines, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 16, .draw_recipe = { "debug_overlay", mesh::LINES, vtx } });
     r.register_draw_stream(builtin_debug_streams::kTris, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 16, .draw_recipe = { "debug_overlay", mesh::TRIANGLES, vtx } });
     r.register_draw_stream(builtin_debug_streams::kPoints, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 14, .draw_recipe = { "debug_overlay", mesh::POINTS, vtx } });
+    r.register_draw_stream(builtin_debug_occluded_streams::kLines, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 16, .draw_recipe = { "debug_overlay", mesh::LINES, vtx } });
+    r.register_draw_stream(builtin_debug_occluded_streams::kTris, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 16, .draw_recipe = { "debug_overlay", mesh::TRIANGLES, vtx } });
+    r.register_draw_stream(builtin_debug_occluded_streams::kPoints, { .element_size = sizeof(debug_vertex), .max_per_frame = 1u << 14, .draw_recipe = { "debug_overlay", mesh::POINTS, vtx } });
     r.register_draw_stream(builtin_debug_streams::kMeshes, { .element_size = sizeof(debug_mesh_instance), .max_per_frame = 4096, .draw_recipe = {} });
     r.register_draw_stream(builtin_debug_streams::kMeshBones, { .element_size = sizeof(glm::mat4), .max_per_frame = kMaxBones * 64, .draw_recipe = {} });
   }
 
   void editor_driver::on_build_driver_input_map(input_map& map) {
     PROFILE_SECTION("editor_driver::on_build_driver_input_map");
+    /// the Scene View's camera flies with these while the right button is held over the
+    ///  view: of move, 0 is to the right and 1 forward. the buttons themselves are read
+    ///  as they are, since which one is held says what a drag does
     auto& ctx = map.add_context("editor-controls", true);
     ctx.add_action("move", action_value_type::AXIS_2D, false)
       // keyboard – each key contributes ±1 to one component
       .bind_key(key_code::W, modifier_flags::NONE, 1.f, 1)
-      .bind_key(key_code::A, modifier_flags::NONE, 1.f, 0)
+      .bind_key(key_code::A, modifier_flags::NONE, -1.f, 0)
       .bind_key(key_code::S, modifier_flags::NONE, -1.f, 1)
-      .bind_key(key_code::D, modifier_flags::NONE, -1.f, 0)
+      .bind_key(key_code::D, modifier_flags::NONE, 1.f, 0)
       // gamepad left stick
-      .bind_gamepad_axis(gamepad_axis::LEFT_STICK_X, 0.5f, -1.f, 0)
+      .bind_gamepad_axis(gamepad_axis::LEFT_STICK_X, 0.5f, 1.f, 0)
       .bind_gamepad_axis(gamepad_axis::LEFT_STICK_Y, 0.5f, -1.f, 1);
 
     ctx.add_action("move_vertical", action_value_type::AXIS_1D)
-      .bind_key(key_code::LEFT_SHIFT, modifier_flags::NONE, 1.f)
-      .bind_key(key_code::LEFT_CTRL, modifier_flags::NONE, -1.f)
+      .bind_key(key_code::E, modifier_flags::NONE, 1.f)
+      .bind_key(key_code::Q, modifier_flags::NONE, -1.f)
       .bind_gamepad_button(gamepad_button::RIGHT_BUMPER, 1.f)
       .bind_gamepad_button(gamepad_button::LEFT_BUMPER, -1.f);
+
+    ctx.add_action("move_fast")
+      .bind_key(key_code::LEFT_SHIFT, modifier_flags::NONE, 1.f);
 
     ctx.add_action("look", action_value_type::AXIS_2D)
       .bind_gamepad_axis(gamepad_axis::RIGHT_STICK_X, 0.5f, 1.f, 0)
       .bind_gamepad_axis(gamepad_axis::RIGHT_STICK_Y, 0.5f, 1.f, 1);
-
-    ctx.add_action("orbit_hold")
-      .bind_mouse_button(mouse_button::MIDDLE);
   }
 
   void editor_driver::on_rendering_pipeline_loaded(natural_t asset_id, render_pipeline* pipeline) {
@@ -193,11 +201,15 @@ namespace other {
       auto* source_pipeline = renderer_ptr.get_pipeline("default-instancing");
       OTHER_ASSERT(source_pipeline != nullptr, "Source pipeline 'default-instancing' not found when setting up editor debug overlay.");
 
-      opt<resource_handle> src_frame = source_pipeline->get_screen_texture();
-      OTHER_ASSERT(src_frame.has_value(), "Source frame texture is not available in the default-instancing pipeline.");
-      renderer_ptr.register_texture_resource(def.name, "frame", src_frame.value());
+      /// the overlay is drawn over the scene's picture and behind what the scene's depth
+      ///  says is nearer. linked and not registered once: the scene pipeline's textures
+      ///  are other textures after the window changes size
+      const std::string& src_frame = source_pipeline->get_definition().display_texture_name;
+      OTHER_ASSERT(!src_frame.empty(), "The default-instancing pipeline names no display texture for the editor's overlay to draw over.");
+      renderer_ptr.link_texture_resource(def.name, "frame", "default-instancing", src_frame);
+      renderer_ptr.link_texture_resource(def.name, "depth", "default-instancing", "scene_depth");
 
-      viewport_id = context.register_viewport("editor-viewport", "editor-debug-rendering");
+      viewport_id = context.register_viewport("editor-viewport", "Scene View", "editor-debug-rendering");
     }
   }
 
@@ -223,6 +235,8 @@ namespace other {
     }
 
     auto draw = get_renderer().debug();
+    /// shapes that stand in the world, and are hidden by what stands in front of them
+    auto in_world = get_renderer().debug_occluded();
 
     if (scene->physics_debug_rendering()) {
       PROFILE_SECTION("editor_driver::on_begin_frame--physics_debug");
@@ -261,9 +275,11 @@ namespace other {
         glm::vec3 world_up = glm::normalize(glm::vec3(world_trans * glm::vec4(local_up, 0)));
         glm::vec3 world_right = glm::normalize(glm::vec3(world_trans * glm::vec4(local_right, 0)));
         glm::vec3 world_forward = glm::normalize(glm::vec3(world_trans * glm::vec4(local_forward, 0)));
-        draw.arrow(glm::vec3(0, 0, 0), world_up, basic_colors::kRed);
-        draw.arrow(glm::vec3(0, 0, 0), world_right, basic_colors::kGreen);
-        draw.arrow(glm::vec3(0, 0, 0), world_forward, basic_colors::kBlue);
+        /// the object's own axes, from where it is
+        const glm::vec3 origin = glm::vec3(world_trans[3]);
+        draw.arrow(origin, origin + world_right, basic_colors::kRed);
+        draw.arrow(origin, origin + world_up, basic_colors::kGreen);
+        draw.arrow(origin, origin + world_forward, basic_colors::kBlue);
 
         /// obj_model.source stays null until the model asset finishes its async load
         if (auto* render = scene->try_get_component<render_component>(obj.id);
@@ -274,7 +290,7 @@ namespace other {
         if (auto* pl_comp = scene->try_get_component<point_light_component>(obj.id);
             pl_comp != nullptr) {
           glm::vec4 world_light_pos = world_trans * glm::vec4(pl_comp->light.position, 1.f);
-          draw.sphere(glm::vec3(world_light_pos), 0.2, pl_comp->light.color, 32);
+          in_world.sphere(glm::vec3(world_light_pos), 0.2, pl_comp->light.color, 32);
         }
 
         if (auto* camera_comp = scene->try_get_component<camera_component>(obj.id);
@@ -289,7 +305,7 @@ namespace other {
           camera_comp->camera.clip = debug_clip;
           glm::mat4 view_proj = camera_comp->camera.get_projection_matrix(glm::ivec2(camera_comp->camera.image_size)) * camera_comp->camera.get_view_matrix();
           camera_comp->camera.clip = save;
-          draw.frustum(glm::inverse(view_proj), basic_colors::kBlue);
+          in_world.frustum(glm::inverse(view_proj), basic_colors::kBlue);
         }
       }
     }
@@ -304,15 +320,16 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_shutdown_request");
     /// a compile reads the project through its mount and links against the VM's devices. the
     ///  project is unloaded next and the VM goes soon after, so the compile is waited for here
-    context.project_compile.wait();
+    context.compile.session.wait();
   }
 
   void editor_driver::on_shutdown() {
     PROFILE_SECTION("editor_driver::on_shutdown");
     /// only a compile started after the shutdown was asked for can still be running
-    context.project_compile.wait();
+    context.compile.session.wait();
     context.remove_all_viewports();
     bindings::set_editor_services(nullptr);
+    context.driver_ptr = nullptr;
   }
 
   void editor_driver::update_running() {
@@ -357,7 +374,7 @@ namespace other {
     auto* s = get_kernel().get_core_system<scene_system>().get_scene(scene_id);
     OTHER_ASSERT(s != nullptr, "Activated scene with ID {} not found in scene system.", scene_id);
 
-    context.scene_viewport_handle = context.register_viewport("scene-viewport", "default-instancing", s->get_primary_camera());
+    context.scene_viewport_handle = context.register_viewport("scene-viewport", "Game View", "default-instancing", s->get_primary_camera());
   }
 
   void editor_driver::on_scene_played(natural_t scene_id) {
@@ -377,37 +394,40 @@ namespace other {
     auto* input_sys = subsystem<input_system>::get();
     OTHER_ASSERT(input_sys != nullptr, "Input system is null");
 
-    auto vp = context.get_viewport(viewport_id);
-    if (vp.cam == nullptr || !vp.hovered) {
+    const viewport& vp = context.get_viewport(viewport_id);
+    if (vp.cam != &context.editor_camera) {
       return;
     }
 
-    const bool is_looking_around = input_sys->is_action_pressed("orbit_hold");
-    if (!is_looking_around) {
-      SDL_SetWindowRelativeMouseMode(subsystem<renderer_backend>::get()->get_main_window(), false);
-      return;
-    }
+    /// degrees a second with a gamepad's stick pushed all the way
+    constexpr float kStickTurnRate = 120.f;
 
-    glm::vec2 move = input_sys->get_action_value_2d("move");
-    glm::vec2 look = input_sys->get_action_value_2d("look");
-    float vertical = input_sys->get_action_value("move_vertical");
+    const float seconds = static_cast<float>(frame_seconds());
+    const glm::vec2 move = input_sys->get_action_value_2d("move");
+    const glm::vec2 look = input_sys->get_action_value_2d("look");
+    const bool alt = (static_cast<uint8_t>(input_sys->get_active_modifiers()) & static_cast<uint8_t>(modifier_flags::ALT)) != 0;
 
-    if (glm::length(move) > 0.01f || glm::abs(vertical) > 0.01f) {
-      float speed = 0.1f;
+    const editor_camera_input in{
+      .over_view = vp.hovered,
+      .look_held = input_sys->is_mouse_down(mouse_button::RIGHT),
+      .pan_held = input_sys->is_mouse_down(mouse_button::MIDDLE),
+      .orbit_held = alt && input_sys->is_mouse_down(mouse_button::LEFT),
+      .pointer_delta = input_sys->current_state().mouse.delta,
+      .turn_degrees = glm::length(look) > 0.01f ? look * kStickTurnRate * seconds : glm::vec2{ 0.f, 0.f },
+      .wheel = input_sys->get_mouse_scroll().y,
+      .move = { move.x, input_sys->get_action_value("move_vertical"), move.y },
+      .fast = input_sys->is_action_pressed("move_fast"),
+      .seconds = seconds,
+      .view_height = static_cast<float>(vp.size.y),
+    };
+    context.camera_controller.update(context.editor_camera, in);
 
-      context.editor_camera.position += context.editor_camera.forward() * move.y * speed;
-      context.editor_camera.position += context.editor_camera.right() * move.x * speed;
-      context.editor_camera.position += context.editor_camera.up() * vertical * speed;
-    }
-
-    if (glm::length(look) > 0.01f) {
-      context.editor_camera.adjust_look_orientation(look.x, look.y);
-    } else if (is_looking_around) {
-      SDL_SetWindowRelativeMouseMode(subsystem<renderer_backend>::get()->get_main_window(), true);
-      glm::vec2 mouse_delta = input_sys->get_mouse_delta();
-      context.editor_camera.adjust_look_orientation(mouse_delta.x * 0.1f, mouse_delta.y * 0.1f);
-    } else {
-      SDL_SetWindowRelativeMouseMode(subsystem<renderer_backend>::get()->get_main_window(), false);
+    /// while looking round the pointer is held where it is and hidden: it would leave the
+    ///  view, and the window, long before a turn is done
+    const bool looking = context.camera_controller.current_drag() == editor_camera_controller::drag::LOOK;
+    if (looking != pointer_held_for_look) {
+      SDL_SetWindowRelativeMouseMode(subsystem<renderer_backend>::get()->get_main_window(), looking);
+      pointer_held_for_look = looking;
     }
   }
 
@@ -511,8 +531,11 @@ namespace other {
     def.name = "debug-overlay";
 
     def.textures.push_back({ .name = "frame", .use_window_size = true, .format = texture::format::RGBA16F });
+    /// frame and depth are the scene pipeline's once they are linked to it. overlay_depth
+    ///  is the overlay's own copy of that depth, which its passes test against
     def.textures.push_back({ .name = "depth", .use_window_size = true, .format = texture::format::DEPTHF });
     def.textures.push_back({ .name = "debug_frame", .use_window_size = true, .format = texture::format::RGBA16F });
+    def.textures.push_back({ .name = "overlay_depth", .use_window_size = true, .format = texture::format::DEPTHF });
     def.buffers.push_back({ .name = "camera_buffer", .type = gpu_buffer::UNIFORM_BUFFER, .usage = gpu_buffer::DYNAMIC, .tag = resource_tag(resource_tag::kCameraTag) });
     def.shaders.push_back({ .name = "blit", .vertex_path = "engine://resources/basic-textured-quad.vert", .fragment_path = "engine://resources/debug-overlay-blit.frag" });
     def.shaders.push_back({ .name = "debug_overlay", .vertex_path = "engine://resources/debug-overlay.vert", .fragment_path = "engine://resources/debug-overlay.frag" });
@@ -528,8 +551,29 @@ namespace other {
       },
       .outputs = {
         { .resource_name = "debug_frame", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
+        { .resource_name = "overlay_depth", .attachment = framebuffer::DEPTH, .access = access_flags::WRITE },
       },
-      .executor = { .name = "fullscreen_quad" },
+      .executor = { .name = "debug_overlay_blit" },
+    };
+    /// what stands in the world: behind whatever the scene has nearer. nothing is cleared,
+    ///  which a pass says by overriding its framebuffer's own clear with none
+    def.passes.emplace_back() = {
+      .name = "overlay-occluded",
+      .shader_name = "debug_overlay",
+      .inputs = {
+        { .resource_name = "camera_buffer", .uniform_name = "OE_camera", .binding = 0 },
+      },
+      .outputs = {
+        { .resource_name = "debug_frame", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
+        { .resource_name = "overlay_depth", .attachment = framebuffer::DEPTH, .access = access_flags::WRITE },
+      },
+      .executor = { .name = "debug_overlay_occluded" },
+      .depends_on = { "overlay-blit" },
+      .bindings = {
+        { .name = "per_frame.camera_buffer", .tag = resource_tag(resource_tag::kCameraTag), .scope = binding_scope::PER_FRAME, .type = binding_type::UNIFORM_BUFFER, .binding = 0 },
+      },
+      .clear_flags = framebuffer::NONE,
+      .override_fb_clear = true,
     };
     def.passes.emplace_back() = {
       .name = "overlay-geometry",
@@ -541,7 +585,7 @@ namespace other {
         { .resource_name = "debug_frame", .attachment = framebuffer::COLOR, .access = access_flags::WRITE },
       },
       .executor = { .name = "debug_overlay" },
-      .depends_on = { "overlay-blit" },
+      .depends_on = { "overlay-occluded" },
       .bindings = {
         { .name = "per_frame.camera_buffer", .tag = resource_tag(resource_tag::kCameraTag), .scope = binding_scope::PER_FRAME, .type = binding_type::UNIFORM_BUFFER, .binding = 0 },
       },

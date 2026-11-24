@@ -44,19 +44,21 @@ metadata = [
 working-directory = "${project-name}"
 
 [scripting]
-projectrc-path = "${project-name}.lua"
+projectrc-path = "${project-name}/${project-name}.lua"
 ${cs-project-line}
 [scene-graph]
 starting-scene = "main"
 scenes = [
-  { name = "main", path = "assets/scenes/main.oscn" }
+  { name = "main", path = "${project-name}/assets/scenes/main.oscn" }
 ]
 graph = [
   { name = "main", incoming = [], outgoing = [] }
 ]
 )__";
 
-      constexpr std::string_view kCsProjectLine = "cs_project = \"${csproj-name}.csproj\"\n";
+      /// a project's paths are written from the folder that holds its folder, as its working
+      ///  directory is: that is where the environment reads them from
+      constexpr std::string_view kCsProjectLine = "cs_project = \"${project-name}/${csproj-name}.csproj\"\n";
 
       constexpr std::string_view kProjectRcTemplate =
         R"__(--- ${project-name} runtime configuration; runs when the environment loads the project
@@ -258,24 +260,46 @@ k = [ 0.0, 0.0, -1.0 ]
       if (project_name.empty()) {
         return tool_result::error(std::format("no project name given\n{}", kCreateUsage));
       }
-      if (!is_valid_project_name(project_name)) {
-        return tool_result::error(
-          std::format("invalid project name '{}' (must start with a letter; letters, digits, '-', '_' only)", project_name));
-      }
 
       filepath base_dir = destination.value_or(ctx.working_directory);
       if (base_dir.is_relative()) {
         base_dir = ctx.working_directory / base_dir;
       }
-      base_dir = base_dir.lexically_normal();
 
-      const filepath project_dir = base_dir / project_name;
-      if (std::filesystem::exists(project_dir)) {
-        return tool_result::error(std::format("'{}' already exists", project_dir.string()));
+      const new_project_result made = create_project({ .name = project_name, .directory = base_dir, .author = author, .description = description }, ctx.env);
+      if (made.error.has_value()) {
+        return tool_result::error(*made.error);
+      }
+      for (const filepath& file : made.created) {
+        ctx.print("  created {}", file.string());
+      }
+      if (!made.with_cs_project) {
+        ctx.print("  note: no Other Environment found, skipped the C# script project");
+        ctx.print("        (set OTHER_ENVIRONMENT_ROOT or pass --env-root, then re-create to wire scripts)");
+      }
+      return tool_result::ok(std::format("created project '{}'\nopen it with: oecli open \"{}\"", project_name, made.project_file.string()));
+    }
+
+    new_project_result create_project(const new_project& request, const environment_paths& env) {
+      PROFILE_SECTION("cli::create_project");
+      const std::string& project_name = request.name;
+      if (!is_valid_project_name(project_name)) {
+        return { .error = std::format("invalid project name '{}' (must start with a letter; letters, digits, '-', '_' only)", project_name) };
+      }
+      if (request.directory.empty()) {
+        return { .error = "no folder was given to make the project in" };
       }
 
-      const bool with_cs_project = ctx.env.found;
+      const filepath base_dir = request.directory.lexically_normal();
+      const filepath project_dir = base_dir / project_name;
+      if (std::filesystem::exists(project_dir)) {
+        return { .error = std::format("'{}' already exists", project_dir.string()) };
+      }
+
+      const bool with_cs_project = env.found;
       const std::string csproj_name = pascal_case(project_name);
+      const std::string& description = request.description;
+      const std::string& author = request.author;
 
       template_variables variables = {
         { "cs-project-line", with_cs_project ? std::string{ kCsProjectLine } : std::string{} },
@@ -283,8 +307,8 @@ k = [ 0.0, 0.0, -1.0 ]
         { "project-description", escape_toml_string(description) },
         { "project-author", escape_toml_string(author) },
         { "csproj-name", csproj_name },
-        { "othercs-debug", othercs_hint_path(project_dir, ctx.env.othercs_assembly("Debug")) },
-        { "othercs-release", othercs_hint_path(project_dir, ctx.env.othercs_assembly("Release")) },
+        { "othercs-debug", othercs_hint_path(project_dir, env.othercs_assembly("Debug")) },
+        { "othercs-release", othercs_hint_path(project_dir, env.othercs_assembly("Release")) },
       };
 
       struct generated_file {
@@ -302,10 +326,10 @@ k = [ 0.0, 0.0, -1.0 ]
 
       /// the project directory did not exist before this call, so on any failure the
       ///  half-created tree is removed wholesale
-      auto fail_and_cleanup = [&project_dir](std::string error) {
+      auto fail_and_cleanup = [&project_dir](std::string error) -> new_project_result {
         std::error_code ec;
         std::filesystem::remove_all(project_dir, ec);
-        return tool_result::error(std::move(error));
+        return { .error = std::move(error) };
       };
 
       std::error_code ec;
@@ -316,21 +340,15 @@ k = [ 0.0, 0.0, -1.0 ]
         }
       }
 
+      new_project_result made = { .project_file = files[0].path, .with_cs_project = with_cs_project };
       for (const generated_file& file : files) {
         std::string error = "";
         if (!write_text_file(file.path, file.contents, error)) {
           return fail_and_cleanup(std::move(error));
         }
-        ctx.print("  created {}", file.path.string());
+        made.created.push_back(file.path);
       }
-
-      if (!with_cs_project) {
-        ctx.print("  note: no Other Environment found, skipped the C# script project");
-        ctx.print("        (set OTHER_ENVIRONMENT_ROOT or pass --env-root, then re-create to wire scripts)");
-      }
-
-      const filepath project_file = files[0].path;
-      return tool_result::ok(std::format("created project '{}'\nopen it with: oecli open \"{}\"", project_name, project_file.string()));
+      return made;
     }
 
   }  // namespace cli

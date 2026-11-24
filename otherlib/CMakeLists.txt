@@ -36,6 +36,7 @@ target_sources(otherlib
     src/driver/driver_kernel.cpp
     src/driver/subsystem_registry.cpp
     src/driver/driver.cpp
+    src/driver/frame_statistics.cpp
 
     # src/object/...
 
@@ -151,8 +152,8 @@ target_sources(otherlib
     src/ui/menu-bar/menu.cpp
     src/ui/menu-bar/menu_bar.cpp
     src/ui/asset_picker.cpp
-    src/ui/component_widget_registry.cpp
     src/ui/field_editor_registry.cpp
+    src/ui/folder_dialog.cpp
     src/ui/inspector_widgets.cpp
     src/ui/ui_widgets.cpp
     src/ui/type_database.cpp

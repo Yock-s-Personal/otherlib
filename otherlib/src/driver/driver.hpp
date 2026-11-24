@@ -4,6 +4,8 @@
 #ifndef OTHERLIB_DRIVER_DRIVER_HPP
 #define OTHERLIB_DRIVER_DRIVER_HPP
 
+#include <chrono>
+
 #include <asio/asio.hpp>
 #include <asio/asio/signal_set.hpp>
 #include <nlohmann/json.hpp>
@@ -30,6 +32,7 @@
 #include "driver/driver_state_machine.hpp"
 #include "driver/driver_system.hpp"
 #include "driver/driver_tasks.hpp"
+#include "driver/frame_statistics.hpp"
 #include "driver/subsystem_registry.hpp"
 #include "driver/systems/asset_system.hpp"
 #include "driver/systems/event_driver_system.hpp"
@@ -125,6 +128,15 @@ namespace other {
     bool project_loaded() const;
 
     scene* get_active_scene();
+
+    /// what the loop did over its last frames, for whoever shows or writes it down
+    const frame_statistics& get_frame_statistics() const { return statistics; }
+    /// how long the frame being run is taken to be, in seconds: what every system is
+    ///  ticked with, and what a script is told
+    double frame_seconds() const { return last_frame_seconds; }
+    /// the frames' lengths added up since the loop began, and how many there were
+    double elapsed_seconds() const { return elapsed; }
+    uint64_t frame_number() const { return statistics.frame_count(); }
     renderer& get_renderer();
     asset* get_asset(natural_t asset_id);
 
@@ -332,6 +344,17 @@ namespace other {
     scope<driver_kernel> driver_kernel_ptr = nullptr;
 
     delta_time frame_delta_time;
+    double last_frame_seconds = 0.0;
+    double elapsed = 0.0;
+
+    frame_statistics statistics;
+    /// the scene whose fixed steps were last counted, and how many it had taken then
+    natural_t counted_scene = 0;
+    uint64_t counted_fixed_steps = 0;
+    uint32_t summaries_since_logged = 0;
+
+    using loop_time = std::chrono::steady_clock::time_point;
+    void record_frame(loop_time begun, loop_time updated, loop_time rendered, loop_time ended, bool write_down);
 
     driver_state_machine state_machine;
     mode current_mode = CORE;

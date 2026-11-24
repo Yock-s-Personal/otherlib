@@ -27,7 +27,7 @@ namespace Other.Editor
     {
       if (!Project.IsOpen)
       {
-        UIBindings.TextDisabled("No project is open.");
+        UIWidgets.TextDisabled("No project is open.");
         return;
       }
 
@@ -58,7 +58,7 @@ namespace Other.Editor
 
     private void RenderMetadata()
     {
-      UIBindings.SeparatorText("Project");
+      UIWidgets.SeparatorText("Project");
       Widgets.PropertyDisplay("Name", Project.Name);
       Widgets.PropertyDisplay("Version", Project.Version);
       Widgets.PropertyDisplay("Author", Project.Author);
@@ -81,29 +81,29 @@ namespace Other.Editor
       }
 
       /// the file changed on disk and the open project could not take all of it
-      if (!Project.HasFileNotice)
+      if (!ProjectFile.HasNotice)
       {
         return;
       }
-      UIBindings.PushStyleColor(StyleColor.Text, kErrorRed);
-      UIBindings.TextWrapped(notice_text);
-      UIBindings.PopStyleColor();
+      UIWidgets.PushStyleColor(StyleColor.Text, kErrorRed);
+      UIWidgets.TextWrapped(notice_text);
+      UIWidgets.PopStyleColor();
     }
 
     private void RenderScripts()
     {
-      UIBindings.SeparatorText("C# Scripts");
+      UIWidgets.SeparatorText("C# Scripts");
 
-      ScriptFailure? failure = Project.Scripts.Failure;
-      string csproj = Project.Scripts.ProjectPath;
+      ScriptFailure? failure = ProjectScripts.Failure;
+      string csproj = ProjectScripts.ProjectPath;
       if (csproj.Length == 0 && failure == null)
       {
-        UIBindings.TextDisabled("This project has no C# project.");
+        UIWidgets.TextDisabled("This project has no C# project.");
         return;
       }
 
-      bool building = Project.Scripts.Building;
-      bool mounted = Project.Scripts.Loaded;
+      bool building = ProjectScripts.Building;
+      bool mounted = ProjectScripts.Loaded;
       Widgets.PropertyDisplay("Project", csproj);
 
       if (building)
@@ -129,45 +129,45 @@ namespace Other.Editor
       }
 
       bool can_rebuild = !building && Project.State == ProjectState.Loaded && (failure == null || failure.CanRetry);
-      UIBindings.BeginDisabled(!can_rebuild);
-      if (UIBindings.Button(failure != null ? "Retry build" : "Rebuild"))
+      UIWidgets.BeginDisabled(!can_rebuild);
+      if (UIWidgets.Button(failure != null ? "Retry build" : "Rebuild"))
       {
-        Project.Scripts.RequestRebuild();
+        ProjectScripts.RequestRebuild();
       }
-      UIBindings.EndDisabled();
+      UIWidgets.EndDisabled();
 
       if (failure == null)
       {
         return;
       }
 
-      UIBindings.PushStyleColor(StyleColor.Text, kErrorRed);
-      UIBindings.TextWrapped(failure.Reason);
-      UIBindings.PopStyleColor();
+      UIWidgets.PushStyleColor(StyleColor.Text, kErrorRed);
+      UIWidgets.TextWrapped(failure.Reason);
+      UIWidgets.PopStyleColor();
       if (!failure.CanRetry)
       {
-        UIBindings.TextWrapped("Restore the file and reopen the project.");
+        UIWidgets.TextWrapped("Restore the file and reopen the project.");
         return;
       }
 
       if (detail_lines.Count == 0)
       {
-        UIBindings.TextDisabled("Nothing more was captured. The editor log has the full output.");
+        UIWidgets.TextDisabled("Nothing more was captured. The editor log has the full output.");
         return;
       }
 
-      if (UIBindings.SmallButton("Copy"))
+      if (UIWidgets.SmallButton("Copy"))
       {
-        UIBindings.ClipboardText = failure.Details;
+        UIWidgets.ClipboardText = failure.Details;
       }
-      if (UIBindings.BeginChild("##script-failure-details", 0f, kDetailListHeight, kDetailListFlags))
+      if (UIWidgets.BeginChild("##script-failure-details", 0f, kDetailListHeight, kDetailListFlags))
       {
         foreach (string line in detail_lines)
         {
-          UIBindings.TextWrapped(line);
+          UIWidgets.TextWrapped(line);
         }
       }
-      UIBindings.EndChild();
+      UIWidgets.EndChild();
     }
 
     private void RenderLoadErrors()
@@ -177,11 +177,11 @@ namespace Other.Editor
         return;
       }
 
-      UIBindings.SeparatorText("Load Errors");
+      UIWidgets.SeparatorText("Load Errors");
       foreach (string line in load_error_lines)
       {
-        UIBindings.Bullet();
-        UIBindings.TextWrapped(line);
+        UIWidgets.Bullet();
+        UIWidgets.TextWrapped(line);
       }
     }
 
@@ -190,11 +190,11 @@ namespace Other.Editor
       scenes_text = Project.SceneCount.ToString();
 
       notice_text = "";
-      if (Project.HasFileNotice)
+      if (ProjectFile.HasNotice)
       {
-        notice_text = Project.FileNoticeError.Length > 0
-          ? $"The project file changed on disk and was not read: {Project.FileNoticeError}"
-          : $"The project file changed on disk. Open the project again to apply: {string.Join(", ", Project.FileNoticeNeedsReopen)}.";
+        notice_text = ProjectFile.NoticeError.Length > 0
+          ? $"The project file changed on disk and was not read: {ProjectFile.NoticeError}"
+          : $"The project file changed on disk. Open the project again to apply: {string.Join(", ", ProjectFile.NoticeNeedsReopen)}.";
       }
 
       load_error_lines.Clear();
@@ -204,7 +204,7 @@ namespace Other.Editor
       }
 
       detail_lines.Clear();
-      ScriptFailure? failure = Project.Scripts.Failure;
+      ScriptFailure? failure = ProjectScripts.Failure;
       if (failure == null)
       {
         return;

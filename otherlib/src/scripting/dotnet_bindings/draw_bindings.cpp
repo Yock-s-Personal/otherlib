@@ -19,50 +19,55 @@
 namespace other {
   namespace detail {
 
-    static debug_draw get_draw_sink(nbool32 in_scene) {
+    /// DrawTarget in C#
+    constexpr uint32_t kDrawTargetScene = 0;
+    constexpr uint32_t kDrawTargetDebugOccluded = 2;
+
+    static debug_draw get_draw_sink(uint32_t target) {
       driver* drvr = detail::get_dotnet_native_driver();
       OTHER_ASSERT(drvr != nullptr, "Driver pointer is null in draw binding.");
       renderer& r = drvr->get_renderer();
-      if (in_scene) {
+      if (target == kDrawTargetScene) {
         return r.scene_overlay();
       }
       /// drivers without a debug view never register the debug streams, drop those draws quietly
-      if (r.get_stream_registry().find(builtin_debug_streams::kLines) == nullptr) {
+      const bool occluded = target == kDrawTargetDebugOccluded;
+      if (r.get_stream_registry().find(occluded ? builtin_debug_occluded_streams::kLines : builtin_debug_streams::kLines) == nullptr) {
         return debug_draw{ nullptr };
       }
-      return r.debug();
+      return occluded ? r.debug_occluded() : r.debug();
     }
 
   }  // namespace detail
   namespace bindings {
 
-    void native_draw_line(float ax, float ay, float az, float bx, float by, float bz, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_line(float ax, float ay, float az, float bx, float by, float bz, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.line({ ax, ay, az }, { bx, by, bz }, { r, g, b, a });
     }
 
-    void native_draw_triangle(float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_triangle(float ax, float ay, float az, float bx, float by, float bz, float cx, float cy, float cz, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.triangle({ ax, ay, az }, { bx, by, bz }, { cx, cy, cz }, { r, g, b, a });
     }
 
-    void native_draw_point(float px, float py, float pz, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_point(float px, float py, float pz, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.point({ px, py, pz }, { r, g, b, a });
     }
 
-    void native_draw_ray(float ox, float oy, float oz, float dx, float dy, float dz, float len, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_ray(float ox, float oy, float oz, float dx, float dy, float dz, float len, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.ray({ ox, oy, oz }, { dx, dy, dz }, len, { r, g, b, a });
     }
 
-    void native_draw_arrow(float ax, float ay, float az, float bx, float by, float bz, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_arrow(float ax, float ay, float az, float bx, float by, float bz, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.arrow({ ax, ay, az }, { bx, by, bz }, { r, g, b, a });
     }
 
-    void native_draw_aabb(float min_x, float min_y, float min_z, float max_x, float max_y, float max_z, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_aabb(float min_x, float min_y, float min_z, float max_x, float max_y, float max_z, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.aabb({ min_x, min_y, min_z }, { max_x, max_y, max_z }, { r, g, b, a });
     }
 
@@ -71,8 +76,8 @@ namespace other {
                          float m20, float m21, float m22, float m23,
                          float m30, float m31, float m32, float m33,
                          float r, float g, float b, float a,
-                         nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+                         uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       glm::mat4 xform{ { m00, m01, m02, m03 },
                        { m10, m11, m12, m13 },
                        { m20, m21, m22, m23 },
@@ -80,8 +85,8 @@ namespace other {
       draw.obb(xform, { r, g, b, a });
     }
 
-    void native_draw_sphere(float cx, float cy, float cz, float radius, float r, float g, float b, float a, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+    void native_draw_sphere(float cx, float cy, float cz, float radius, float r, float g, float b, float a, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       draw.sphere({ cx, cy, cz }, radius, { r, g, b, a });
     }
 
@@ -90,8 +95,8 @@ namespace other {
                              float m20, float m21, float m22, float m23,
                              float m30, float m31, float m32, float m33,
                              float r, float g, float b, float a,
-                             nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+                             uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       glm::mat4 inv_view_proj{ { m00, m01, m02, m03 },
                                { m10, m11, m12, m13 },
                                { m20, m21, m22, m23 },
@@ -103,8 +108,8 @@ namespace other {
                                float m10, float m11, float m12, float m13,
                                float m20, float m21, float m22, float m23,
                                float m30, float m31, float m32, float m33,
-                               float scale, nbool32 in_scene) {
-      debug_draw draw = detail::get_draw_sink(in_scene);
+                               float scale, uint32_t target) {
+      debug_draw draw = detail::get_draw_sink(target);
       glm::mat4 xform{ { m00, m01, m02, m03 },
                        { m10, m11, m12, m13 },
                        { m20, m21, m22, m23 },
@@ -117,7 +122,7 @@ namespace other {
                           float m20, float m21, float m22, float m23,
                           float m30, float m31, float m32, float m33,
                           float r, float g, float b, float a,
-                          nbool32 wireframe, nbool32 in_scene) {
+                          nbool32 wireframe, uint32_t target) {
       PROFILE_SECTION("native_draw_mesh");
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene->has_object(object_id), "Draw.Mesh: object {} does not exist in the active scene.", object_id);
@@ -128,7 +133,7 @@ namespace other {
         return;
       }
 
-      debug_draw draw = detail::get_draw_sink(in_scene);
+      debug_draw draw = detail::get_draw_sink(target);
       glm::mat4 model{ { m00, m01, m02, m03 },
                        { m10, m11, m12, m13 },
                        { m20, m21, m22, m23 },
@@ -136,7 +141,7 @@ namespace other {
       draw.mesh(rc->obj_model.source->get_mesh_handle(), model, { r, g, b, a }, wireframe, rc->obj_model.bone_matrices);
     }
 
-    void native_draw_grid(uint64_t object_id, nbool32 in_scene) {
+    void native_draw_grid(uint64_t object_id, uint32_t target) {
       PROFILE_SECTION("native_draw_grid");
       scene* active_scene = detail::get_active_scene_checked();
       OTHER_ASSERT(active_scene->has_object(object_id), "Draw.Grid: object {} does not exist in the active scene.", object_id);
@@ -155,7 +160,7 @@ namespace other {
       renderer& r = drvr->get_renderer();
 
       /// spherical grids have no procedural pass yet, their line shell rides the overlay streams
-      if (in_scene && grid->coordinate_system != GRID_COORDINATES_SPHERICAL) {
+      if (target == detail::kDrawTargetScene && grid->coordinate_system != GRID_COORDINATES_SPHERICAL) {
         /// cylindrical grids stack one procedural plane per layer
         const uint32_t layer_count = grid_draw_layer_count(*grid);
         for (uint32_t layer = 0; layer < layer_count; ++layer) {
@@ -163,13 +168,13 @@ namespace other {
         }
         if (grid->coordinate_system == GRID_COORDINATES_CYLINDRICAL) {
           /// the quads cannot draw the verticals between layers, those ride the scene line stream
-          debug_draw draw = detail::get_draw_sink(in_scene);
+          debug_draw draw = detail::get_draw_sink(target);
           emit_grid_shell_lines(draw, *grid, world);
         }
         return;
       }
 
-      debug_draw draw = detail::get_draw_sink(in_scene);
+      debug_draw draw = detail::get_draw_sink(target);
       emit_grid_lines(draw, *grid, world);
     }
 

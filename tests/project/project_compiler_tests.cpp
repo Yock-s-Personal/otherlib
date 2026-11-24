@@ -350,6 +350,8 @@ namespace other {
     const std::string config = read(package / "Sandbox Game.toml");
     EXPECT_TRUE(config.contains("core-log-level = \"debug\""));
     EXPECT_TRUE(config.contains("vm-debug-mode = false"));
+    /// a Debug package has the engine's console, opened by its key
+    EXPECT_TRUE(config.contains("[ui]\nenable = true\nconsole-key = true\n"));
     /// said every time, since it is the first thing that goes wrong on another machine
     EXPECT_TRUE(any_holds(report.warnings, "needs the debug C runtime"));
 
@@ -357,6 +359,29 @@ namespace other {
     ASSERT_TRUE(compile(settings()).success);
     EXPECT_TRUE(std::filesystem::exists(package / "Sandbox Game.exe"));
     EXPECT_TRUE(std::filesystem::exists(output / "Sandbox Game" / "Sandbox Game.exe"));
+    /// which draws no UI at all
+    const std::string release_config = read(output / "Sandbox Game" / "Sandbox Game.toml");
+    EXPECT_TRUE(release_config.contains("[ui]\nenable = false\n"));
+    EXPECT_FALSE(release_config.contains("console-key"));
+  }
+
+  TEST_F(project_compiler_tests, a_project_says_whether_its_package_has_the_console) {
+    /// a Release package with it, a Debug package without
+    write("game/game.toml", std::format("{}\n[package]\nconsole = true\n", kProject));
+    ASSERT_TRUE(compile(settings()).success);
+    EXPECT_TRUE(read(output / "Sandbox Game" / "Sandbox Game.toml").contains("[ui]\nenable = true\nconsole-key = true\n"));
+
+    write("game/game.toml", std::format("{}\n[package]\nconsole = false\n", kProject));
+    ASSERT_TRUE(compile(settings(package_config::DEBUG)).success);
+    const std::string config = read(output / "Sandbox Game-debug" / "Sandbox Game.toml");
+    EXPECT_TRUE(config.contains("[ui]\nenable = false\n"));
+    EXPECT_FALSE(config.contains("console-key"));
+
+    /// and it is true or false, nothing else
+    write("game/game.toml", std::format("{}\n[package]\nconsole = \"yes\"\n", kProject));
+    const compile_report report = compile(settings());
+    EXPECT_FALSE(report.success);
+    EXPECT_TRUE(any_holds(report.errors, "[package] console is true or false"));
   }
 
   TEST_F(project_compiler_tests, the_public_name_is_the_callers_then_the_projects_then_its_metadata_then_its_folder) {

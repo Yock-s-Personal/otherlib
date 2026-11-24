@@ -18,7 +18,7 @@ namespace Other.Editor
 
     internal static void Draw()
     {
-      if (!Shown || !UIBindings.BeginMainMenuBar())
+      if (!Shown || !UIWidgets.BeginMainMenuBar())
       {
         return;
       }
@@ -28,39 +28,39 @@ namespace Other.Editor
       stop ??= Commands.Find("playback.stop");
 
       /// the bar puts its items one text line down from its top: as much is left under them
-      Vec2 at = UIBindings.CursorPos;
-      Vec2 bar = UIBindings.GetWindowSize();
+      Vec2 at = UIWidgets.CursorPos;
+      Vec2 bar = UIWidgets.GetWindowSize();
       float side = bar.Y - at.Y * 2f;
       if (side > 4f && play != null && pause != null && stop != null)
       {
         PlaybackState state = Playback.State;
         float width = side * 1.5f;
-        UIBindings.CursorPos = new Vec2((bar.X - width * 3f - kGap * 2f) * 0.5f, at.Y);
+        UIWidgets.CursorPos = new Vec2((bar.X - width * 3f - kGap * 2f) * 0.5f, at.Y);
         Button(0, play, width, side, state == PlaybackState.Playing, "core.success");
-        UIBindings.SameLine(0f, kGap);
+        UIWidgets.SameLine(0f, kGap);
         Button(1, pause, width, side, state == PlaybackState.Paused, "core.warning");
-        UIBindings.SameLine(0f, kGap);
+        UIWidgets.SameLine(0f, kGap);
         Button(2, stop, width, side, false, "core.text");
       }
-      UIBindings.EndMainMenuBar();
+      UIWidgets.EndMainMenuBar();
     }
 
     private static void Button(int which, Command command, float width, float height, bool lit, string lit_color)
     {
       bool enabled = command.Enabled;
-      UIBindings.PushID(which);
-      UIBindings.BeginDisabled(!enabled && !lit);
-      bool clicked = UIBindings.InvisibleButton("##playback", width, height);
-      bool hovered = UIBindings.IsItemHovered();
-      UIBindings.EndDisabled();
-      UIBindings.PopID();
+      UIWidgets.PushID(which);
+      UIWidgets.BeginDisabled(!enabled && !lit);
+      bool clicked = UIWidgets.InvisibleButton("##playback", width, height);
+      bool hovered = UIWidgets.IsItemHovered();
+      UIWidgets.EndDisabled();
+      UIWidgets.PopID();
 
-      Vec2 min = UIBindings.ItemRectMin;
-      Vec2 max = UIBindings.ItemRectMax;
+      Vec2 min = UIWidgets.ItemRectMin;
+      Vec2 max = UIWidgets.ItemRectMax;
       if (hovered && enabled)
       {
         DrawList.RectFilled(min, max, Theme.Color("core.button_hover"), 3f);
-        UIBindings.SetTooltip(command.Label);
+        UIWidgets.SetTooltip(command.Label);
       }
 
       Vec4 color = Theme.Color(lit ? lit_color : enabled ? "core.text" : "core.text_disabled");

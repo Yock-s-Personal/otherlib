@@ -8,7 +8,6 @@
 #include <functional>
 #include <string>
 
-#include "ui/component_widget_registry.hpp"
 #include "ui/menu-bar/menu_bar.hpp"
 #include "ui/ui_window.hpp"
 #include "ui/window_registry.hpp"
@@ -63,11 +62,6 @@ namespace other {
     void unregister_window(natural_t id);
     void unregister_window(const std::string_view name);
 
-    inline ui::component_widget_registry& get_component_widget_registry() {
-      OTHER_ASSERT(component_reg != nullptr, "Component widget registry is not initialized in driver UI.");
-      return *component_reg;
-    }
-
    private:
     struct main_menu_bar_menu {
       natural_t hash;
@@ -75,14 +69,15 @@ namespace other {
     };
 
     bool main_menu_bar_open = false;
+    /// the key under Esc opens and shuts the console (ui.console-key): how a packaged game
+    ///  with no menu bar reaches it
+    bool console_key = false;
     driver* driver_ptr = nullptr;
     ui::window_registry windows;
 
     ui::menu_bar main_menu_bar;
     ostd::vector<main_menu_bar_menu> main_menu_bar_menus;
     natural_t last_menu_item_id = 0;
-
-    scope<ui::component_widget_registry> component_reg = nullptr;
 
     event_system& events();
 

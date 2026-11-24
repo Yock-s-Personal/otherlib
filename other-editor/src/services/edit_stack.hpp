@@ -24,8 +24,6 @@ namespace other {
 
   class edit_stack {
    public:
-    /// applies the edit immediately, then records it
-    void commit(const edit& e);
     /// records an edit whose mutation ALREADY happened (widget writes, snapshot pairs);
     ///  apply only runs on redo
     void record(const edit& e);

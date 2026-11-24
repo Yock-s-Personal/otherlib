@@ -42,20 +42,14 @@ namespace other {
     ///  it has no file, or the write failed; the log says which
     bool save_active_scene();
 
-    struct mouse_state {
-      glm::vec2 position = { 0, 0 };
-      glm::vec2 delta = { 0, 0 };
-    };
-
    private:
     editor_context context;
     natural_t viewport_id = 0;
     /// OtherEditor.dll is loaded and every function of the editor's is bound to it
     bool editor_api_bound = false;
 
-    mouse_state mouse;
-    bool pressing_mouse_wheel = false;
-    bool move_toggled_on = false;
+    /// the pointer is in relative mode because the camera is being looked round with
+    bool pointer_held_for_look = false;
 
     void update_input();
 

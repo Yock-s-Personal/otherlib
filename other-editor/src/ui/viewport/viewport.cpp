@@ -3,16 +3,13 @@
  **/
 #include "ui/viewport/viewport.hpp"
 
-#include <glm/gtc/type_ptr.hpp>
 #include <imgui/imgui.h>
-#include <imguizmo/ImGuizmo.h>
 
 #include "core/profiler.hpp"
 
 #include "renderer/render_pipeline.hpp"
 
 #include "theme/colors.hpp"
-#include "ui/asset-browser/asset_browser_widgets.hpp"
 #include "ui/ui_node.hpp"
 
 #include "editor_driver.hpp"
@@ -32,78 +29,46 @@ namespace other {
       }
     }
 
-    // void viewport::on_render_header() {
-    //   ui::menu options_menu = {
-    //     "Options"
-    //   };
-    //   ui::menu view_menu = {
-    //     "View"
-    //   };
-    //   ui::menu tools_menu = {
-    //     "Tools"
-    //   };
-    //   ui::menu help_menu = {
-    //     "Help"
-    //   };
-    // }
-
     void viewport::draw_viewport(other::viewport& vp) {
       PROFILE_SECTION("viewport::draw_viewport");
       auto& kernel = get_driver().get_kernel();
       auto& rendering_sys = kernel.get_core_system<rendering_system>();
 
-      const bool begin = ImGui::Begin(vp.name.c_str(), nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+      const bool begin = ImGui::Begin(vp.label.c_str(), nullptr, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+      /// folded, or a tab behind another: the scene is not drawn for it until it shows again
+      vp.visible = begin;
+      vp.hovered = false;
       if (!begin) {
         ImGui::End();
         return;
       }
 
-      // const bool begin_scene_asset_drop = ImGui::BeginDragDropTarget();
-      // if (begin_scene_asset_drop) {
-      //   if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload(asset_browser_w::kDragDropPayloadType)) {
-      //     using data_t = asset_browser_w::asset_drag_drop_payload;
-      //     data_t payload_data = *reinterpret_cast<const data_t*>(payload->Data);
-      //     CORE_LOG_WARN("Dropped asset with ID: {} and type: {}", payload_data.handler_asset_id, payload_data.asset_type);
-      //   }
-      //   ImGui::EndDragDropTarget();
-      // }
-
-      auto size = ImGui::GetContentRegionAvail();
+      const ImVec2 size = ImGui::GetContentRegionAvail();
+      const ImVec2 position = ImGui::GetCursorScreenPos();
       vp.size = glm::ivec2(size.x, size.y);
-      vp.hovered = ImGui::IsWindowHovered();
+      vp.screen_position = { position.x, position.y };
 
       ImTextureID tex_id = rendering_sys.get_texture_id(vp.texture);
       if (tex_id == 0) {
         scoped_color error_color{ ImGuiCol_Text, colors::rgba_to_imvec4(colors::kFriendlyErrorRed) };
         ImGui::Text("Requested viewport texture %s does not exist.", vp.name.c_str());
         tex_id = renderer_instance.get_texture_id("default-instancing", "smaa_texture");
-        if (tex_id == 0) {
-          ImGui::Text("No fallback texture available.");
-          return;
-        }
       }
 
-      if (vp.cam == nullptr) {
+      if (tex_id == 0) {
+        scoped_color error_color{ ImGuiCol_Text, colors::rgba_to_imvec4(colors::kFriendlyErrorRed) };
+        ImGui::Text("No fallback texture available.");
+      } else if (vp.cam == nullptr) {
         scoped_color error_color{ ImGuiCol_Text, colors::rgba_to_imvec4(colors::kFriendlyErrorRed) };
         ImGui::Text("Viewport '%s' has no camera assigned.", vp.name.c_str());
-      } else {
+      } else if (size.x >= 1.f && size.y >= 1.f) {
         ImGui::Image(tex_id, size, ImVec2{ 0, 1 }, ImVec2{ 1, 0 });
 
-        // const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
-        // glm::vec2 click_pos = { 0, 0 };
-        // if (clicked) {
-        //   ImVec2 local_viewport_mouse_pos = ImGui::GetMousePos();
-        //   local_viewport_mouse_pos.x -= ImGui::GetItemRectMin().x;
-        //   local_viewport_mouse_pos.y -= ImGui::GetItemRectMin().y;
-        //   click_pos = { local_viewport_mouse_pos.x, local_viewport_mouse_pos.y };
-
-        //   // then adjust so (0,0) is at the center of the viewport and y is flipped
-        //   click_pos.x -= size.x / 2.0f;
-        //   click_pos.y = size.y - click_pos.y - size.y / 2.0f;
-
-        //   // has to go to the right place
-        //   // get_event_system().trigger_event("viewport.clicked", click_pos);
-        // }
+        /// a button over the picture takes the presses on it: without one a drag on the
+        ///  picture is a drag of the window, which moves it or pulls it out of its dock
+        ImGui::SetCursorScreenPos(position);
+        ImGui::InvisibleButton("##picture", size, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight | ImGuiButtonFlags_MouseButtonMiddle);
+        vp.hovered = ImGui::IsItemHovered();
       }
 
       ImGui::End();

@@ -415,6 +415,7 @@ namespace other {
       return;
     }
     PROFILE_SECTION("scene::fixed_update");
+    ++fixed_steps;
 
     if (storage->physics != nullptr) {
       push_kinematic_targets(delta_time);             /// entity transform -> kinematic sweep target

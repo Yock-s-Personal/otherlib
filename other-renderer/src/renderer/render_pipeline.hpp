@@ -118,7 +118,10 @@ namespace other {
 
     ostd::map<natural_t, named_resource> buffer_resources;   /// keyed by FNV(name)
     ostd::map<natural_t, named_resource> texture_resources;  /// keyed by FNV(name)
-    ostd::map<natural_t, resource_handle> shader_handles;    /// keyed by shader def name
+    /// the textures above that were registered from outside, by FNV(name): they are
+    ///  another's, and are not destroyed with this pipeline's own
+    ostd::vector<natural_t> borrowed_textures;
+    ostd::map<natural_t, resource_handle> shader_handles;  /// keyed by shader def name
 
     ostd::map<resource_tag, resource_handle> tagged_buffer_handles;
     ostd::map<resource_tag, resource_handle> tagged_texture_handles;

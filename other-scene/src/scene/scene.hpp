@@ -76,6 +76,10 @@ namespace other {
     bool is_playing() const {
       return playing;
     }
+    /// how many fixed steps it has taken while playing, since it was made
+    uint64_t fixed_steps_taken() const {
+      return fixed_steps;
+    }
     /// played and held: it is not running, and stop still has what it was to put back
     bool is_paused() const {
       return !playing && !play_snapshot.empty();
@@ -421,6 +425,7 @@ namespace other {
     ostd::vector<contact_event> step_contacts = {};
 
     double fixed_accumulator = 0.0;
+    uint64_t fixed_steps = 0;
 
     bool playing = false;
 

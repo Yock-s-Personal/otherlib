@@ -9,48 +9,51 @@ namespace Other
     Scene = 0,
     /// rendered in the debug overlay view on top of the finished frame (editor only)
     Debug = 1,
+    /// rendered in the debug overlay view, hidden by what the scene has in front of it
+    ///  (editor only). a mesh has no such drawing and is drawn as Debug
+    DebugOccluded = 2,
   }
 
   public static class Draw
   {
     [NativeFunction("DrawLine")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawLine;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawLine;
     [NativeFunction("DrawTriangle")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawTriangle;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawTriangle;
     [NativeFunction("DrawPoint")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, NativeBool32, void> NativeDrawPoint;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, uint, void> NativeDrawPoint;
     [NativeFunction("DrawRay")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawRay;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawRay;
     [NativeFunction("DrawArrow")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawArrow;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawArrow;
     [NativeFunction("DrawSphere")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawSphere;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, uint, void> NativeDrawSphere;
     [NativeFunction("DrawAABB")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawAABB;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawAABB;
     [NativeFunction("DrawOBB")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawOBB;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawOBB;
     [NativeFunction("DrawFrustum")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawFrustum;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawFrustum;
     [NativeFunction("DrawTransform")]
-    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, void> NativeDrawTransform;
+    internal static unsafe delegate* unmanaged[Cdecl]<float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, uint, void> NativeDrawTransform;
     [NativeFunction("DrawMesh")]
-    internal static unsafe delegate* unmanaged[Cdecl]<ulong, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, NativeBool32, void> NativeDrawMesh;
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, float, NativeBool32, uint, void> NativeDrawMesh;
     [NativeFunction("DrawGrid")]
-    internal static unsafe delegate* unmanaged[Cdecl]<ulong, NativeBool32, void> NativeDrawGrid;
+    internal static unsafe delegate* unmanaged[Cdecl]<ulong, uint, void> NativeDrawGrid;
 
     public static void Line(Vec3 a, Vec3 b, Vec4 color, DrawTarget target = DrawTarget.Scene)
     {
-      unsafe { NativeDrawLine(a.X, a.Y, a.Z, b.X, b.Y, b.Z, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawLine(a.X, a.Y, a.Z, b.X, b.Y, b.Z, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     public static void Triangle(Vec3 a, Vec3 b, Vec3 c, Vec4 color, DrawTarget target = DrawTarget.Scene)
     {
-      unsafe { NativeDrawTriangle(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawTriangle(a.X, a.Y, a.Z, b.X, b.Y, b.Z, c.X, c.Y, c.Z, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     public static void Point(Vec3 p, Vec4 color, DrawTarget target = DrawTarget.Scene)
     {
-      unsafe { NativeDrawPoint(p.X, p.Y, p.Z, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawPoint(p.X, p.Y, p.Z, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     public static void Ray(Vec3 origin, Vec3 direction, float length, Vec4 color, DrawTarget target = DrawTarget.Scene)
@@ -60,7 +63,7 @@ namespace Other
       {
         return;
       }
-      unsafe { NativeDrawRay(origin.X, origin.Y, origin.Z, direction.X, direction.Y, direction.Z, length, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawRay(origin.X, origin.Y, origin.Z, direction.X, direction.Y, direction.Z, length, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     public static void Arrow(Vec3 origin, Vec3 direction, float length, Vec4 color, DrawTarget target = DrawTarget.Scene)
@@ -72,17 +75,17 @@ namespace Other
       }
       float scale = length / mag;
       Vec3 end = new Vec3(origin.X + direction.X * scale, origin.Y + direction.Y * scale, origin.Z + direction.Z * scale);
-      unsafe { NativeDrawArrow(origin.X, origin.Y, origin.Z, end.X, end.Y, end.Z, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawArrow(origin.X, origin.Y, origin.Z, end.X, end.Y, end.Z, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     public static void Sphere(Vec3 p, float radius, Vec4 color, DrawTarget target = DrawTarget.Scene) 
     {
-      unsafe { NativeDrawSphere(p.X, p.Y, p.Z, radius, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawSphere(p.X, p.Y, p.Z, radius, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     public static void AABB(Vec3 min, Vec3 max, Vec4 color, DrawTarget target = DrawTarget.Scene)
     {
-      unsafe { NativeDrawAABB(min.X, min.Y, min.Z, max.X, max.Y, max.Z, color.X, color.Y, color.Z, color.W, target == DrawTarget.Scene); }
+      unsafe { NativeDrawAABB(min.X, min.Y, min.Z, max.X, max.Y, max.Z, color.X, color.Y, color.Z, color.W, (uint)target); }
     }
 
     /// draws a unit cube (±0.5) carried by the transform - bake center/extents/rotation into it
@@ -93,7 +96,7 @@ namespace Other
                              transform.M31, transform.M32, transform.M33, transform.M34,
                              transform.M41, transform.M42, transform.M43, transform.M44,
                              color.X, color.Y, color.Z, color.W,
-                             target == DrawTarget.Scene); }
+                             (uint)target); }
     }
 
     /// expects the INVERSE view-projection matrix of the frustum to outline
@@ -104,7 +107,7 @@ namespace Other
                                  inverseViewProjection.M31, inverseViewProjection.M32, inverseViewProjection.M33, inverseViewProjection.M34,
                                  inverseViewProjection.M41, inverseViewProjection.M42, inverseViewProjection.M43, inverseViewProjection.M44,
                                  color.X, color.Y, color.Z, color.W,
-                                 target == DrawTarget.Scene); }
+                                 (uint)target); }
     }
 
     /// R/G/B axis gizmo at the transform's origin
@@ -115,7 +118,7 @@ namespace Other
                                    transform.M31, transform.M32, transform.M33, transform.M34,
                                    transform.M41, transform.M42, transform.M43, transform.M44,
                                    scale,
-                                   target == DrawTarget.Scene); }
+                                   (uint)target); }
     }
 
     /// draws the render mesh of the object at an arbitrary transform (debug ghosts,
@@ -129,14 +132,14 @@ namespace Other
                               transform.M41, transform.M42, transform.M43, transform.M44,
                               color.X, color.Y, color.Z, color.W,
                               wireframe,
-                              target == DrawTarget.Scene); }
+                              (uint)target); }
     }
 
     /// Draws the grid described by the component, oriented by its object's world transform.
     /// Call every frame the grid should be visible; nothing draws grids implicitly.
     public static void Grid(GridComponent grid, DrawTarget target = DrawTarget.Scene)
     {
-      unsafe { NativeDrawGrid(grid.ObjectId, target == DrawTarget.Scene); }
+      unsafe { NativeDrawGrid(grid.ObjectId, (uint)target); }
     }
   }
 }

@@ -112,17 +112,61 @@ namespace other {
 
     CORE_LOG_DEBUG("Entering main driver loop");
 
-    frame_rate_enforcer<120> frame_rate_guard;
+    /// frames a second the loop is held to; 0 holds it to none
+    frame_rate_enforcer frame_rate_guard{ static_cast<integer_t>(get_config_value<uint32_t>("application.frame-rate-limit", 120)) };
+    /// a driver with no window to show them in can have its frames written to the log
+    const bool write_statistics = get_config_value<bool>("application.log-frame-statistics", false);
     do {
       auto* falloc = arena::get_frame_allocator();
       OTHER_ASSERT(falloc != nullptr, "Failed to get frame allocator at start of main loop.");
       falloc->reset();
 
       MARK_NAMED_FRAME("driver_main_loop");
+      const loop_time begun = std::chrono::steady_clock::now();
       update();
+      const loop_time updated = std::chrono::steady_clock::now();
       render();
+      const loop_time rendered = std::chrono::steady_clock::now();
       frame_rate_guard.wait();
+      record_frame(begun, updated, rendered, std::chrono::steady_clock::now(), write_statistics);
     } while (current_driver_state() != driver_state::DRIVER_STATE_STOPPED);
+  }
+
+  void driver::record_frame(loop_time begun, loop_time updated, loop_time rendered, loop_time ended, bool write_down) {
+    const auto seconds = [](loop_time from, loop_time to) -> double {
+      return std::chrono::duration<double>(to - from).count();
+    };
+
+    /// the steps the active scene took this frame. another scene starts its own count
+    uint32_t fixed_steps = 0;
+    if (current_driver_state() == driver_state::DRIVER_STATE_RUNNING) {
+      if (const scene* active = get_active_scene(); active != nullptr) {
+        const uint64_t taken = active->fixed_steps_taken();
+        if (active->id == counted_scene && taken >= counted_fixed_steps) {
+          fixed_steps = static_cast<uint32_t>(taken - counted_fixed_steps);
+        }
+        counted_scene = active->id;
+        counted_fixed_steps = taken;
+      }
+    }
+
+    statistics.record({
+      .frame = seconds(begun, ended),
+      .update = seconds(begun, updated),
+      .render = seconds(updated, rendered),
+      .wait = seconds(rendered, ended),
+      .engine = last_frame_seconds,
+      .script = static_cast<double>(bindings::script_delta_time()),
+      .fixed_steps = fixed_steps,
+    });
+
+    /// once a second
+    if (write_down && statistics.summary_is_new() && ++summaries_since_logged >= 2) {
+      summaries_since_logged = 0;
+      const frame_statistics::summary& s = statistics.latest();
+      CORE_LOG_INFO("[FRAMES] {:.1f} a second, {:.2f} ms each (longest {:.2f}): update {:.2f}, render {:.2f}, wait {:.2f}. told to the scene: {:.3f} s a second, to scripts: {:.3f} s a second. {:.1f} fixed steps a second",
+                    s.frames_a_second, s.frame_ms, s.longest_frame_ms, s.update_ms, s.render_ms, s.wait_ms, s.engine_seconds_a_second, s.script_seconds_a_second, s.fixed_steps_a_second);
+    }
   }
 
   void driver::shutdown() {
@@ -601,6 +645,8 @@ namespace other {
     ASSERT_MAIN_THREAD();
     PROFILE_SECTION("driver::update");
     double dt = frame_delta_time;
+    last_frame_seconds = dt;
+    elapsed += dt;
 
     driver_kernel_ptr->tick(dt);
 

@@ -76,9 +76,16 @@ namespace other {
   struct viewport {
     natural_t id;
     std::string name;
+    /// what its window is titled. ImGui keeps the window by the name all the same
+    std::string label;
     glm::ivec2 size;
+    /// where its picture is on the screen, for whoever maps the pointer into it
+    glm::vec2 screen_position = { 0.f, 0.f };
 
     bool hovered = false;
+    /// false while nothing shows it (its window is shut, folded, or a tab behind another):
+    ///  the scene is then not drawn for it. whoever shows it says so each frame
+    bool visible = true;
 
     render_pipeline* pipeline = nullptr;
     camera* cam = nullptr;
@@ -111,9 +118,13 @@ namespace other {
     void end_frame();
 
     /// emitters over renderer-owned draw streams, valid any time in the frame (incl. script ticks);
-    ///   streams accumulate until rendered, cleared in end_frame
+    ///   streams accumulate until the views are drawn, and are emptied then: what the UI
+    ///   asks for, after the views, is in the next frame's
     debug_draw debug() {
       return debug_draw{ &draw_streams, builtin_debug_streams::kSet };
+    }
+    debug_draw debug_occluded() {
+      return debug_draw{ &draw_streams, builtin_debug_occluded_streams::kSet };
     }
     debug_draw scene_overlay() {
       return debug_draw{ &draw_streams, builtin_scene_streams::kSet };
@@ -124,7 +135,7 @@ namespace other {
     render_stream& get_draw_streams() { return draw_streams; }
 
     /// immediate-mode procedural grid submission, drawn by the scene pipeline's grid pass
-    ///   this frame and discarded in end_frame
+    ///   the next time the views are drawn and discarded then
     void submit_grid(const grid_draw_data& grid) { pending_grids.push_back(grid); }
     const ostd::vector<grid_draw_data>& get_pending_grids() const { return pending_grids; }
 
@@ -141,6 +152,12 @@ namespace other {
     ostd::vector<std::string> get_pipeline_names() const;
 
     void register_texture_resource(const std::string_view pipeline, const std::string_view name, resource_handle handle);
+    /// the pipeline's texture is the source pipeline's from now on: registered now, and
+    ///  again each time the pipelines are remade, when the source's is another texture
+    void link_texture_resource(const std::string_view pipeline, const std::string_view name, const std::string_view source_pipeline, const std::string_view source_name);
+    /// every pipeline is made again from its definition, at the window's size of the
+    ///  moment. a pipeline's textures and passes are other resources afterwards
+    void remake_pipelines();
     void register_buffer_resource(const std::string_view pipeline, const std::string_view name, resource_handle handle);
 
     void register_shader_resource(const std::string_view pipeline, const std::string_view name, const filepath& vert_path, const filepath& geom_path, const filepath& frag_path);
@@ -261,7 +278,7 @@ namespace other {
     frame_binding_registry binding_registry;
     render_stream_registry stream_registry;
     /// renderer-owned dynamic draw storage (debug + in-scene streams and grid submissions),
-    ///   cleared every end_frame
+    ///   emptied once the views are drawn
     render_stream draw_streams;
     ostd::vector<grid_draw_data> pending_grids;
 
@@ -273,6 +290,16 @@ namespace other {
     ///         to multiple viewports
     ostd::map<natural_t, ostd::vector<natural_t>> pipeline_dependencies;
     ostd::vector<natural_t> pipeline_ids;
+
+    struct texture_link {
+      std::string pipeline;
+      std::string name;
+      std::string source_pipeline;
+      std::string source_name;
+    };
+    ostd::vector<texture_link> texture_links;
+
+    void apply_texture_link(const texture_link& link);
 
     ostd::vector<natural_t> get_pipeline_order() const;
 

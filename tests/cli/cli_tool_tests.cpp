@@ -144,7 +144,10 @@ namespace {
 
     toml::table table;
     ASSERT_NO_THROW(table = toml::parse_file(project_file.string()));
-    EXPECT_EQ(table.at_path("scripting.projectrc-path").value_or<std::string>(""), "test-proj.lua");
+    /// a project's paths are written from the folder that holds its folder, which is where
+    ///  the environment reads them from
+    EXPECT_EQ(table.at_path("scripting.projectrc-path").value_or<std::string>(""), "test-proj/test-proj.lua");
+    EXPECT_EQ(table.at_path("scene-graph.scenes[0].path").value_or<std::string>(""), "test-proj/assets/scenes/main.oscn");
     EXPECT_EQ(table.at_path("scene-graph.starting-scene").value_or<std::string>(""), "main");
     /// no environment -> no C# project reference and no csproj on disk
     EXPECT_FALSE(table.at_path("scripting.cs_project"));
@@ -179,7 +182,7 @@ namespace {
 
     toml::table table;
     ASSERT_NO_THROW(table = toml::parse_file((project_dir / "space-game.toml").string()));
-    EXPECT_EQ(table.at_path("scripting.cs_project").value_or<std::string>(""), "SpaceGame.csproj");
+    EXPECT_EQ(table.at_path("scripting.cs_project").value_or<std::string>(""), "space-game/SpaceGame.csproj");
 
     std::ifstream file(csproj, std::ios::binary);
     const std::string contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());

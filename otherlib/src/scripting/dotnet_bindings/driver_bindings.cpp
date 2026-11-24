@@ -49,18 +49,61 @@ namespace other {
       return returned_string(project_name);
     }
 
+    float script_delta_time() {
+      /// the frame's length as the driver has it, which is what the scene is ticked with.
+      ///  it was ImGui's, and a driver that draws no UI never starts an ImGui frame: its
+      ///  scripts were told a sixtieth of a second whatever the frame took
+      if (s_driver != nullptr) {
+        return static_cast<float>(s_driver->frame_seconds());
+      }
+      /// no driver, as in a test that draws: what the UI says
+      return ImGui::GetCurrentContext() != nullptr ? ImGui::GetIO().DeltaTime : 0.f;
+    }
+
     float native_time_get_delta_time() {
-      ImGuiIO& io = ImGui::GetIO();
-      return io.DeltaTime;
+      return script_delta_time();
+    }
+
+    float native_frame_stats_value(int32_t which) {
+      if (s_driver == nullptr) {
+        return 0.f;
+      }
+      const frame_statistics::summary& s = s_driver->get_frame_statistics().latest();
+      switch (static_cast<frame_stat>(which)) {
+        case frame_stat::FRAMES_A_SECOND: return s.frames_a_second;
+        case frame_stat::FRAME_MS: return s.frame_ms;
+        case frame_stat::LONGEST_FRAME_MS: return s.longest_frame_ms;
+        case frame_stat::UPDATE_MS: return s.update_ms;
+        case frame_stat::RENDER_MS: return s.render_ms;
+        case frame_stat::WAIT_MS: return s.wait_ms;
+        case frame_stat::ENGINE_SECONDS_A_SECOND: return s.engine_seconds_a_second;
+        case frame_stat::SCRIPT_SECONDS_A_SECOND: return s.script_seconds_a_second;
+        case frame_stat::FIXED_STEPS_A_SECOND: return s.fixed_steps_a_second;
+        default: return 0.f;
+      }
+    }
+
+    int32_t native_frame_stats_history(float* out_ms, int32_t capacity) {
+      if (s_driver == nullptr || out_ms == nullptr || capacity <= 0) {
+        return 0;
+      }
+      return static_cast<int32_t>(s_driver->get_frame_statistics().copy_history(std::span<float>{ out_ms, static_cast<size_t>(capacity) }));
     }
 
     float native_time_get_elapsed_time() {
-      /// \todo replace with engine time accumulator
-      return (float)ImGui::GetTime();
+      /// the driver's own count, for the reason its frame length is: ImGui's stood still
+      ///  in a driver that draws no UI
+      if (s_driver != nullptr) {
+        return static_cast<float>(s_driver->elapsed_seconds());
+      }
+      return ImGui::GetCurrentContext() != nullptr ? static_cast<float>(ImGui::GetTime()) : 0.f;
     }
 
     int64_t native_time_get_frame_count() {
-      return ImGui::GetFrameCount();
+      if (s_driver != nullptr) {
+        return static_cast<int64_t>(s_driver->frame_number());
+      }
+      return ImGui::GetCurrentContext() != nullptr ? ImGui::GetFrameCount() : 0;
     }
 
     const char* native_config_get_string(const char* section, const char* key, const char* default_value) {

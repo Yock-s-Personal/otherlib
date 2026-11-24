@@ -103,6 +103,11 @@ namespace other {
     } else {
       render_scene_to_viewports(viewports, scene_data);
     }
+
+    /// emptied here and not at the end of the frame: the UI is drawn after the views, and
+    ///  what it asks to be drawn would be gone before any view was drawn again
+    draw_streams.clear();
+    pending_grids.clear();
   }
 
   void renderer::present_texture(const resource_handle& handle) {
@@ -116,8 +121,6 @@ namespace other {
     PROFILE_SECTION("renderer::end_frame");
     rendering()->api()->end_frame();
     scene_data = nullptr;
-    draw_streams.clear();
-    pending_grids.clear();
   }
 
   void renderer::register_draw_stream(std::string_view name, render_stream_definition defn) {
@@ -150,6 +153,51 @@ namespace other {
       return;
     }
     itr->second->register_texture_resource(name, handle);
+  }
+
+  void renderer::link_texture_resource(const std::string_view pipeline, const std::string_view name, const std::string_view source_pipeline, const std::string_view source_name) {
+    ASSERT_MAIN_THREAD();
+    std::erase_if(texture_links, [&](const texture_link& link) { return link.pipeline == pipeline && link.name == name; });
+    const texture_link& link = texture_links.emplace_back(texture_link{
+      .pipeline = std::string{ pipeline },
+      .name = std::string{ name },
+      .source_pipeline = std::string{ source_pipeline },
+      .source_name = std::string{ source_name },
+    });
+    apply_texture_link(link);
+  }
+
+  void renderer::apply_texture_link(const texture_link& link) {
+    const render_pipeline* source = get_pipeline(link.source_pipeline);
+    if (source == nullptr) {
+      CORE_LOG_ERROR("Pipeline [{}] not found. Cannot give its texture [{}] to pipeline [{}].", link.source_pipeline, link.source_name, link.pipeline);
+      return;
+    }
+    const opt<resource_handle> handle = source->find_texture_by_name(link.source_name);
+    if (!handle.has_value()) {
+      CORE_LOG_ERROR("Pipeline [{}] has no texture [{}] to give to pipeline [{}].", link.source_pipeline, link.source_name, link.pipeline);
+      return;
+    }
+    register_texture_resource(link.pipeline, link.name, *handle);
+  }
+
+  void renderer::remake_pipelines() {
+    ASSERT_MAIN_THREAD();
+    PROFILE_SECTION("renderer::remake_pipelines");
+    /// in the order they are drawn in, so that a pipeline is made before one that leans on it
+    for (const natural_t id : pipeline_ids) {
+      const auto itr = pipelines.find(id);
+      if (itr == pipelines.end() || itr->second == nullptr) {
+        continue;
+      }
+      render_pipeline* pl = itr->second;
+      if (!pl->reload(pipeline_definition{ pl->get_definition() })) {
+        CORE_LOG_ERROR("Pipeline [{}] is not valid after being made again.", pl->get_name());
+      }
+    }
+    for (const texture_link& link : texture_links) {
+      apply_texture_link(link);
+    }
   }
 
   void renderer::register_buffer_resource(const std::string_view pipeline, const std::string_view name, resource_handle handle) {
@@ -531,6 +579,7 @@ namespace other {
     pipelines.erase(itr);
     pipeline_dependencies.erase(hash);
     pipeline_ids = get_pipeline_order();
+    std::erase_if(texture_links, [&](const texture_link& link) { return link.pipeline == name || link.source_pipeline == name; });
   }
 
   namespace {
@@ -715,7 +764,8 @@ namespace other {
 
     for (auto& vp : viewports) {
       OTHER_ASSERT(vp.pipeline != nullptr, "Viewport pipeline must not be null in render_scene_to_viewports");
-      if (vp.cam == nullptr) {
+      /// a view nobody can see costs a whole drawing of the scene: it keeps its last picture
+      if (vp.cam == nullptr || !vp.visible) {
         continue;
       }
       PROFILE_SECTION("renderer::render--viewport");

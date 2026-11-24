@@ -204,7 +204,7 @@ namespace Other.Editor
       }
     }
 
-    private static void Host()
+    internal static void Host()
     {
       if (hosted)
       {
@@ -249,12 +249,13 @@ namespace Other.Editor
         {
           command.item.Enabled = command.Enabled;
         }
-        if (!command.Chord.IsNone && UIBindings.Shortcut(command.Chord.Key, command.Chord.Mods, true))
+        if (!command.Chord.IsNone && UIWidgets.Shortcut(command.Chord.Key, command.Chord.Mods, true))
         {
           command.Run();
         }
       }
       PlaybackBar.Draw();
+      Dialogs.Frame();
     }
   }
 }

@@ -445,7 +445,9 @@ namespace other {
       /// Time.
       .bind<bindings::native_time_get_delta_time>("TimeGetDeltaTime")
       .bind<bindings::native_time_get_elapsed_time>("TimeGetElapsedTime")
-      .bind<bindings::native_time_get_frame_count>("TimeGetFrameCount");
+      .bind<bindings::native_time_get_frame_count>("TimeGetFrameCount")
+      .bind<bindings::native_frame_stats_value>("FrameStatsValue")
+      .bind<bindings::native_frame_stats_history>("FrameStatsHistory");
 
     bindings::binding_context{ dn_host }
       /// Driver / Application State.
@@ -464,22 +466,9 @@ namespace other {
       .bind<bindings::native_project_get_file>("ProjectGetFile")
       .bind<bindings::native_project_get_scene_count>("ProjectGetSceneCount")
       .bind<bindings::native_project_get_starting_scene>("ProjectGetStartingScene")
-      .bind<bindings::native_project_has_file_notice>("ProjectHasFileNotice")
-      .bind<bindings::native_project_get_file_notice_error>("ProjectGetFileNoticeError")
-      .bind<bindings::native_project_get_file_notice_part_count>("ProjectGetFileNoticePartCount")
-      .bind<bindings::native_project_get_file_notice_part>("ProjectGetFileNoticePart")
       .bind<bindings::native_project_get_load_error_count>("ProjectGetLoadErrorCount")
       .bind<bindings::native_project_get_load_error_subject>("ProjectGetLoadErrorSubject")
-      .bind<bindings::native_project_get_load_error_message>("ProjectGetLoadErrorMessage")
-      .bind<bindings::native_project_get_script_project_path>("ProjectGetScriptProjectPath")
-      .bind<bindings::native_project_scripts_building>("ProjectScriptsBuilding")
-      .bind<bindings::native_project_scripts_loaded>("ProjectScriptsLoaded")
-      .bind<bindings::native_project_has_script_failure>("ProjectHasScriptFailure")
-      .bind<bindings::native_project_get_script_failure_project_path>("ProjectGetScriptFailureProjectPath")
-      .bind<bindings::native_project_get_script_failure_reason>("ProjectGetScriptFailureReason")
-      .bind<bindings::native_project_get_script_failure_details>("ProjectGetScriptFailureDetails")
-      .bind<bindings::native_project_script_failure_can_retry>("ProjectScriptFailureCanRetry")
-      .bind<bindings::native_project_request_script_rebuild>("ProjectRequestScriptRebuild");
+      .bind<bindings::native_project_get_load_error_message>("ProjectGetLoadErrorMessage");
 
     bindings::binding_context{ dn_host }
       /// Configuration.

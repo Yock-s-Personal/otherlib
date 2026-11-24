@@ -183,8 +183,10 @@ namespace other {
 
       //  Headers & Separators
       inline glm::vec4 kHeader = hex_col_to_rgba(IM_COL32(47, 47, 47, 255));
-      inline glm::vec4 kHeaderHover = hex_col_to_rgba(IM_COL32(60, 60, 60, 255));
-      inline glm::vec4 kHeaderActive = hex_col_to_rgba(IM_COL32(70, 70, 70, 255));
+      /// what the pointer is over in a menu, a combo or a list. a menu's items are drawn on
+      ///  kPopup, so these have to stand out from it: at one step from it nothing showed
+      inline glm::vec4 kHeaderHover = hex_col_to_rgba(IM_COL32(86, 86, 92, 255));
+      inline glm::vec4 kHeaderActive = hex_col_to_rgba(IM_COL32(104, 104, 112, 255));
       inline glm::vec4 kResizeGrip = hex_col_to_rgba(IM_COL32(80, 80, 80, 50));
       inline glm::vec4 kResizeGripHover = hex_col_to_rgba(IM_COL32(120, 120, 120, 120));
       inline glm::vec4 kResizeGripActive = hex_col_to_rgba(IM_COL32(236, 158, 36, 180));

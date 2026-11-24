@@ -7,6 +7,9 @@ other_test_results.*.xml
 bin/
 obj/
 
+# don't commit packaged projects made during testing
+packages
+
 #only for local testing linux builds
 dockerfile
 

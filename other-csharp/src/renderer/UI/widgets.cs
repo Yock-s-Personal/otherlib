@@ -33,7 +33,7 @@ namespace Other.UI
     /// after an item: an object can be dragged from it. true while it is being dragged
     public static bool ObjectDragSource(SceneObject item)
     {
-      if (!UIBindings.BeginDragDropSource())
+      if (!UIWidgets.BeginDragDropSource())
       {
         return false;
       }
@@ -41,23 +41,23 @@ namespace Other.UI
       unsafe
       {
         ulong id = item.ObjectID;
-        UIBindings.SetDragDropPayload(kObjectPayload, (IntPtr)(&id), sizeof(ulong));
+        UIWidgets.SetDragDropPayload(kObjectPayload, (IntPtr)(&id), sizeof(ulong));
       }
-      UIBindings.Text(item.Name);
-      UIBindings.EndDragDropSource();
+      UIWidgets.Text(item.Name);
+      UIWidgets.EndDragDropSource();
       return true;
     }
 
     /// after an item: the object that was dropped on it this frame. null when none was
     public static SceneObject? ObjectDropTarget()
     {
-      if (!UIBindings.BeginDragDropTarget())
+      if (!UIWidgets.BeginDragDropTarget())
       {
         return null;
       }
 
-      byte[]? data = UIBindings.AcceptDragDropPayload(kObjectPayload);
-      UIBindings.EndDragDropTarget();
+      byte[]? data = UIWidgets.AcceptDragDropPayload(kObjectPayload);
+      UIWidgets.EndDragDropTarget();
       return data != null && data.Length == sizeof(ulong) ? SceneObject.FromId(BitConverter.ToUInt64(data, 0)) : null;
     }
 

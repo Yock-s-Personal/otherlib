@@ -39,6 +39,18 @@ namespace other {
 
   }  // namespace builtin_debug_streams
 
+  /// drawn by the editor debug-overlay pipeline as the ones above, but hidden by what the
+  ///  scene has in front of them. meshes have no such pass and are drawn on top
+  namespace builtin_debug_occluded_streams {
+
+    constexpr std::string_view kLines = "__debug-occluded.lines";
+    constexpr std::string_view kTris = "__debug-occluded.tris";
+    constexpr std::string_view kPoints = "__debug-occluded.points";
+
+    constexpr draw_stream_set kSet{ kLines, kTris, kPoints, builtin_debug_streams::kMeshes, builtin_debug_streams::kMeshBones };
+
+  }  // namespace builtin_debug_occluded_streams
+
   /// drawn inside the scene pipeline, depth tested against scene geometry
   namespace builtin_scene_streams {
 

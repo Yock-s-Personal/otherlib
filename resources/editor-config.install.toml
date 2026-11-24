@@ -30,6 +30,12 @@ pipelines = [ "${other-directory}/resources/editor-assets/default-pipeline.toml"
 [ui]
 enable-environment-menu-bar = true
 
+[editor]
+# the camera of the Scene View: metres a second while flying, and degrees for each pixel
+#  the pointer goes while looking round
+camera-move-speed = 8.0
+camera-look-sensitivity = 0.25
+
 [scripting]
 init-lua = "${other-directory}/resources/editor.lua"
 dotnet-runtime-config = "${other-directory}/dotnet-assemblies/OtherCsBindings.runtimeconfig.json"

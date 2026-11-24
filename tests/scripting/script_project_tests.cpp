@@ -10,6 +10,7 @@
 #include "scripting/dotnet_bindings/project_bindings.hpp"
 
 #include "other_test.hpp"
+#include "services/editor_bindings.hpp"
 
 namespace other {
 
@@ -21,6 +22,11 @@ namespace other {
       other_test::SetUp();
       env = subsystem<scripting_environment>::get();
       ASSERT_NE(env, nullptr);
+
+      /// how a project's scripts are built is the editor's to show: its assembly reads it
+      api = env->load_dotnet_module(perform_tag_replacement("build/other-editor/api/${build-config}/OtherEditor.dll"));
+      ASSERT_NE(api, nullptr);
+      ASSERT_EQ(bindings::bind_editor_functions(env->get_dotnet_host()), 0u);
 
       current.state = project::LOADED;
       current.name = "Sandbox Game";
@@ -46,6 +52,10 @@ namespace other {
 
     void TearDown() override {
       bindings::set_script_project(nullptr);
+      if (api != nullptr) {
+        env->unload_dotnet_module(api);
+        api = nullptr;
+      }
       other_test::TearDown();
     }
 
@@ -54,6 +64,7 @@ namespace other {
     }
 
     scripting_environment* env = nullptr;
+    ref<assembly> api = nullptr;
     bindings::script_project current;
   };
 

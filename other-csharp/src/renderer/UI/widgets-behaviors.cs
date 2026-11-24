@@ -70,7 +70,7 @@ namespace Other.UI
       RefreshBehaviorRows(id);
       if (behavior_rows.Count == 0)
       {
-        UIBindings.TextDisabled("No behaviors attached.");
+        UIWidgets.TextDisabled("No behaviors attached.");
         return false;
       }
 
@@ -151,12 +151,12 @@ namespace Other.UI
     private static bool DrawBehavior(ulong id, int index, BehaviorRow row)
     {
       bool changed = false;
-      UIBindings.PushID(index);
-      bool open = UIBindings.TreeNodeEx(row.class_name, TreeNodeFlags.DefaultOpen | TreeNodeFlags.Framed | TreeNodeFlags.SpanAvailWidth);
+      UIWidgets.PushID(index);
+      bool open = UIWidgets.TreeNodeEx(row.class_name, TreeNodeFlags.DefaultOpen | TreeNodeFlags.Framed | TreeNodeFlags.SpanAvailWidth);
       if (row.name_space.Length > 0)
       {
-        UIBindings.SameLine();
-        UIBindings.TextDisabled(row.name_space);
+        UIWidgets.SameLine();
+        UIWidgets.TextDisabled(row.name_space);
       }
 
       if (open)
@@ -186,9 +186,9 @@ namespace Other.UI
             changed |= DrawBehaviorFields(id, row);
           }
         }
-        UIBindings.TreePop();
+        UIWidgets.TreePop();
       }
-      UIBindings.PopID();
+      UIWidgets.PopID();
       return changed;
     }
 
@@ -290,10 +290,10 @@ namespace Other.UI
         {
           if (group != null && group.Length > 0 && group_open)
           {
-            UIBindings.TreePop();
+            UIWidgets.TreePop();
           }
           group = d.Group;
-          group_open = d.Group.Length == 0 || UIBindings.TreeNodeEx(d.Group, TreeNodeFlags.DefaultOpen);
+          group_open = d.Group.Length == 0 || UIWidgets.TreeNodeEx(d.Group, TreeNodeFlags.DefaultOpen);
         }
         if (!group_open)
         {
@@ -302,9 +302,9 @@ namespace Other.UI
 
         if (d.Separator)
         {
-          UIBindings.Separator();
+          UIWidgets.Separator();
         }
-        UIBindings.PushID(d.Name);
+        UIWidgets.PushID(d.Name);
         if (!FieldReader.Find(values, d.NameUtf8, out FieldEntry field) || field.Kind != d.Kind)
         {
           PropertyDisplay(d.Label, "<unreadable>", text_disabled);
@@ -313,11 +313,11 @@ namespace Other.UI
         {
           DrawField(d, field, ref count);
         }
-        UIBindings.PopID();
+        UIWidgets.PopID();
       }
       if (group != null && group.Length > 0 && group_open)
       {
-        UIBindings.TreePop();
+        UIWidgets.TreePop();
       }
     }
 
@@ -427,7 +427,7 @@ namespace Other.UI
           if (d.HasRange)
           {
             BeginPropertyRow(d.Label);
-            changed = UIBindings.SliderFloat("##value", ref v, d.Min, d.Max);
+            changed = UIWidgets.SliderFloat("##value", ref v, d.Min, d.Max);
             EndPropertyRow();
           }
           else
@@ -479,18 +479,18 @@ namespace Other.UI
             current = body.SequenceEqual(d.MembersUtf8[m]) ? m : -1;
           }
           BeginPropertyRow(d.Label);
-          if (UIBindings.BeginCombo("##value", current >= 0 ? d.Members[current] : ShownText(d, body)))
+          if (UIWidgets.BeginCombo("##value", current >= 0 ? d.Members[current] : ShownText(d, body)))
           {
             for (int m = 0; m < d.Members.Length; m++)
             {
-              if (UIBindings.Selectable(d.Members[m], m == current) && m != current)
+              if (UIWidgets.Selectable(d.Members[m], m == current) && m != current)
               {
                 int at = BeginEdit(d);
                 field_edit.Bytes(d.MembersUtf8[m]);
                 EndEdit(at, ref count);
               }
             }
-            UIBindings.EndCombo();
+            UIWidgets.EndCombo();
           }
           EndPropertyRow();
           break;
@@ -524,7 +524,7 @@ namespace Other.UI
           if (d.Color)
           {
             BeginPropertyRow(d.Label);
-            changed = UIBindings.ColorEdit3("##value", ref v);
+            changed = UIWidgets.ColorEdit3("##value", ref v);
             EndPropertyRow();
           }
           else
@@ -555,7 +555,7 @@ namespace Other.UI
           if (d.Color)
           {
             BeginPropertyRow(d.Label);
-            changed = UIBindings.ColorEdit4("##value", ref v);
+            changed = UIWidgets.ColorEdit4("##value", ref v);
             EndPropertyRow();
           }
           else
@@ -614,7 +614,7 @@ namespace Other.UI
 
         case FieldKind.Struct:
         {
-          if (!UIBindings.TreeNodeEx(d.Label, TreeNodeFlags.DefaultOpen))
+          if (!UIWidgets.TreeNodeEx(d.Label, TreeNodeFlags.DefaultOpen))
           {
             break;
           }
@@ -633,7 +633,7 @@ namespace Other.UI
           {
             field_edit.Truncate(rewind);
           }
-          UIBindings.TreePop();
+          UIWidgets.TreePop();
           break;
         }
 
@@ -652,9 +652,9 @@ namespace Other.UI
 
     private static void FieldTooltip(FieldDescription d)
     {
-      if (d.Tooltip.Length > 0 && UIBindings.IsItemHovered())
+      if (d.Tooltip.Length > 0 && UIWidgets.IsItemHovered())
       {
-        UIBindings.SetTooltip(d.Tooltip);
+        UIWidgets.SetTooltip(d.Tooltip);
       }
     }
 
@@ -667,10 +667,10 @@ namespace Other.UI
       bool cleared = false;
       if (holds)
       {
-        cleared = UIBindings.SmallButton("x");
-        UIBindings.SameLine();
+        cleared = UIWidgets.SmallButton("x");
+        UIWidgets.SameLine();
       }
-      UIBindings.Selectable(text);
+      UIWidgets.Selectable(text);
       return cleared;
     }
 

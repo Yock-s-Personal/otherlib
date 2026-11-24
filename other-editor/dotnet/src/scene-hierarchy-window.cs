@@ -65,7 +65,7 @@ namespace Other.Editor
     {
       if (Scene.Revision == 0)
       {
-        UIBindings.TextDisabled("No active scene");
+        UIWidgets.TextDisabled("No active scene");
         return;
       }
 
@@ -74,20 +74,20 @@ namespace Other.Editor
       eye_hovered = Theme.Color("core.text_bright");
       text_hidden = Theme.Color("hierarchy.item_text_disabled");
 
-      UIBindings.SetNextItemWidth(UIBindings.GetContentRegionAvail().X);
-      UIBindings.InputTextWithHint("##filter", "filter objects...", ref filter, kNameLength);
+      UIWidgets.SetNextItemWidth(UIWidgets.GetContentRegionAvail().X);
+      UIWidgets.InputTextWithHint("##filter", "filter objects...", ref filter, kNameLength);
       RefreshShown();
       RevealSelection();
 
-      UIBindings.PushStyleColor(StyleColor.Header, Theme.Color("hierarchy.item_selected"));
-      UIBindings.PushStyleColor(StyleColor.HeaderHovered, Theme.Color("hierarchy.item_hover"));
-      UIBindings.PushStyleColor(StyleColor.HeaderActive, Theme.Color("hierarchy.item_selected"));
-      UIBindings.PushStyleVar(StyleVar.IndentSpacing, kIndent);
-      UIBindings.PushStyleVar(StyleVar.ItemSpacing, new Vec2(4f, 1f));
+      UIWidgets.PushStyleColor(StyleColor.Header, Theme.Color("hierarchy.item_selected"));
+      UIWidgets.PushStyleColor(StyleColor.HeaderHovered, Theme.Color("hierarchy.item_hover"));
+      UIWidgets.PushStyleColor(StyleColor.HeaderActive, Theme.Color("hierarchy.item_selected"));
+      UIWidgets.PushStyleVar(StyleVar.IndentSpacing, kIndent);
+      UIWidgets.PushStyleVar(StyleVar.ItemSpacing, new Vec2(4f, 1f));
 
       /// the scene's own row: what is dropped on it goes to the top of the scene
       string scene_name = SceneView.SceneName;
-      bool scene_open = UIBindings.TreeNodeEx(scene_name.Length > 0 ? scene_name : "(scene)", TreeNodeFlags.DefaultOpen | TreeNodeFlags.OpenOnArrow | TreeNodeFlags.SpanAvailWidth | TreeNodeFlags.DrawLinesToNodes);
+      bool scene_open = UIWidgets.TreeNodeEx(scene_name.Length > 0 ? scene_name : "(scene)", TreeNodeFlags.DefaultOpen | TreeNodeFlags.OpenOnArrow | TreeNodeFlags.SpanAvailWidth | TreeNodeFlags.DrawLinesToNodes);
       SceneObject? to_top = Widgets.ObjectDropTarget();
       if (to_top != null)
       {
@@ -100,30 +100,30 @@ namespace Other.Editor
         {
           DrawItem(top[i]);
         }
-        UIBindings.TreePop();
+        UIWidgets.TreePop();
       }
 
-      UIBindings.PopStyleVar(2);
-      UIBindings.PopStyleColor(3);
+      UIWidgets.PopStyleVar(2);
+      UIWidgets.PopStyleColor(3);
       scroll_to = null;
 
-      if (UIBindings.BeginPopupContextWindow("##hierarchy-menu", PopupFlags.MouseButtonRight | PopupFlags.NoOpenOverItems))
+      if (UIWidgets.BeginPopupContextWindow("##hierarchy-menu", PopupFlags.MouseButtonRight | PopupFlags.NoOpenOverItems))
       {
-        if (UIBindings.MenuItem("Create Empty Object"))
+        if (UIWidgets.MenuItem("Create Empty Object"))
         {
           Ask(Act.Create, null, null);
         }
-        UIBindings.EndPopup();
+        UIWidgets.EndPopup();
       }
 
       /// only while this window has the focus, and not while a name is being typed
-      if (renaming == null && !UIBindings.WantTextInput && Selection.Count > 0)
+      if (renaming == null && !UIWidgets.WantTextInput && Selection.Count > 0)
       {
-        if (UIBindings.Shortcut(Key.Delete))
+        if (UIWidgets.Shortcut(Key.Delete))
         {
           Ask(Act.DeleteSelected, null, null);
         }
-        else if (UIBindings.Shortcut(Key.F2))
+        else if (UIWidgets.Shortcut(Key.F2))
         {
           Ask(Act.Rename, Selection.Active, null);
         }
@@ -162,44 +162,44 @@ namespace Other.Editor
       if (has_children)
       {
         /// a filter opens everything, so that what it found under a shut row shows
-        UIBindings.SetNextItemOpen(filter.Length > 0 || open.Contains(item.PathKey), Condition.Always);
+        UIWidgets.SetNextItemOpen(filter.Length > 0 || open.Contains(item.PathKey), Condition.Always);
       }
 
-      float row_right = UIBindings.CursorPos.X + UIBindings.GetContentRegionAvail().X;
-      UIBindings.PushID((int)target.ObjectID);
+      float row_right = UIWidgets.CursorPos.X + UIWidgets.GetContentRegionAvail().X;
+      UIWidgets.PushID((int)target.ObjectID);
       if (!item.Visible)
       {
-        UIBindings.PushStyleColor(StyleColor.Text, text_hidden);
+        UIWidgets.PushStyleColor(StyleColor.Text, text_hidden);
       }
-      bool is_open = UIBindings.TreeNodeEx(item.Name, flags);
+      bool is_open = UIWidgets.TreeNodeEx(item.Name, flags);
       if (!item.Visible)
       {
-        UIBindings.PopStyleColor();
+        UIWidgets.PopStyleColor();
       }
-      float row_height = UIBindings.ItemRectSize.Y;
+      float row_height = UIWidgets.ItemRectSize.Y;
 
       if (scroll_to != null && ReferenceEquals(scroll_to, target))
       {
-        UIBindings.SetScrollHereY();
+        UIWidgets.SetScrollHereY();
         scroll_to = null;
       }
 
-      if (has_children && UIBindings.IsItemToggledOpen())
+      if (has_children && UIWidgets.IsItemToggledOpen())
       {
         if (!open.Remove(item.PathKey))
         {
           open.Add(item.PathKey);
         }
       }
-      else if (UIBindings.IsItemClicked())
+      else if (UIWidgets.IsItemClicked())
       {
-        Ask((UIBindings.KeyMods & KeyMods.Ctrl) != 0 ? Act.ToggleSelected : Act.Select, target, null);
+        Ask((UIWidgets.KeyMods & KeyMods.Ctrl) != 0 ? Act.ToggleSelected : Act.Select, target, null);
       }
-      if (UIBindings.IsItemHovered() && UIBindings.IsMouseDoubleClicked())
+      if (UIWidgets.IsItemHovered() && UIWidgets.IsMouseDoubleClicked())
       {
         Ask(Act.Rename, target, null);
       }
-      if (UIBindings.IsItemClicked(MouseButton.Right) && !selected)
+      if (UIWidgets.IsItemClicked(MouseButton.Right) && !selected)
       {
         Ask(Act.Select, target, null);
       }
@@ -211,32 +211,32 @@ namespace Other.Editor
         Ask(Act.MoveUnder, dropped, target);
       }
       Widgets.ObjectDragSource(target);
-      if (UIBindings.BeginPopupContextItem("##object-menu"))
+      if (UIWidgets.BeginPopupContextItem("##object-menu"))
       {
-        UIBindings.TextDisabled(item.Name);
-        UIBindings.Separator();
-        if (UIBindings.MenuItem("Create Child"))
+        UIWidgets.TextDisabled(item.Name);
+        UIWidgets.Separator();
+        if (UIWidgets.MenuItem("Create Child"))
         {
           Ask(Act.Create, target, null);
         }
-        if (UIBindings.MenuItem("Rename", "F2"))
+        if (UIWidgets.MenuItem("Rename", "F2"))
         {
           Ask(Act.Rename, target, null);
         }
-        if (UIBindings.MenuItem("Delete", "Del"))
+        if (UIWidgets.MenuItem("Delete", "Del"))
         {
           Ask(Act.Delete, target, null);
         }
-        UIBindings.EndPopup();
+        UIWidgets.EndPopup();
       }
 
       /// the eye, over the right end of the row
-      UIBindings.SameLine(row_right - kEyeWidth);
-      if (UIBindings.InvisibleButton("##eye", kEyeWidth, row_height))
+      UIWidgets.SameLine(row_right - kEyeWidth);
+      if (UIWidgets.InvisibleButton("##eye", kEyeWidth, row_height))
       {
         Ask(Act.ToggleVisible, target, null);
       }
-      DrawEye(UIBindings.ItemRectMin, UIBindings.ItemRectMax, item.Visible, UIBindings.IsItemHovered());
+      DrawEye(UIWidgets.ItemRectMin, UIWidgets.ItemRectMax, item.Visible, UIWidgets.IsItemHovered());
 
       if (has_children && is_open)
       {
@@ -245,9 +245,9 @@ namespace Other.Editor
         {
           DrawItem(children[i]);
         }
-        UIBindings.TreePop();
+        UIWidgets.TreePop();
       }
-      UIBindings.PopID();
+      UIWidgets.PopID();
     }
 
     private void DrawEye(Vec2 min, Vec2 max, bool visible, bool hovered)
@@ -461,7 +461,7 @@ namespace Other.Editor
     {
       if (open_rename)
       {
-        UIBindings.OpenPopup("##rename");
+        UIWidgets.OpenPopup("##rename");
         open_rename = false;
       }
       if (renaming == null)
@@ -474,19 +474,19 @@ namespace Other.Editor
         return;
       }
 
-      UIBindings.SetNextWindowPos(UIBindings.MousePos, Condition.Appearing);
-      if (!UIBindings.BeginPopup("##rename"))
+      UIWidgets.SetNextWindowPos(UIWidgets.MousePos, Condition.Appearing);
+      if (!UIWidgets.BeginPopup("##rename"))
       {
         /// shut by a click somewhere else
         renaming = null;
         return;
       }
 
-      if (UIBindings.IsWindowAppearing())
+      if (UIWidgets.IsWindowAppearing())
       {
-        UIBindings.SetKeyboardFocusHere();
+        UIWidgets.SetKeyboardFocusHere();
       }
-      if (UIBindings.InputText("##name", ref rename_text, kNameLength, InputTextFlags.EnterReturnsTrue | InputTextFlags.AutoSelectAll))
+      if (UIWidgets.InputText("##name", ref rename_text, kNameLength, InputTextFlags.EnterReturnsTrue | InputTextFlags.AutoSelectAll))
       {
         if (rename_text.Length > 0 && rename_text != renaming.Name)
         {
@@ -496,14 +496,14 @@ namespace Other.Editor
           }
         }
         renaming = null;
-        UIBindings.CloseCurrentPopup();
+        UIWidgets.CloseCurrentPopup();
       }
-      else if (UIBindings.IsKeyPressed(Key.Escape, false))
+      else if (UIWidgets.IsKeyPressed(Key.Escape, false))
       {
         renaming = null;
-        UIBindings.CloseCurrentPopup();
+        UIWidgets.CloseCurrentPopup();
       }
-      UIBindings.EndPopup();
+      UIWidgets.EndPopup();
     }
   }
 }

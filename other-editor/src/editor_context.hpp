@@ -11,8 +11,6 @@
 
 #include "scene/scene.hpp"
 
-#include "project/compile_session.hpp"
-
 #include "editor_settings.hpp"
 #include "services/editor_services.hpp"
 
@@ -56,10 +54,6 @@ namespace other {
     ImTextureID get_pipeline_texture_id(const std::string_view pipeline_name, const std::string_view texture_name) const;
 
     ImVec2 get_pipeline_texture_size(const std::string_view pipeline_name, const std::string_view texture_name) const;
-
-    /// the compile the compile window starts. it is here and not in the window so the driver
-    ///  can wait for it at shutdown, before the VM whose devices it links against is gone
-    compile_session project_compile;
   };
 
 }  // namespace other

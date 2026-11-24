@@ -9,6 +9,7 @@
 #define OTHER_EDITOR_SERVICES_EDITOR_SERVICES_HPP
 
 #include <functional>
+#include <mutex>
 #include <string>
 #include <string_view>
 
@@ -16,12 +17,19 @@
 
 #include "scene/scene.hpp"
 
+#include "services/compile_service.hpp"
 #include "services/edit_stack.hpp"
 #include "services/editor_selection.hpp"
 
 namespace other {
 
+  class driver;
+
   struct editor_services {
+    /// the driver that is the editor. null where there is none, as in a test: what needs
+    ///  one then answers that there is nothing
+    driver* driver_ptr = nullptr;
+
     selection current_selection;
 
     void select_object(natural_t object_id);
@@ -118,12 +126,37 @@ namespace other {
     ///  no window is in the middle of drawing the scene that goes
     opt<natural_t> pending_scene_activation = std::nullopt;
 
+    /// the open project as a compile would see it, and the one compile that can run
+    compile_service compile;
+
+    /// set by the driver: shows the system's folder dialog, which answers folder_was_picked
+    ///  from a thread of its own, or not at all when it is cancelled
+    std::function<void()> show_folder_dialog = nullptr;
+    /// asks the user for a folder. false when there is nothing to show a dialog with. the
+    ///  answer is taken on a later frame
+    bool pick_folder();
+    /// the folder that was picked since this was last asked; none when none was, or the
+    ///  dialog was cancelled
+    opt<std::string> take_picked_folder();
+    /// puts an answer where the dialog would: the dialog answers on a thread of its own
+    void folder_was_picked(const std::string_view folder);
+
+    /// the project file of the project that was last made here; empty when none was. and
+    ///  whether the editor was told to open it, which it is only when no project is open
+    ///  (the engine does not close one project and open another while it runs) and it was
+    ///  made in the folder the editor works from (a project opens from the folder it is in)
+    std::string created_project = "";
+    bool created_project_opening = false;
+
    private:
     /// records the scene as it is now against the baseline, when the two differ
     void record_since_baseline(const std::string_view name);
 
     uint64_t selection_changes = 0;
     ostd::vector<natural_t> selection_seen = {};
+
+    std::mutex picked_mutex;
+    opt<std::string> picked_folder = std::nullopt;
   };
 
 }  // namespace other

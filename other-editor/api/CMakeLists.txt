@@ -17,6 +17,10 @@ target_sources(OtherEditor PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/playback.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/playback-bar.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/project-scenes.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/project-scripts.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/compile.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/dialogs.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/projects.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/commands.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/editor-commands.cs
 )

@@ -81,7 +81,7 @@ namespace Other.Editor
       }
 
       /// the file changed on disk and the open project could not take all of it
-      if (!Project.HasFileNotice)
+      if (!ProjectFile.HasNotice)
       {
         return;
       }
@@ -94,16 +94,16 @@ namespace Other.Editor
     {
       UIBindings.SeparatorText("C# Scripts");
 
-      ScriptFailure? failure = Project.Scripts.Failure;
-      string csproj = Project.Scripts.ProjectPath;
+      ScriptFailure? failure = ProjectScripts.Failure;
+      string csproj = ProjectScripts.ProjectPath;
       if (csproj.Length == 0 && failure == null)
       {
         UIBindings.TextDisabled("This project has no C# project.");
         return;
       }
 
-      bool building = Project.Scripts.Building;
-      bool mounted = Project.Scripts.Loaded;
+      bool building = ProjectScripts.Building;
+      bool mounted = ProjectScripts.Loaded;
       Widgets.PropertyDisplay("Project", csproj);
 
       if (building)
@@ -132,7 +132,7 @@ namespace Other.Editor
       UIBindings.BeginDisabled(!can_rebuild);
       if (UIBindings.Button(failure != null ? "Retry build" : "Rebuild"))
       {
-        Project.Scripts.RequestRebuild();
+        ProjectScripts.RequestRebuild();
       }
       UIBindings.EndDisabled();
 
@@ -190,11 +190,11 @@ namespace Other.Editor
       scenes_text = Project.SceneCount.ToString();
 
       notice_text = "";
-      if (Project.HasFileNotice)
+      if (ProjectFile.HasNotice)
       {
-        notice_text = Project.FileNoticeError.Length > 0
-          ? $"The project file changed on disk and was not read: {Project.FileNoticeError}"
-          : $"The project file changed on disk. Open the project again to apply: {string.Join(", ", Project.FileNoticeNeedsReopen)}.";
+        notice_text = ProjectFile.NoticeError.Length > 0
+          ? $"The project file changed on disk and was not read: {ProjectFile.NoticeError}"
+          : $"The project file changed on disk. Open the project again to apply: {string.Join(", ", ProjectFile.NoticeNeedsReopen)}.";
       }
 
       load_error_lines.Clear();
@@ -204,7 +204,7 @@ namespace Other.Editor
       }
 
       detail_lines.Clear();
-      ScriptFailure? failure = Project.Scripts.Failure;
+      ScriptFailure? failure = ProjectScripts.Failure;
       if (failure == null)
       {
         return;

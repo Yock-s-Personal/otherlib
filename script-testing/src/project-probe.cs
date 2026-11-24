@@ -1,7 +1,10 @@
 using System;
 using Other.Core;
+using Other.Editor;
 
-/// reads the project the suite set up, through the API a window reads it through
+/// reads the project the suite set up, through the API a window reads it through: what
+///  describes it from the engine's assembly, and how it is built from the editor's. only
+///  Read, HasNoFailure and RequestRebuild name the editor's, so only they need it loaded
 public static class ProjectProbe
 {
   private static ulong last_revision;
@@ -22,8 +25,8 @@ public static class ProjectProbe
     {
       bits |= 4;
     }
-    if (Project.HasFileNotice && Project.FileNoticeError.Length == 0 && Project.FileNoticeNeedsReopen.Count == 2 &&
-        Project.FileNoticeNeedsReopen[0] == "the scene list" && Project.FileNoticeNeedsReopen[1] == "the plugins")
+    if (ProjectFile.HasNotice && ProjectFile.NoticeError.Length == 0 && ProjectFile.NoticeNeedsReopen.Count == 2 &&
+        ProjectFile.NoticeNeedsReopen[0] == "the scene list" && ProjectFile.NoticeNeedsReopen[1] == "the plugins")
     {
       bits |= 8;
     }
@@ -31,11 +34,11 @@ public static class ProjectProbe
     {
       bits |= 16;
     }
-    if (Project.Scripts.ProjectPath == "game/Game.csproj" && Project.Scripts.Building && !Project.Scripts.Loaded)
+    if (ProjectScripts.ProjectPath == "game/Game.csproj" && ProjectScripts.Building && !ProjectScripts.Loaded)
     {
       bits |= 32;
     }
-    ScriptFailure? failure = Project.Scripts.Failure;
+    ScriptFailure? failure = ProjectScripts.Failure;
     if (failure != null && failure.ProjectPath == "game/Game.csproj" && failure.Reason == "The build failed." &&
         failure.Details == "error CS0103: café does not exist" && !failure.CanRetry)
     {
@@ -52,7 +55,7 @@ public static class ProjectProbe
   }
 
   public static int NameIsRenamed() { return Project.Name == "Another Name" ? 1 : 0; }
-  public static int HasNoFailure() { return Project.Scripts.Failure == null ? 1 : 0; }
+  public static int HasNoFailure() { return ProjectScripts.Failure == null ? 1 : 0; }
   public static int IsOpen() { return Project.IsOpen ? 1 : 0; }
 
   /// 1 when the project's revision is not what it was at the call before
@@ -66,7 +69,7 @@ public static class ProjectProbe
 
   public static int RequestRebuild()
   {
-    Project.Scripts.RequestRebuild();
+    ProjectScripts.RequestRebuild();
     return 1;
   }
 }

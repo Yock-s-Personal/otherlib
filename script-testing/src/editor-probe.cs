@@ -207,6 +207,40 @@ public static class EditorProbe
     return SceneView.Find(SceneObject.Find("Under")).PathKey != key ? 1 : 5;
   }
 
+  /// with no project open in the suite, a compile has nothing to work on
+  public static int CompileHasNoProject()
+  {
+    if (Compile.Poll() != CompileState.NoProject || Compile.Running || Compile.Result != CompileResult.None) { return 2; }
+    if (Compile.Scenes.Count != 0 || Compile.Problems.Count != 0 || Compile.Package.Length != 0 || Compile.StageLabel.Length != 0) { return 3; }
+    /// what a name may be is the engine's to say, project or none
+    if (Compile.NameProblem("Sandbox Game").Length != 0 || Compile.NameProblem("a/b").Length == 0) { return 4; }
+    return Compile.Start("Game", "somewhere", "Main", "", false, out string error) || error.Length == 0 ? 5 : 1;
+  }
+
+  private static string picked = "";
+
+  /// asks for a folder; the answer comes on a later frame
+  public static int AskForFolder()
+  {
+    picked = "";
+    return Dialogs.PickFolder(folder => picked = folder) ? 1 : 0;
+  }
+
+  /// which: 0 for nothing picked, 1 for the folder the suite says was picked
+  public static int PickedIs(int which) { return picked == (which == 0 ? "" : "C:/games/café") ? 1 : 0; }
+
+  /// makes a project named "probe-game" in the suite's folder under the temporary one, then
+  ///  is refused the same one again and one with a name that will not do
+  public static int CreateProject()
+  {
+    string folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "other-editor-services-tests");
+    if (!Projects.Create("probe-game", folder, "Someone", "made by the suite", out string error) || error.Length != 0) { return 2; }
+    /// the suite has no driver to open it with
+    if (!Projects.LastCreated.Replace('\\', '/').EndsWith("probe-game/probe-game.toml") || Projects.OpeningLastCreated) { return 3; }
+    if (Projects.Create("probe-game", folder, "", "", out error) || !error.Contains("already exists")) { return 4; }
+    return Projects.Create("9 lives", folder, "", "", out error) || !error.Contains("invalid project name") ? 5 : 1;
+  }
+
   public static int SceneViewFollows()
   {
     if (SceneView.SceneName != "Editor Scene") { return 2; }

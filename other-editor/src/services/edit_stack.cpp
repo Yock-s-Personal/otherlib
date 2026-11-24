@@ -7,14 +7,6 @@
 
 namespace other {
 
-  void edit_stack::commit(const edit& e) {
-    OTHER_ASSERT(e.apply != nullptr, "Cannot commit edit: no apply action defined.");
-    OTHER_ASSERT(e.undo != nullptr, "Cannot commit edit: no undo action defined.");
-    PROFILE_SECTION("edit_stack::commit");
-    e.apply();
-    record(e);
-  }
-
   void edit_stack::record(const edit& e) {
     OTHER_ASSERT(e.apply != nullptr, "Cannot record edit: no apply action defined.");
     OTHER_ASSERT(e.undo != nullptr, "Cannot record edit: no undo action defined.");

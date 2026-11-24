@@ -204,7 +204,7 @@ namespace Other.Editor
       }
     }
 
-    private static void Host()
+    internal static void Host()
     {
       if (hosted)
       {
@@ -255,6 +255,7 @@ namespace Other.Editor
         }
       }
       PlaybackBar.Draw();
+      Dialogs.Frame();
     }
   }
 }

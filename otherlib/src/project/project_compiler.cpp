@@ -569,6 +569,9 @@ namespace other {
         }
         return true;
       };
+      if (const toml::node_view console = table.at_path("package.console"); console && !console.is_boolean()) {
+        return fail("[package] console is true or false: whether the packaged game has the engine's console");
+      }
       return read("keep", kept) && read("exclude", excluded);
     }
 
@@ -1141,7 +1144,13 @@ namespace other {
       text += "\n[rendering]\n";
       text += std::format("main-pipeline = {}\n", toml_string(main_pipeline));
       text += std::format("pipelines = [ {} ]\n", pipelines);
-      text += "\n[ui]\nenable = false\n";
+      /// a Debug package has the engine's console, shut until the key under Esc opens it. a
+      ///  Release package draws no UI at all. [package] console says otherwise for either
+      const bool console = table.at_path("package.console").value_or(debug);
+      text += std::format("\n[ui]\nenable = {}\n", console);
+      if (console) {
+        text += "console-key = true\n";
+      }
       text += "\n[scripting]\n";
       text += "dotnet-runtime-config = \"engine/dotnet-assemblies/OtherCsBindings.runtimeconfig.json\"\n";
       text += "dotnet-bindings = \"engine/dotnet-assemblies/OtherCsBindings.dll\"\n";

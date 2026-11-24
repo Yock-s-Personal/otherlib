@@ -349,4 +349,24 @@ namespace other {
     }
   }
 
+  bool editor_services::pick_folder() {
+    if (!show_folder_dialog) {
+      return false;
+    }
+    show_folder_dialog();
+    return true;
+  }
+
+  opt<std::string> editor_services::take_picked_folder() {
+    const std::lock_guard lock(picked_mutex);
+    opt<std::string> taken = std::move(picked_folder);
+    picked_folder.reset();
+    return taken;
+  }
+
+  void editor_services::folder_was_picked(const std::string_view folder) {
+    const std::lock_guard lock(picked_mutex);
+    picked_folder = std::string{ folder };
+  }
+
 }  // namespace other

@@ -7,6 +7,8 @@ target_sources(other_editor_services
     src/services/edit_stack.cpp
     src/services/editor_services.cpp
     src/services/editor_bindings.cpp
+    src/services/editor_project_bindings.cpp
+    src/services/compile_service.cpp
 )
 target_include_directories(other_editor_services
   PUBLIC
@@ -28,8 +30,6 @@ add_static_driver(other_editor
   src/ui/render-pipeline-ui/render_pipeline_widgets.cpp
   src/ui/render-pipeline-ui/render_pipeline_viewer.cpp
   src/ui/render-pipeline-ui/render_pipeline_editor.cpp
-  src/ui/project-compiler/project_compiler.cpp
-  src/ui/project-creator/project_creator.cpp
   src/ui/viewport/viewport.cpp
 
   src/editor_context.cpp

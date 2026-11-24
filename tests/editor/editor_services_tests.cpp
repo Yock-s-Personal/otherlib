@@ -4,6 +4,11 @@
  * what an editor window works with that is not the scene itself: the selection and the
  * edits that can be undone, natively and through the editor's C# API (Other.Editor)
  **/
+#include <filesystem>
+#include <fstream>
+#include <iterator>
+#include <string>
+
 #include "script/scripting_environment.hpp"
 
 #include "object/script_component.hpp"
@@ -400,6 +405,80 @@ namespace other {
     EXPECT_EQ(probe("PathKeysOutliveAnUndo"), 1);
   }
 
+  TEST_F(editor_services_tests, a_compile_has_nothing_to_work_on_with_no_project) {
+    edited_scene edited;
+    EXPECT_EQ(probe("CompileHasNoProject"), 1);
+    uint64_t stamp = 0;
+    EXPECT_EQ(bindings::native_editor_compile_poll(&stamp), static_cast<int32_t>(compile_service::state::NO_PROJECT));
+    EXPECT_NE(stamp, 0u);
+    EXPECT_EQ(bindings::native_editor_compile_result(), static_cast<int32_t>(compile_service::result::NONE));
+    EXPECT_EQ(bindings::native_editor_compile_count(static_cast<int32_t>(bindings::compile_text::SCENES)), 0);
+    EXPECT_STREQ(bindings::native_editor_compile_text(static_cast<int32_t>(bindings::compile_text::SCENES), 3), "");
+    EXPECT_STREQ(bindings::native_editor_compile_text(900, 0), "");
+  }
+
+  TEST_F(editor_services_tests, a_picked_folder_is_handed_over_on_a_later_frame_and_once) {
+    edited_scene edited;
+    editor_services& services = edited.services;
+    /// with nothing to show a dialog with, asking says so
+    EXPECT_EQ(probe("AskForFolder"), 0);
+
+    uint32_t shown = 0;
+    services.show_folder_dialog = [&shown]() {
+      ++shown;
+    };
+    EXPECT_EQ(probe("AskForFolder"), 1);
+    EXPECT_EQ(shown, 1u);
+    /// nothing was picked yet: a frame hands nothing over
+    EXPECT_TRUE(bindings::run_editor_frame_function());
+    EXPECT_EQ(env->call_static_dotnet_method<int32_t>("EditorProbe", "PickedIs", int32_t{ 0 }), 1);
+
+    /// the dialog answers on its own thread; C# hears of it on the main one, a frame later
+    services.folder_was_picked("C:/games/caf\xc3\xa9");
+    EXPECT_EQ(env->call_static_dotnet_method<int32_t>("EditorProbe", "PickedIs", int32_t{ 0 }), 1);
+    EXPECT_TRUE(bindings::run_editor_frame_function());
+    EXPECT_EQ(env->call_static_dotnet_method<int32_t>("EditorProbe", "PickedIs", int32_t{ 1 }), 1);
+    EXPECT_FALSE(services.take_picked_folder().has_value());
+
+    /// a dialog that was cancelled answers nothing, and nothing is handed over
+    EXPECT_EQ(probe("AskForFolder"), 1);
+    EXPECT_TRUE(bindings::run_editor_frame_function());
+    EXPECT_EQ(env->call_static_dotnet_method<int32_t>("EditorProbe", "PickedIs", int32_t{ 0 }), 1);
+  }
+
+  TEST_F(editor_services_tests, a_project_is_made_as_the_create_tool_makes_one) {
+    edited_scene edited;
+    std::error_code ec;
+    const filepath folder = std::filesystem::temp_directory_path() / "other-editor-services-tests";
+    std::filesystem::remove_all(folder, ec);
+    std::filesystem::create_directories(folder, ec);
+    ASSERT_FALSE(ec) << ec.message();
+
+    EXPECT_EQ(probe("CreateProject"), 1);
+    const filepath made = folder / "probe-game";
+    EXPECT_TRUE(std::filesystem::exists(made / "probe-game.toml"));
+    EXPECT_TRUE(std::filesystem::exists(made / "probe-game.lua"));
+    EXPECT_TRUE(std::filesystem::exists(made / "assets" / "scenes" / "main.oscn"));
+    EXPECT_TRUE(std::filesystem::is_directory(made / "src"));
+    EXPECT_EQ(filepath{ edited.services.created_project }, made / "probe-game.toml");
+
+    /// what was typed is in the project file, and the suite's environment wired the scripts
+    std::ifstream file(made / "probe-game.toml", std::ios::binary);
+    const std::string text{ std::istreambuf_iterator<char>{ file }, std::istreambuf_iterator<char>{} };
+    /// its paths are written from the folder that holds it, which is where they are read from
+    EXPECT_TRUE(text.contains("path = \"probe-game/assets/scenes/main.oscn\""));
+    EXPECT_TRUE(text.contains("cs_project = \"probe-game/ProbeGame.csproj\""));
+    EXPECT_TRUE(text.contains("projectrc-path = \"probe-game/probe-game.lua\""));
+    EXPECT_TRUE(text.contains("Someone"));
+    EXPECT_TRUE(text.contains("made by the suite"));
+    EXPECT_TRUE(std::filesystem::exists(made / "ProbeGame.csproj"));
+
+    /// a project that could not be made leaves nothing behind
+    EXPECT_FALSE(std::filesystem::exists(folder / "9 lives"));
+    file.close();
+    std::filesystem::remove_all(folder, ec);
+  }
+
   TEST_F(editor_services_tests, with_no_editor_the_api_answers_nothing) {
     {
       edited_scene edited;
@@ -418,6 +497,11 @@ namespace other {
     EXPECT_FALSE(bindings::native_editor_scene_save());
     EXPECT_EQ(bindings::native_editor_scenes_read(), 0);
     EXPECT_NO_FATAL_FAILURE(bindings::native_editor_scenes_activate(3));
+    uint64_t stamp = 7;
+    EXPECT_EQ(bindings::native_editor_compile_poll(&stamp), 0);
+    EXPECT_EQ(stamp, 0u);
+    EXPECT_FALSE(bindings::native_editor_pick_folder());
+    EXPECT_STRNE(bindings::native_editor_create_project("a-game", "somewhere", "", ""), "");
   }
 
 }  // namespace other

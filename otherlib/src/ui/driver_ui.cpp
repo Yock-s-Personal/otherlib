@@ -5,7 +5,10 @@
 
 #include <algorithm>
 
+#include <imgui/imgui.h>
+
 #include "core/defines.hpp"
+#include "core/logger.hpp"
 #include "core/profiler.hpp"
 #include "file/path_helpers.hpp"
 
@@ -45,9 +48,6 @@ namespace other {
 
   void driver_ui::initialize() {
     PROFILE_SECTION("driver_ui::initialize");
-    component_reg = make_scope<ui::component_widget_registry>();
-    OTHER_ASSERT(component_reg != nullptr, "Failed to create component widget registry in driver UI initialization.");
-
     load_theme();
 
     register_window("type-database", make_scope<ui::type_database>(*driver_ptr->get_event_system()), ui::window_source::BUILTIN);
@@ -55,6 +55,7 @@ namespace other {
 
     main_menu_bar.main_menu_bar = true;
     main_menu_bar_open = driver_ptr->configuration().get_value<bool>("ui.enable-environment-menu-bar", false);
+    console_key = driver_ptr->configuration().get_value<bool>("ui.console-key", false);
 
     /// scripts were loaded before there was anywhere to put a window: theirs arrive now
     bindings::attach_script_windows(&windows, driver_ptr->get_event_system().get(), this);
@@ -69,6 +70,17 @@ namespace other {
         std::views::transform(&main_menu_bar_menu::menu) |
         std::ranges::to<ostd::vector<ui::menu>>();
       main_menu_bar.render(menus);
+    }
+
+    /// wherever the focus is, unless a text field being typed in wants the key itself
+    if (console_key && ImGui::Shortcut(ImGuiKey_GraveAccent, ImGuiInputFlags_RouteGlobal)) {
+      const bool opened = !windows.is_open("console");
+      if (opened) {
+        windows.open("console");
+      } else {
+        windows.close("console");
+      }
+      CORE_LOG_DEBUG("The console was {} by its key.", opened ? "opened" : "shut");
     }
 
     windows.render();

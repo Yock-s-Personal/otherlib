@@ -7,6 +7,7 @@
 #include <toml++/toml.hpp>
 
 #include "core/defines.hpp"
+#include "core/value.hpp"
 
 #include "driver/systems/core_system.hpp"
 #include "project/project.hpp"

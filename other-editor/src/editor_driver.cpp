@@ -24,8 +24,6 @@
 #include "driver/systems/project_system.hpp"
 #include "driver/systems/scene_system.hpp"
 #include "ui/asset-browser/asset_browser.hpp"
-#include "ui/project-compiler/project_compiler.hpp"
-#include "ui/project-creator/project_creator.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_editor.hpp"
 #include "ui/render-pipeline-ui/render_pipeline_viewer.hpp"
 #include "ui/viewport/viewport.hpp"
@@ -37,11 +35,21 @@ namespace other {
   void editor_driver::on_system_initialization() {
     PROFILE_SECTION("editor_driver::on_system_initialization");
     bindings::set_editor_services(&context);
+    context.driver_ptr = this;
     context.send_playback_command = [this](const std::string_view command) {
       trigger_event("scene.playback-command", value{ std::string{ command } });
     };
     context.save_scene = [this]() -> bool {
       return save_active_scene();
+    };
+    context.show_folder_dialog = [this]() {
+      /// answered on the dialog's own thread, with nothing when it was cancelled
+      const auto picked = [](void* userdata, const char* const* filelist, int32_t filter) -> void {
+        if (userdata != nullptr && filelist != nullptr && filelist[0] != nullptr) {
+          static_cast<editor_context*>(userdata)->folder_was_picked(filelist[0]);
+        }
+      };
+      get_kernel().get_core_system<rendering_system>().show_open_folder_dialog(picked, &context, 0);
     };
     context.list_scenes = [this](ostd::vector<editor_services::scene_listing>& listed) {
       auto& kernel = get_kernel();
@@ -97,10 +105,8 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_early_initialize");
     auto& ui = get_ui();
     viewport_id = ui->register_window<ui::viewport>("viewport", context, *get_event_system(), get_renderer(), this);
-    ui->register_window<ui::project_creator>("project-creator", context, *get_event_system());
     ui->register_window<ui::render_pipeline_viewer>("render-pipeline-viewer", context, *get_event_system());
     ui->register_window<ui::render_pipeline_editor>("render-pipeline-editor", context, *get_event_system());
-    ui->register_window<ui::project_compiler>("project-compiler", context, *get_event_system(), this);
     ui->register_window<ui::asset_browser>("asset-browser", *get_event_system(), this);
   }
 
@@ -304,15 +310,16 @@ namespace other {
     PROFILE_SECTION("editor_driver::on_shutdown_request");
     /// a compile reads the project through its mount and links against the VM's devices. the
     ///  project is unloaded next and the VM goes soon after, so the compile is waited for here
-    context.project_compile.wait();
+    context.compile.session.wait();
   }
 
   void editor_driver::on_shutdown() {
     PROFILE_SECTION("editor_driver::on_shutdown");
     /// only a compile started after the shutdown was asked for can still be running
-    context.project_compile.wait();
+    context.compile.session.wait();
     context.remove_all_viewports();
     bindings::set_editor_services(nullptr);
+    context.driver_ptr = nullptr;
   }
 
   void editor_driver::update_running() {

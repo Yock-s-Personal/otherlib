@@ -83,14 +83,7 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/scene-object.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene/scene.cs
 
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/project-configuration.cs
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/other-tool.cs
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/build-tool/build-tool.cs
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/tools/project-tool.cs
 
   ${CMAKE_CURRENT_SOURCE_DIR}/src/util/log.cs
 )
 target_link_libraries(OtherCs PUBLIC OtherCsBindings)
-
-## add package reference for Microsoft.Build and Microsoft.Build.Locator
-target_link_libraries(OtherCs PUBLIC Microsoft.Build Microsoft.Build.Locator Microsoft.Build.Utilities.Core)

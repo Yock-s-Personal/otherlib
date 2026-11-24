@@ -11,6 +11,7 @@
 
 #include "dotnet/dotnet_host.hpp"
 
+#include "scripting/dotnet_bindings/project_bindings.hpp"
 #include "scripting/main_thread_only.hpp"
 
 #include "services/editor_services.hpp"
@@ -76,6 +77,38 @@ namespace other {
       bind<native_editor_scenes_activate>(host, "EditorScenesActivate", refused);
       /// Commands.
       bind<native_editor_set_frame_function>(host, "EditorSetFrameFunction", refused);
+      /// Compile.
+      bind<native_editor_compile_poll>(host, "EditorCompilePoll", refused);
+      bind<native_editor_compile_refresh>(host, "EditorCompileRefresh", refused);
+      bind<native_editor_compile_count>(host, "EditorCompileCount", refused);
+      bind<native_editor_compile_text>(host, "EditorCompileText", refused);
+      bind<native_editor_compile_name_problem>(host, "EditorCompileNameProblem", refused);
+      bind<native_editor_compile_start>(host, "EditorCompileStart", refused);
+      bind<native_editor_compile_progress>(host, "EditorCompileProgress", refused);
+      bind<native_editor_compile_stage_label>(host, "EditorCompileStageLabel", refused);
+      bind<native_editor_compile_cancel>(host, "EditorCompileCancel", refused);
+      bind<native_editor_compile_result>(host, "EditorCompileResult", refused);
+      /// Dialogs, Projects.
+      bind<native_editor_pick_folder>(host, "EditorPickFolder", refused);
+      bind<native_editor_take_picked_folder>(host, "EditorTakePickedFolder", refused);
+      bind<native_editor_create_project>(host, "EditorCreateProject", refused);
+      bind<native_editor_created_project>(host, "EditorCreatedProject", refused);
+      bind<native_editor_created_project_opening>(host, "EditorCreatedProjectOpening", refused);
+      /// ProjectScripts, ProjectFile: what the engine keeps about the open project that only
+      ///  an editor shows. the engine has the functions and binds none of them itself
+      bind<native_project_has_file_notice>(host, "EditorProjectHasFileNotice", refused);
+      bind<native_project_get_file_notice_error>(host, "EditorProjectGetFileNoticeError", refused);
+      bind<native_project_get_file_notice_part_count>(host, "EditorProjectGetFileNoticePartCount", refused);
+      bind<native_project_get_file_notice_part>(host, "EditorProjectGetFileNoticePart", refused);
+      bind<native_project_get_script_project_path>(host, "EditorProjectGetScriptProjectPath", refused);
+      bind<native_project_scripts_building>(host, "EditorProjectScriptsBuilding", refused);
+      bind<native_project_scripts_loaded>(host, "EditorProjectScriptsLoaded", refused);
+      bind<native_project_has_script_failure>(host, "EditorProjectHasScriptFailure", refused);
+      bind<native_project_get_script_failure_project_path>(host, "EditorProjectGetScriptFailureProjectPath", refused);
+      bind<native_project_get_script_failure_reason>(host, "EditorProjectGetScriptFailureReason", refused);
+      bind<native_project_get_script_failure_details>(host, "EditorProjectGetScriptFailureDetails", refused);
+      bind<native_project_script_failure_can_retry>(host, "EditorProjectScriptFailureCanRetry", refused);
+      bind<native_project_request_script_rebuild>(host, "EditorProjectRequestScriptRebuild", refused);
       return refused;
     }
 

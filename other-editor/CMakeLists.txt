@@ -10,8 +10,10 @@ target_sources(other_editor_services
     src/services/editor_bindings.cpp
     src/services/editor_project_bindings.cpp
     src/services/editor_view_bindings.cpp
+    src/services/editor_handles_bindings.cpp
     src/services/compile_service.cpp
     src/services/scene_pick.cpp
+    src/services/scene_handles.cpp
 )
 target_include_directories(other_editor_services
   PUBLIC

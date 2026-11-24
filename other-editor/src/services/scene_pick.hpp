@@ -7,6 +7,8 @@
 #ifndef OTHER_EDITOR_SERVICES_SCENE_PICK_HPP
 #define OTHER_EDITOR_SERVICES_SCENE_PICK_HPP
 
+#include <utility>
+
 #include <glm/glm.hpp>
 
 #include "core/defines.hpp"
@@ -37,6 +39,10 @@ namespace other {
   /// where a point of the world is in the camera's picture, in those units. none when the
   ///  point is behind the camera
   opt<glm::vec2> view_place(const camera& cam, const glm::vec2& size, const glm::vec3& point);
+
+  /// a line of the world as the camera's picture has it: where its two ends are shown,
+  ///  cut short where it goes behind the camera. none when all of it is behind
+  opt<std::pair<glm::vec2, glm::vec2>> view_segment(const camera& cam, const glm::vec2& size, const glm::vec3& a, const glm::vec3& b);
 
   /// how much of the world one unit of the picture covers at a point's distance: what a
   ///  shape is sized by to stay the same size on the screen

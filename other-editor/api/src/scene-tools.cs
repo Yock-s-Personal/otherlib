@@ -93,6 +93,18 @@ namespace Other.Editor
       }
     }
 
+    /// the handles of a tool that moves or turns things are along the world's axes when
+    ///  this is true, and along the active object's own when it is not
+    public static bool WorldAxes { get; set; }
+
+    /// makes the tool of that name the active one. "select", or a name no tool has, is no
+    ///  active tool: a click then only selects
+    public static void Activate(string name)
+    {
+      SceneTool? tool = Find(name);
+      Active = tool != null && !tool.Always ? tool : null;
+    }
+
     public static SceneTool? Find(string name)
     {
       ReadAssemblies();

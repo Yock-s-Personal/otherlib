@@ -124,6 +124,9 @@ namespace other {
     context.camera_controller.focus_distance = glm::length(context.editor_camera.position);
     context.camera_controller.settings.move_speed = get_config_value<float>("editor.camera-move-speed", context.camera_controller.settings.move_speed);
     context.camera_controller.settings.look_sensitivity = get_config_value<float>("editor.camera-look-sensitivity", context.camera_controller.settings.look_sensitivity);
+    context.snaps.move = get_config_value<float>("editor.snap-move", context.snaps.move);
+    context.snaps.turn_degrees = get_config_value<float>("editor.snap-rotate", context.snaps.turn_degrees);
+    context.snaps.scale = get_config_value<float>("editor.snap-scale", context.snaps.scale);
 
     get_event_system()->add_listener("scene.activated", [this](const value& data) {
       OTHER_ASSERT(data.type() == value_type::UINT64, "Expected scene.activated event data to be of type UINT64 representing the active scene ID.");
@@ -268,23 +271,18 @@ namespace other {
         auto& obj = scene->get_object(obj_id);
         auto world_trans = scene->get_world_transform(obj_id);
 
-        glm::vec3 local_up = { 0, 1, 0 };
-        glm::vec3 local_right = { 1, 0, 0 };
-        glm::vec3 local_forward = { 0, 0, -1 };
-        glm::vec3 world_up = glm::normalize(glm::vec3(world_trans * glm::vec4(local_up, 0)));
-        glm::vec3 world_right = glm::normalize(glm::vec3(world_trans * glm::vec4(local_right, 0)));
-        glm::vec3 world_forward = glm::normalize(glm::vec3(world_trans * glm::vec4(local_forward, 0)));
-        /// the object's own axes, from where it is
-        const glm::vec3 origin = glm::vec3(world_trans[3]);
-        draw.arrow(origin, origin + world_right, basic_colors::kRed);
-        draw.arrow(origin, origin + world_up, basic_colors::kGreen);
-        draw.arrow(origin, origin + world_forward, basic_colors::kBlue);
-
         /// what is selected has an outline round it, in the pose it is drawn in.
         ///  obj_model.source stays null until the model asset finishes its async load
         if (auto* render = scene->try_get_component<render_component>(obj.id);
             render != nullptr && render->visible && render->obj_model.source != nullptr) {
           outlined.mesh(render->obj_model.source->get_mesh_handle(), world_trans, basic_colors::kWhite, false, render->obj_model.bone_matrices);
+        } else {
+          /// with nothing to draw an outline round, its own axes say where it is and how
+          ///  it is turned
+          const glm::vec3 origin = glm::vec3(world_trans[3]);
+          draw.arrow(origin, origin + glm::normalize(glm::vec3(world_trans * glm::vec4(1.f, 0.f, 0.f, 0.f))), basic_colors::kRed);
+          draw.arrow(origin, origin + glm::normalize(glm::vec3(world_trans * glm::vec4(0.f, 1.f, 0.f, 0.f))), basic_colors::kGreen);
+          draw.arrow(origin, origin + glm::normalize(glm::vec3(world_trans * glm::vec4(0.f, 0.f, 1.f, 0.f))), basic_colors::kBlue);
         }
 
         if (auto* pl_comp = scene->try_get_component<point_light_component>(obj.id);

@@ -96,8 +96,9 @@ namespace other {
       view.size = { size.x, size.y };
       view.hovered = vp.hovered;
       /// the item asked about is the button over the picture
+      /// a press that took hold of a handle ends a drag when it is let go, and is no click
       const bool dragged = io.MouseDragMaxDistanceSqr[ImGuiMouseButton_Left] >= io.MouseDragThreshold * io.MouseDragThreshold;
-      view.clicked = ImGui::IsItemDeactivated() && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && vp.hovered && !dragged && !io.KeyAlt;
+      view.clicked = ImGui::IsItemDeactivated() && ImGui::IsMouseReleased(ImGuiMouseButton_Left) && vp.hovered && !dragged && !io.KeyAlt && !editor_ctx.handles.press_taken();
 
       if (tools_stopped) {
         ImGui::SetCursorScreenPos(ImVec2{ position.x + 8.f, position.y + 8.f });
@@ -112,8 +113,25 @@ namespace other {
         return;
       }
 
+      /// the tools ask for their handles while they run, and draw them over the picture
+      ///  and not past its edges
+      editor_ctx.handles.begin_frame({
+        .cam = &editor_ctx.editor_camera,
+        .view_size = view.size,
+        .pointer = { io.MousePos.x - position.x, io.MousePos.y - position.y },
+        .over_view = vp.hovered,
+        .down = io.MouseDown[ImGuiMouseButton_Left],
+        .pressed = vp.hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left),
+        .blocked = io.KeyAlt,
+        .cancel = ImGui::IsKeyPressed(ImGuiKey_Escape, false),
+      });
+      ImGui::PushClipRect(position, ImVec2{ position.x + size.x, position.y + size.y }, true);
+
       /// a tool catches what it throws; what is left for here is what ImGui objects to
       const script_draw_errors errors = guard_script_draw([]() { bindings::run_scene_view_function(); });
+
+      ImGui::PopClipRect();
+      editor_ctx.handles.end_frame();
       if (errors.count > 0) {
         tools_stopped = true;
         tools_stopped_reason = errors.describe();

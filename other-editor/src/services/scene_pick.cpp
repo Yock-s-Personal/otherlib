@@ -90,6 +90,12 @@ namespace other {
       return enter;
     }
 
+    /// false for a box nobody set: its sides are the wrong way round, and a ray is not
+    ///  turned away by it
+    bool is_set(const bounding_box& box) {
+      return box.min.x <= box.max.x && box.min.y <= box.max.y && box.min.z <= box.max.z;
+    }
+
     /// a vertex as the vertex shader places it under a pose (get_bone_transform): the
     ///  weighted sum of its bones, and where it was modelled when no bone has a say
     glm::vec3 posed_position(const vertex& vert, std::span<const glm::mat4> palette) {
@@ -113,7 +119,7 @@ namespace other {
       const size_t joints = std::min(palette.size(), data.skel.joints.size());
       for (size_t i = 0; i < joints; ++i) {
         bounding_box moved = data.skel.joints[i].influenced_bounds;
-        if (moved == bounding_box::empty) {
+        if (!is_set(moved)) {
           continue;
         }
         posed = bounding_box::expand_to_include(posed, moved.transform(palette[i]));
@@ -144,6 +150,30 @@ namespace other {
     }
     const glm::vec2 ndc = glm::vec2(clip) / clip.w;
     return glm::vec2{ (ndc.x + 1.f) * 0.5f * size.x, (1.f - ndc.y) * 0.5f * size.y };
+  }
+
+  opt<std::pair<glm::vec2, glm::vec2>> view_segment(const camera& cam, const glm::vec2& size, const glm::vec3& a, const glm::vec3& b) {
+    const glm::mat4 to_clip = view_projection(cam, size);
+    glm::vec4 from = to_clip * glm::vec4(a, 1.f);
+    glm::vec4 to = to_clip * glm::vec4(b, 1.f);
+
+    /// w is how far in front of the camera a point is: the line is kept from the near
+    ///  plane on, where it can still be divided by
+    const float nearest = cam.clip.near_plane;
+    if (from.w < nearest && to.w < nearest) {
+      return std::nullopt;
+    }
+    if (from.w < nearest) {
+      from = glm::mix(from, to, (nearest - from.w) / (to.w - from.w));
+    } else if (to.w < nearest) {
+      to = glm::mix(to, from, (nearest - to.w) / (from.w - to.w));
+    }
+
+    const auto place = [&size](const glm::vec4& clip) -> glm::vec2 {
+      const glm::vec2 ndc = glm::vec2(clip) / clip.w;
+      return { (ndc.x + 1.f) * 0.5f * size.x, (1.f - ndc.y) * 0.5f * size.y };
+    };
+    return std::pair{ place(from), place(to) };
   }
 
   float view_units_per_pixel(const camera& cam, const glm::vec2& size, const glm::vec3& point) {
@@ -189,14 +219,14 @@ namespace other {
         if (!posed_box.has_value()) {
           posed_box = posed_bounds(data, palette);
         }
-        if (!(*posed_box == bounding_box::empty) && !ray_box_distance(origin, direction, *posed_box).has_value()) {
+        if (is_set(*posed_box) && !ray_box_distance(origin, direction, *posed_box).has_value()) {
           continue;
         }
         posed.resize(sm.vert_cnt);
         for (uint32_t v = 0; v < sm.vert_cnt; ++v) {
           posed[v] = posed_position(data.vertices[sm.base_vertex + v], palette);
         }
-      } else if (!(sm.bounds == bounding_box::empty) && !ray_box_distance(origin, direction, sm.bounds).has_value()) {
+      } else if (is_set(sm.bounds) && !ray_box_distance(origin, direction, sm.bounds).has_value()) {
         continue;
       }
 

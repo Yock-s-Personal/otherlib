@@ -167,6 +167,26 @@ namespace other {
     record_since_baseline(name);
   }
 
+  void editor_services::drop_edit() {
+    PROFILE_SECTION("editor_services::drop_edit");
+    if (edit_tracker.open_edits == 0) {
+      CORE_LOG_ERROR("An edit was dropped that was not begun.");
+      return;
+    }
+    if (--edit_tracker.open_edits > 0) {
+      return;
+    }
+
+    edit_tracker.open_edit_name.clear();
+    scene* s = current_selection.scene_ptr;
+    if (s == nullptr || s->is_playing() || edit_tracker.baseline.empty()) {
+      return;
+    }
+    /// the scene as it is now is what the next action is measured from. putting a value
+    ///  back need not put back every bit of what holds it, and that is no change to undo
+    edit_tracker.baseline = s->capture_snapshot();
+  }
+
   bool editor_services::has_unsaved_scene_edits() const {
     return edit_tracker.session_active || editing_history.change_count() != saved_change_count;
   }

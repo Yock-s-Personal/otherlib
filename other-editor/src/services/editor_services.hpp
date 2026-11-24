@@ -21,6 +21,7 @@
 #include "services/edit_stack.hpp"
 #include "services/editor_camera.hpp"
 #include "services/editor_selection.hpp"
+#include "services/scene_handles.hpp"
 
 namespace other {
 
@@ -89,6 +90,10 @@ namespace other {
     ///  records. nothing is recorded while the scene plays, or when nothing changed
     void begin_edit(const std::string_view name);
     void end_edit();
+    /// ends an action that was put back by hand, as a drag is when it is cancelled:
+    ///  nothing is recorded, whatever the scene is now. inside another action that is
+    ///  still open it only closes, and the outer one records what it finds
+    void drop_edit();
 
     void undo_scene_edit();
     void redo_scene_edit();
@@ -151,6 +156,15 @@ namespace other {
       ///  not dragged between and alt not held: a drag, and alt, are the camera's
       bool clicked = false;
     } view;
+    /// the handles the view's tools ask for while its window is drawn
+    scene_handles handles;
+    /// what a drag goes in steps of while Ctrl is held: metres, degrees, and times the size
+    struct snap_steps {
+      float move = 0.25f;
+      float turn_degrees = 15.f;
+      float scale = 0.1f;
+    } snaps;
+
     /// the object drawn at a place of the screen, as the view's camera sees the scene.
     ///  0 when there is none there, or no view
     natural_t pick_in_view(const glm::vec2& screen_place);

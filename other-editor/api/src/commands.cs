@@ -58,6 +58,8 @@ namespace Other.Editor
 
     internal readonly Action run;
     internal readonly Func<bool>? enabled;
+    /// when its key is listened for. null for always
+    internal Func<bool>? key_when;
     internal Assembly? owner;
     internal MenuItem? item;
 
@@ -88,6 +90,36 @@ namespace Other.Editor
         catch (Exception e)
         {
           Core.Logger.LogError($"The command '{Name}' threw when asked whether it is enabled: {e}");
+          return false;
+        }
+      }
+    }
+
+    /// a command whose key means something else elsewhere says when the key is its own:
+    ///  a tool's key in the Scene View is a letter anywhere else. its menu item and
+    ///  Run are not held back by this
+    public Command KeyWhen(Func<bool> when)
+    {
+      key_when = when;
+      return this;
+    }
+
+    internal bool KeyListenedFor
+    {
+      get
+      {
+        if (key_when == null)
+        {
+          return true;
+        }
+
+        try
+        {
+          return key_when();
+        }
+        catch (Exception e)
+        {
+          Core.Logger.LogError($"The command '{Name}' threw when asked whether its key is listened for: {e}");
           return false;
         }
       }
@@ -249,7 +281,7 @@ namespace Other.Editor
         {
           command.item.Enabled = command.Enabled;
         }
-        if (!command.Chord.IsNone && UIWidgets.Shortcut(command.Chord.Key, command.Chord.Mods, true))
+        if (!command.Chord.IsNone && command.KeyListenedFor && UIWidgets.Shortcut(command.Chord.Key, command.Chord.Mods, true))
         {
           command.Run();
         }

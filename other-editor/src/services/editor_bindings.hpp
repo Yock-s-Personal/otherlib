@@ -39,6 +39,8 @@ namespace other {
     void native_editor_edits_changed();
     void native_editor_edits_begin(const char* name);
     void native_editor_edits_end();
+    /// ends the action that is open and records nothing
+    void native_editor_edits_drop();
     nbool32 native_editor_edits_can_undo();
     nbool32 native_editor_edits_can_redo();
     void native_editor_edits_undo();
@@ -71,6 +73,35 @@ namespace other {
     float native_editor_view_pixel_size(float x, float y, float z);
     /// the id of the object drawn at a place of the screen. 0 for none
     uint64_t native_editor_view_pick(float x, float y);
+
+    /// the handles of the view's tools. each is asked for every frame its tool runs, by an
+    ///  id of its own, and answers with handle_flags; vectors are three floats. they
+    ///  answer 0 and draw nothing when the view's tools are not being run
+    /// bit 0: some handle is hot. bit 1: one is being dragged
+    uint32_t native_editor_handles_state();
+    /// what a drag goes in steps of while it snaps: metres, degrees, times the size
+    void native_editor_handles_snaps(float* move, float* turn_degrees, float* scale);
+    uint32_t native_editor_handles_slide_axis(uint64_t id, float* position, float* axis, float reach, float snap);
+    uint32_t native_editor_handles_slide_plane(uint64_t id, float* position, float* u, float* v, float near_edge, float far_edge, float snap);
+    uint32_t native_editor_handles_turn(uint64_t id, float* centre, float* axis, float radius, float* angle, float snap, uint32_t near_half_only);
+    /// from the centre of the ring being turned towards where it was taken hold of, three
+    ///  floats. false, and nothing written, when no handle is being dragged
+    nbool32 native_editor_handles_grab_direction(float* direction);
+    uint32_t native_editor_handles_stretch_axis(uint64_t id, float* centre, float* axis, float reach, float* factor, float snap);
+    uint32_t native_editor_handles_stretch_all(uint64_t id, float* centre, float radius_pixels, float* factor, float snap);
+    /// shapes of the world drawn over the view's picture, in front of everything in it.
+    ///  color is as ImGui packs one; a thickness and a dot's radius are in the UI's units
+    void native_editor_handles_line(float* a, float* b, uint32_t color, float thickness);
+    void native_editor_handles_arrow(float* from, float* to, uint32_t color, float thickness);
+    void native_editor_handles_circle(float* centre, float* axis, float radius, uint32_t color, float thickness);
+    /// part of a circle round an axis: from the direction `start`, which is square to the
+    ///  axis, so many radians counter-clockwise seen from where the axis points. the pie is
+    ///  that part filled in, to the centre
+    void native_editor_handles_arc(float* centre, float* axis, float* start, float radians, float radius, uint32_t color, float thickness);
+    void native_editor_handles_pie(float* centre, float* axis, float* start, float radians, float radius, uint32_t color);
+    void native_editor_handles_quad(float* a, float* b, float* c, float* d, uint32_t color);
+    void native_editor_handles_dot(float* at, float radius_pixels, uint32_t color);
+    void native_editor_handles_label(float* at, const char* text, uint32_t color);
 
     /// fn is a void (*)(), called while the view's window is drawn, after its picture:
     ///  where the C# side runs its scene tools. null for none

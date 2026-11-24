@@ -62,6 +62,7 @@ namespace other {
       bind<native_editor_edits_changed>(host, "EditorEditsChanged", refused);
       bind<native_editor_edits_begin>(host, "EditorEditsBegin", refused);
       bind<native_editor_edits_end>(host, "EditorEditsEnd", refused);
+      bind<native_editor_edits_drop>(host, "EditorEditsDrop", refused);
       bind<native_editor_edits_can_undo>(host, "EditorEditsCanUndo", refused);
       bind<native_editor_edits_can_redo>(host, "EditorEditsCanRedo", refused);
       bind<native_editor_edits_undo>(host, "EditorEditsUndo", refused);
@@ -80,6 +81,23 @@ namespace other {
       bind<native_editor_view_place>(host, "EditorViewPlace", refused);
       bind<native_editor_view_pixel_size>(host, "EditorViewPixelSize", refused);
       bind<native_editor_view_pick>(host, "EditorViewPick", refused);
+      /// Handles.
+      bind<native_editor_handles_state>(host, "EditorHandlesState", refused);
+      bind<native_editor_handles_snaps>(host, "EditorHandlesSnaps", refused);
+      bind<native_editor_handles_slide_axis>(host, "EditorHandlesSlideAxis", refused);
+      bind<native_editor_handles_slide_plane>(host, "EditorHandlesSlidePlane", refused);
+      bind<native_editor_handles_turn>(host, "EditorHandlesTurn", refused);
+      bind<native_editor_handles_grab_direction>(host, "EditorHandlesGrabDirection", refused);
+      bind<native_editor_handles_stretch_axis>(host, "EditorHandlesStretchAxis", refused);
+      bind<native_editor_handles_stretch_all>(host, "EditorHandlesStretchAll", refused);
+      bind<native_editor_handles_line>(host, "EditorHandlesLine", refused);
+      bind<native_editor_handles_arrow>(host, "EditorHandlesArrow", refused);
+      bind<native_editor_handles_circle>(host, "EditorHandlesCircle", refused);
+      bind<native_editor_handles_arc>(host, "EditorHandlesArc", refused);
+      bind<native_editor_handles_pie>(host, "EditorHandlesPie", refused);
+      bind<native_editor_handles_quad>(host, "EditorHandlesQuad", refused);
+      bind<native_editor_handles_dot>(host, "EditorHandlesDot", refused);
+      bind<native_editor_handles_label>(host, "EditorHandlesLabel", refused);
       /// SceneTools.
       bind<native_editor_set_scene_view_function>(host, "EditorSetSceneViewFunction", refused);
       /// ProjectScenes.
@@ -184,6 +202,12 @@ namespace other {
     void native_editor_edits_end() {
       if (editor != nullptr) {
         editor->end_edit();
+      }
+    }
+
+    void native_editor_edits_drop() {
+      if (editor != nullptr) {
+        editor->drop_edit();
       }
     }
 

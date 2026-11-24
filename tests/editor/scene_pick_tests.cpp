@@ -241,6 +241,15 @@ namespace other {
     EXPECT_EQ(hit->object, both);
     EXPECT_FALSE(pick_object(s, ray_at(2.f, 0.f)).has_value());
 
+    /// a submesh whose box nobody set is met all the same: its triangles are what count
+    model_data unboxed = square_model();
+    unboxed.submeshes[0].bounds = bounding_box{};
+    model_source no_box{ std::move(unboxed) };
+    const natural_t plain = place(s, "No Box", no_box, { 0.f, 5.f, 0.f });
+    hit = pick_object(s, ray_at(0.5f, 5.5f));
+    ASSERT_TRUE(hit.has_value());
+    EXPECT_EQ(hit->object, plain);
+
     /// a model shown with only its first submesh is not met at its second
     s.try_get_component<render_component>(both)->obj_model = source.produce_model("first only", std::array<uint32_t, 1>{ 0u });
     EXPECT_FALSE(pick_object(s, ray_at(4.5f, 0.5f)).has_value());

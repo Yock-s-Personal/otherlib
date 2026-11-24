@@ -35,6 +35,11 @@ enable-environment-menu-bar = true
 #  the pointer goes while looking round
 camera-move-speed = 8.0
 camera-look-sensitivity = 0.25
+# what a handle of the Scene View is dragged in steps of while Ctrl is held: metres,
+#  degrees, and times the size
+snap-move = 0.25
+snap-rotate = 15.0
+snap-scale = 0.1
 
 [scripting]
 init-lua = "${other-directory}/resources/editor.lua"

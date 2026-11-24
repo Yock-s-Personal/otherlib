@@ -166,6 +166,31 @@ namespace other {
     EXPECT_EQ(probe("AnEditIsOneStep"), 1);
   }
 
+  TEST_F(editor_services_tests, an_edit_that_is_dropped_records_nothing_and_the_next_is_measured_from_there) {
+    edited_scene edited;
+    editor_services& services = edited.services;
+    services.tick_edit_tracker();
+
+    /// a drag that was cancelled: moved, and left somewhere that is not quite where it was
+    services.begin_edit("Move First");
+    edited.s.get_transform(edited.first).local_position = { 5.f, 0.f, 0.f };
+    edited.s.get_transform(edited.first).local_position = { 0.f, 0.f, 0.001f };
+    services.drop_edit();
+    EXPECT_FALSE(services.can_undo_scene_edit());
+
+    /// the next action is one step, and undoing it goes back to where the dropped one left off
+    services.begin_edit("Move First");
+    edited.s.get_transform(edited.first).local_position = { 2.f, 0.f, 0.f };
+    services.end_edit();
+    ASSERT_TRUE(services.can_undo_scene_edit());
+    services.undo_scene_edit();
+    EXPECT_FALSE(services.can_undo_scene_edit());
+    const scene_object* first = edited.s.find_object(std::string_view{ "First" });
+    ASSERT_NE(first, nullptr);
+    EXPECT_FLOAT_EQ(edited.s.get_transform(first->id).local_position.z, 0.001f);
+    EXPECT_FLOAT_EQ(edited.s.get_transform(first->id).local_position.x, 0.f);
+  }
+
   TEST_F(editor_services_tests, an_edit_ends_a_drag_that_is_still_open) {
     edited_scene edited;
     editor_services& services = edited.services;

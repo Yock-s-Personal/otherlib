@@ -460,7 +460,10 @@ namespace other {
     EXPECT_TRUE(std::filesystem::exists(made / "probe-game.lua"));
     EXPECT_TRUE(std::filesystem::exists(made / "assets" / "scenes" / "main.oscn"));
     EXPECT_TRUE(std::filesystem::is_directory(made / "src"));
-    EXPECT_EQ(filepath{ edited.services.created_project }, made / "probe-game.toml");
+    /// the same file, which is not always the same text: C# names the temporary folder
+    ///  in full where this names it as the environment does, and on a CI runner that is
+    ///  its short form (RUNNER~1 for runneradmin)
+    EXPECT_TRUE(std::filesystem::equivalent(filepath{ edited.services.created_project }, made / "probe-game.toml", ec)) << edited.services.created_project;
 
     /// what was typed is in the project file, and the suite's environment wired the scripts
     std::ifstream file(made / "probe-game.toml", std::ios::binary);

@@ -18,7 +18,7 @@ void main() {
     frag_color = vec4(oe_sky_radiance(dir) * world_max.w, 1.0);
   } else {
 #endif
-    frag_color = calculate_lighting(albedo.rgb, position, normal, albedo.a, normal_metal.a);
+    frag_color = vec4(calculate_lighting(albedo.rgb, position, normal, albedo.a, normal_metal.a).rgb, 1.0);
 #ifndef COOL_SKY_EFFECT
   }
 #endif

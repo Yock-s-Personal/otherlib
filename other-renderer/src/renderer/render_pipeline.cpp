@@ -359,6 +359,8 @@ namespace other {
       return;
     }
 
+    const glm::mat4 light_space_matrix = sun_light_space_matrix();
+
     for (const natural_t id : sort) {
       PROFILE_SECTION("render_pipeline::render_frame--render_pass");
       auto node_itr = g.nodes.find(id);
@@ -393,31 +395,11 @@ namespace other {
         apply_ring_block_bindings(&n, runtime);
         if (n.pass->shader_handle.has_value() && frame_render_data != nullptr) {
           const auto& env = frame_render_data->simulation_environment;
-          /// to the sun, as the environment holds it and the sky is drawn from it
-          glm::vec3 to_sun = glm::normalize(glm::vec3(env.sun_direction));
-          glm::vec3 cam_up = glm::vec3(0, 1, 0);
-          glm::vec3 min = glm::vec3(env.world_min);
-          glm::vec3 max = glm::vec3(env.world_max);
-          glm::vec3 center = {};
-          if (frame_render_data->primary_camera != nullptr) {
-            cam_up = frame_render_data->primary_camera->up();
-            center = frame_render_data->primary_camera->center();
-          }
-          if (glm::length(glm::cross(to_sun, cam_up)) < 0.001f) {
-            cam_up = glm::vec3(0, 0, 1);
-            center = (min + max) * 0.5f;
-          }
-
-          float radius = 0.5f * glm::length(max - min);
-          glm::vec3 eye = center + to_sun * radius;
-          glm::mat4 light_view = glm::lookAt(eye, center, cam_up);
-
-          glm::mat4 light_proj = glm::ortho(-radius, radius, -radius, radius, 0.0f, 2.0f * radius);
-          glm::mat4 light_space_matrix = light_proj * light_view;
-
           renderer_ptr->get_resource<shader>(*n.pass->shader_handle)
             .set_uniform("OE_light_space_matrix", light_space_matrix)
-            .set_uniform("OE_sun_dir", glm::normalize(env.sun_direction))
+            /// the direction alone: the fourth number is the sun's size, and the shader's
+            ///  uniform is three numbers
+            .set_uniform("OE_sun_dir", glm::normalize(glm::vec3(env.sun_direction)))
             .set_uniform("OE_num_lights", static_cast<int32_t>(frame_render_data->lights.size()))
             .set_uniform("OE_window_size", glm::vec2(renderer_ptr->get_window_size()));
         }
@@ -440,6 +422,53 @@ namespace other {
         ring.head = 0;
       }
     }
+  }
+
+  glm::mat4 render_pipeline::sun_light_space_matrix() const {
+    PROFILE_SECTION("render_pipeline::sun_light_space_matrix");
+    const auto& env = frame_render_data->simulation_environment;
+    /// to the sun, as the environment holds it and the sky is drawn from it
+    const glm::vec3 to_sun = glm::normalize(glm::vec3(env.sun_direction));
+    const glm::vec3 min = glm::vec3(env.world_min);
+    const glm::vec3 max = glm::vec3(env.world_max);
+    const float radius = 0.5f * glm::length(max - min);
+
+    /// laid out by the world and not by the camera: which way is up in the map is a
+    ///  world axis, and it covers the lighting volume. turned by the camera's own up, the
+    ///  shadow's edge fell on other texels each time the camera turned
+    const glm::vec3 world_up = std::abs(to_sun.y) > 0.99f ? glm::vec3(0.f, 0.f, 1.f) : glm::vec3(0.f, 1.f, 0.f);
+    const glm::vec3 right = glm::normalize(glm::cross(-to_sun, world_up));
+    const glm::vec3 up = glm::cross(right, -to_sun);
+
+    /// and moved only by whole texels, so that a place in the world falls on the same
+    ///  place in its texel wherever the volume has followed the camera to
+    glm::vec3 center = (min + max) * 0.5f;
+    const glm::ivec2 map_size = shadow_map_size();
+    if (map_size.x > 0 && map_size.y > 0 && radius > 0.f) {
+      const glm::vec2 texel = glm::vec2(2.f * radius) / glm::vec2(map_size);
+      const glm::vec2 across{ glm::dot(center, right), glm::dot(center, up) };
+      const glm::vec2 held = glm::round(across / texel) * texel;
+      center += right * (held.x - across.x) + up * (held.y - across.y);
+    }
+
+    const glm::mat4 light_view = glm::lookAt(center + to_sun * radius, center, world_up);
+    const glm::mat4 light_proj = glm::ortho(-radius, radius, -radius, radius, 0.0f, 2.0f * radius);
+    return light_proj * light_view;
+  }
+
+  glm::ivec2 render_pipeline::shadow_map_size() const {
+    /// the texture some pass reads as the sun's shadow map
+    for (const auto& pass_def : definition.passes) {
+      for (const auto& input : pass_def.inputs) {
+        if (input.uniform_name != "OE_shadow_map") {
+          continue;
+        }
+        if (const opt<resource_handle> handle = find_texture_by_name(input.resource_name); handle.has_value()) {
+          return renderer_ptr->get_resource<texture>(*handle).get_size();
+        }
+      }
+    }
+    return glm::ivec2{ 0, 0 };
   }
 
   void render_pipeline::reset_draw_buffers() {

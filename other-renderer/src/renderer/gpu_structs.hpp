@@ -136,16 +136,18 @@ namespace other {
     };
 
     GPU_ALIGN struct simulation_environment_buffer {
-      /// xyz = unit vector TO sun, w = angular radius in radians. with no light tagged the
-      ///  sun, one overhead, a little larger than the real one so that it is more than a
-      ///  pixel of the sky
+      /// xyz = unit vector TO sun, w = angular radius in radians. what a scene that says
+      ///  nothing of its sky is given is a clear day: the sun high and to one side, so that
+      ///  things have a lit side and a shadow beside them, a little larger than the real
+      ///  one so that it is more than a pixel of the sky; a blue sky paling to the horizon;
+      ///  and ground of no particular colour
       constexpr static inline float kSunAngularRadius = 0.02f;
-      glm::vec4 sun_direction = glm::vec4(0.f, 1.f, 0.f, kSunAngularRadius);
-      glm::vec4 sun_color = glm::vec4(1.f);                           //< rgb = radiance, w = intensity scale
+      glm::vec4 sun_direction = glm::vec4(0.36f, 0.82f, 0.45f, kSunAngularRadius);
+      glm::vec4 sun_color = glm::vec4(1.f, 0.95f, 0.86f, 1.6f);       //< rgb = radiance, w = intensity scale
       glm::vec4 ambient_color = glm::vec4(0.f);                       //< rgb = average of all nearby light sources, w = intensity scale
-      glm::vec4 zenith_color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);     //< rgb = color, w = turbidity
-      glm::vec4 horizon_color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);    //< rgb = color, w = padding
-      glm::vec4 ground_color = glm::vec4(0.2f, 0.22f, 0.233f, 1.0f);  //< rgb = color, w = padding
+      glm::vec4 zenith_color = glm::vec4(0.2f, 0.38f, 0.72f, 1.0f);   //< rgb = color, w = turbidity
+      glm::vec4 horizon_color = glm::vec4(0.72f, 0.8f, 0.88f, 1.0f);  //< rgb = color, w = padding
+      glm::vec4 ground_color = glm::vec4(0.3f, 0.28f, 0.26f, 1.0f);   //< rgb = color, w = padding
       glm::vec4 world_min = glm::vec4(0.f);                           //< AABB min, w = padding
       glm::vec4 world_max = glm::vec4(0.f);                           //< AABB max, w = exposure
     };

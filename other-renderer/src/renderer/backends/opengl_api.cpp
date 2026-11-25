@@ -364,6 +364,16 @@ namespace other {
     CHECKGL();
   }
 
+  void opengl_api::set_additive_blending(bool enabled_or_disabled) {
+    if (enabled_or_disabled) {
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_ONE, GL_ONE);
+    } else {
+      glDisable(GL_BLEND);
+    }
+    CHECKGL();
+  }
+
   void opengl_api::set_stencil_test(bool enabled) {
     if (enabled) {
       glEnable(GL_STENCIL_TEST);

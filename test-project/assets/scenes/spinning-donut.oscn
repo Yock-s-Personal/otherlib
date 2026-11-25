@@ -184,7 +184,7 @@ image_width = 2.0
 aspect_ratio = 0.8748222
 samples_per_pixel = 100
 max_bounce_depth = 50
-fov = 90.0
+fov = 60.0
 sensitivity = 10.0
 constrain_pitch = true
 [objects.components.camera.camera.basis]

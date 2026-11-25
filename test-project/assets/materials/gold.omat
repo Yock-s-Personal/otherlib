@@ -1,12 +1,9 @@
-# POC metallic material: metalness rides the gbuffer normal alpha into the shading pass -
-# the lambert body fades out with metalness, specular tints by albedo, and the body becomes
-# mirrored procedural sky + a 30% irradiance floor (see docs/material-poc-transparent-metallic.md).
-# roughness carries the old specular_reflectivity value (the shading pass reads albedo.a as a
-# scalar factor), so polished metal wants it high
+# a metal has no colour of its own under its shine: base_color is the colour it mirrors
+# in, and the roughness is how blurred what it mirrors is. polished gold is smooth
 asset-type = "material"
 name = "gold"
 
 [params]
 base_color = [1.0, 0.766, 0.336, 1.0]
-roughness = 0.85
+roughness = 0.3
 metalness = 1.0

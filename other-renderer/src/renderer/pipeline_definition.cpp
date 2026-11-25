@@ -1107,6 +1107,15 @@ namespace other {
           p.create_framebuffer = create_framebuffer.as_boolean()->get();
         }
 
+        /// a pass draws at the window's size unless it says its own, as one that draws
+        ///  into a texture of a fixed size has to
+        auto size_x = pass.at_path("size.x");
+        auto size_y = pass.at_path("size.y");
+        if (size_x && size_y && size_x.is_integer() && size_y.is_integer()) {
+          p.use_window_size = false;
+          p.fixed_size = { static_cast<int32_t>(size_x.as_integer()->get()), static_cast<int32_t>(size_y.as_integer()->get()) };
+        }
+
         if (p.create_framebuffer && p.pass_type == render_pass::COMPUTE_PASS) {
           p.create_framebuffer = false;
         }

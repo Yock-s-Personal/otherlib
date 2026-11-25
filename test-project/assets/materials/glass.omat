@@ -1,12 +1,12 @@
 # transparent material: base_color.a < 1 routes the draw to the blended forward
 # transparent-pass (painter-sorted, depth-tested against scene depth, no depth write - see
 # docs/material-poc-transparent-metallic.md). known limits: casts no shadow and is invisible
-# to the voxel/AO volume; pipelines without a transparent-pass skip it entirely. roughness
-# carries the old specular_reflectivity value, so glass wants it high
+# to the voxel/AO volume; pipelines without a transparent-pass skip it entirely. glass is
+# not a metal: it is smooth, and what it mirrors grows as it is seen more from the side
 asset-type = "material"
 name = "glass"
 
 [params]
-base_color = [0.55, 0.78, 0.86, 0.3]
-roughness = 0.9
-metalness = 0.9
+base_color = [0.55, 0.78, 0.86, 0.5]
+roughness = 0.1
+metalness = 0.0

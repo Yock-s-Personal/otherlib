@@ -111,6 +111,9 @@ namespace other {
     virtual void set_depth_test(bool enabled_or_disabled) = 0;
     /// standard alpha blending (src_alpha, one_minus_src_alpha); disabled by default
     virtual void set_blending(bool enabled_or_disabled) = 0;
+    /// what is drawn is added to what is there, whole: what a pass that sums its draws up
+    ///  wants, where set_blending lays each over the last
+    virtual void set_additive_blending(bool enabled_or_disabled) = 0;
 
     virtual void memory_barrier(shader::compute_barrier_type bits) = 0;
 

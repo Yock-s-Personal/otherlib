@@ -16,22 +16,38 @@ vec3 world_extent() {
   return world_max.xyz - world_min.xyz;
 }
 
+/// the sky's colour along a direction, without the sun. spread is how far the look is
+/// smeared: 0 is the sky as it is seen, 1 so far that only up and down are left of it,
+/// which is what a rough surface mirrors. the line between sky and ground is never a
+/// step, which on a faceted thing showed as one facet light and the next dark
+vec3 oe_sky_color(vec3 dir, float spread) {
+  float up = normalize(dir).y;
+  float climb = mix(pow(clamp(up, 0.0, 1.0), 0.5), 0.5, spread);
+  vec3 sky = mix(horizon_color.rgb, zenith_color.rgb, climb);
+
+  /// the ground lightens towards the horizon as the sky does
+  float near_horizon = pow(1.0 - clamp(-up, 0.0, 1.0), 8.0) * (1.0 - spread);
+  vec3 ground = mix(ground_color.rgb, horizon_color.rgb, 0.5 * near_horizon);
+
+  float edge = mix(0.01, 1.0, spread);
+  return mix(ground, sky, smoothstep(-edge, edge, up));
+}
+
+/// the sky as the background shows it: its colour, and the sun's disk with its glare
 vec3 oe_sky_radiance(vec3 dir) {
-  float up = clamp(dir.y, 0.0, 1.0);
-  
-  // ground below the horizon, graded sky above
-  vec3 sky = mix(horizon_color.rgb, zenith_color.rgb, pow(up, 0.5));
-  sky = mix(ground_color.rgb, sky, step(0.0, dir.y));
-  
   // sun_direction.w = angular radius in radians
   float cd = dot(normalize(dir), normalize(sun_direction.xyz));
-  float disk = smoothstep(cos(sun_direction.w * 2.0), cos(sun_direction.w), cd);
+  float radius = max(sun_direction.w, 1e-3);
+  float disk = smoothstep(cos(radius * 2.0), cos(radius), cd);
+  float glare = pow(max(cd, 0.0), 180.0) * 0.25;
 
-  return sky + (sun_color.rgb * sun_color.w * disk);
+  return oe_sky_color(dir, 0.0) + sun_color.rgb * sun_color.w * (disk * 8.0 + glare);
 }
 
 vec3 oe_sky_irradiance_up(vec3 world_pos) {
-  float h = clamp((world_pos.y - world_min.y) / max(world_extent().y, 1e-3), 0.0, 1.0);
+  /// how high in the world, by the volume's height but from the world's own zero: measured
+  /// from the volume's floor it would change as the volume follows the camera up and down
+  float h = clamp(0.5 + world_pos.y / max(world_extent().y, 1e-3), 0.0, 1.0);
   
   vec3  dome = mix(horizon_color.rgb, zenith_color.rgb, 0.5 + 0.5 * h);
   vec3  sun  = sun_color.rgb * sun_color.w * max(sun_direction.y, 0.0) * (1.0 - cos(sun_direction.w));

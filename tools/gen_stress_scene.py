@@ -12,10 +12,12 @@ LIGHTS = 20
 AUDIO_SOURCES = 6
 SCRIPTED = 12
 
-FLOOR_MODEL = f"{REPO_ROOT}/resources/models/floor.fbx"
-TORUS_MODEL = f"{REPO_ROOT}/resources/models/spinning-torus.fbx"
-MATERIALS = [f"{REPO_ROOT}/test-project/assets/materials/{m}.omat" for m in ("glass", "gold", "donut", "floor")]
-AUDIO_CLIP = f"{REPO_ROOT}/test-project/assets/audio/141695__copyc4t__levelup.wav"
+## as the scene has them: from the repo's root, which is where the engine is run from. written
+##  from wherever this file happens to be, the scene would only load on the machine that made it
+FLOOR_MODEL = "resources/models/floor.fbx"
+TORUS_MODEL = "resources/models/spinning-torus.fbx"
+MATERIALS = [f"test-project/assets/materials/{m}.omat" for m in ("glass", "gold", "donut", "floor")]
+AUDIO_CLIP = "test-project/assets/audio/141695__copyc4t__levelup.wav"
 
 BASIS = "i = [ 0.0, 0.0, 1.0 ]\nj = [ 0.0, 1.0, 0.0 ]\nk = [ -1.0, 0.0, 0.0 ]"
 
@@ -96,6 +98,9 @@ def main():
         out.append("[objects.components.physics]")
         out.append("[objects.components.physics.settings]")
         out.append("body_type = 2")
+        ## two shapes on purpose, to load the physics with more than one kind. all are drawn
+        ##  as the torus, so the balls roll and the cubes rest in ways that look like a fault
+        ## \todo draw each body as the shape it collides as, so the arena's point can be seen
         out.append("[objects.components.physics.settings.shape]")
         if sphere:
           out.append("shape_kind = 2")

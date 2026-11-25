@@ -74,7 +74,9 @@ namespace other {
     real_t aspect_ratio = 16.f / 9.f;
     int samples_per_pixel = 100;
     int max_bounce_depth = 50;
-    real_t fov = 90.f;
+    /// degrees, top to bottom. 60 is about what an eye takes a screen to be; at 90 a thing
+    ///  near the picture's edge is drawn half as long again as the same thing in its middle
+    real_t fov = 60.f;
 
     real_t sensitivity = 0.1f;
     bool constrain_pitch = true;

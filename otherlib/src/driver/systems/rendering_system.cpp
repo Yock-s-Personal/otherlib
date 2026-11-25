@@ -35,6 +35,7 @@ namespace other {
     render_graph::pass_executor make_noop(const pipeline_pass_definition&, render_pipeline*);
     render_graph::pass_executor make_draw_scene(const pipeline_pass_definition&, render_pipeline*);
     render_graph::pass_executor make_draw_scene_transparent(const pipeline_pass_definition&, render_pipeline*);
+    render_graph::pass_executor make_draw_scene_transparent_summed(const pipeline_pass_definition&, render_pipeline*);
     render_graph::pass_executor make_fullscreen_quad(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_compute_dispatch(const pipeline_pass_definition& def, render_pipeline* pl);
     render_graph::pass_executor make_window_sized_compute_dispatch(const pipeline_pass_definition& def, render_pipeline* pl);
@@ -551,6 +552,7 @@ namespace other {
     reg.register_executor("noop", &detail::make_noop);
     reg.register_executor("draw_scene", &detail::make_draw_scene);
     reg.register_executor("draw_scene_transparent", &detail::make_draw_scene_transparent);
+    reg.register_executor("draw_scene_transparent_summed", &detail::make_draw_scene_transparent_summed);
     reg.register_executor("fullscreen_quad", &detail::make_fullscreen_quad);
     reg.register_executor("compute_dispatch", &detail::make_compute_dispatch);
     reg.register_executor("window_sized_compute_dispatch", &detail::make_window_sized_compute_dispatch);
@@ -730,6 +732,23 @@ namespace other {
 
         api->set_depth_mask(true);
         api->set_blending(false);
+      };
+    }
+
+    /// the transparent draws summed up and not laid over one another: the pass's shader
+    ///  writes each surface's share of the picture and the sum is the same whatever order
+    ///  they come in. laid over one another, the near and the far side of one see-through
+    ///  thing came in the order its mesh lists them, which is right from one side only
+    render_graph::pass_executor make_draw_scene_transparent_summed(const pipeline_pass_definition&, render_pipeline*) {
+      return [](pass_context& ctx) {
+        auto& api = ctx.get_renderer().rendering()->api();
+        api->set_additive_blending(true);
+        api->set_depth_mask(false);
+
+        ctx.draw_stream(draw_set::kTransparent);
+
+        api->set_depth_mask(true);
+        api->set_additive_blending(false);
       };
     }
 

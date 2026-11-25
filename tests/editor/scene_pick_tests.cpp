@@ -292,6 +292,9 @@ namespace other {
     camera cam;
     cam.position = { 0.f, 0.f, 5.f };
     cam.look_at({ 0.f, 0.f, 0.f });
+    /// a quarter turn from top to bottom, whatever a camera is given when it says nothing:
+    ///  at 5 away the picture is then 10 high, which the sizes asked for below count on
+    cam.fov = 90.f;
 
     editor_services services;
     services.current_selection.scene_ptr = &s;

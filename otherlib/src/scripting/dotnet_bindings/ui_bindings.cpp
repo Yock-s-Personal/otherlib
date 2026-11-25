@@ -650,6 +650,16 @@ namespace other {
       *out_y = max.y;
     }
 
+    void native_ui_calc_text_size(const char* text, float* out_width, float* out_height) {
+      const ImVec2 size = text != nullptr ? ImGui::CalcTextSize(text) : ImVec2{ 0.f, 0.f };
+      if (out_width != nullptr) {
+        *out_width = size.x;
+      }
+      if (out_height != nullptr) {
+        *out_height = size.y;
+      }
+    }
+
     void native_ui_get_item_rect_size(float* out_width, float* out_height) {
       const ImVec2 size = ImGui::GetItemRectSize();
       *out_width = size.x;

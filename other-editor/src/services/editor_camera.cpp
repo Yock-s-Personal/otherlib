@@ -72,6 +72,8 @@ namespace other {
 
     glm::vec2 yaw_pitch = yaw_pitch_of(cam.direction);
     glm::vec3 position = cam.position;
+    const glm::vec2 faced = yaw_pitch;
+    const glm::vec3 stood = position;
     const glm::vec3 forward = glm::normalize(cam.direction);
     /// to the right and up as the view shows them, whatever hand the camera's own basis is
     const glm::vec3 right = glm::normalize(glm::cross(forward, cam.world_up));
@@ -116,7 +118,34 @@ namespace other {
     if (in.over_view || dragging != drag::NONE) {
       yaw_pitch = turned(yaw_pitch, in.turn_degrees);
     }
-    place(cam, position, yaw_pitch);
+    /// a camera nothing moved is left as it is, to the bit. putting it where it already is
+    ///  goes by way of its angles and back, which for some directions does not come back
+    ///  the same: looking along -x it would never be still
+    if (position != stood || yaw_pitch != faced) {
+      place(cam, position, yaw_pitch);
+    }
+  }
+
+  void editor_camera_controller::orbit(camera& cam, const glm::vec2& degrees) {
+    PROFILE_SECTION("editor_camera_controller::orbit");
+    const glm::vec3 pivot = focus_point(cam);
+    const glm::vec2 yaw_pitch = turned(yaw_pitch_of(cam.direction), degrees);
+    place(cam, pivot - direction_of(yaw_pitch) * focus_distance, yaw_pitch);
+  }
+
+  void editor_camera_controller::look_along(camera& cam, const glm::vec3& direction) {
+    PROFILE_SECTION("editor_camera_controller::look_along");
+    if (glm::dot(direction, direction) < 1e-8f) {
+      return;
+    }
+    const glm::vec3 pivot = focus_point(cam);
+    glm::vec2 yaw_pitch = yaw_pitch_of(direction);
+    /// straight up or down has no way that is to the right: the way it faced is kept
+    if (std::abs(glm::normalize(direction).y) > 0.9999f) {
+      yaw_pitch.x = yaw_pitch_of(cam.direction).x;
+    }
+    yaw_pitch.y = std::clamp(yaw_pitch.y, -kMaxPitch, kMaxPitch);
+    place(cam, pivot - direction_of(yaw_pitch) * focus_distance, yaw_pitch);
   }
 
   void editor_camera_controller::focus(camera& cam, const bounding_box& box) {

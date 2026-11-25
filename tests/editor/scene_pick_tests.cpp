@@ -382,6 +382,35 @@ namespace other {
     EXPECT_EQ(services.pick_in_view(on_lamp + glm::vec2{ 0.f, editor_services::kIconReach + 3.f }), square);
     EXPECT_EQ(services.pick_in_view(services.view.position + of(filmed.id).place), filmed.id);
 
+    /// an object that is both a camera and a light has both icons, side by side where the
+    ///  two would have been one on the other, and a click on either is a click on it
+    scene_object& both = s.create_object("Both", glm::vec3{ -1.f, -1.f, 1.f });
+    s.add_component<camera_component>(&both).camera.position = { -1.f, -1.f, 1.f };
+    s.add_component<point_light_component>(&both).light.position = { 0.f, 0.f, 0.f };
+    services.collect_view_icons(icons);
+    ASSERT_EQ(icons.size(), 4u);
+    const opt<glm::vec2> both_shown = view_place(cam, services.view.size, { -1.f, -1.f, 1.f });
+    ASSERT_TRUE(both_shown.has_value());
+    const editor_services::view_icon* of_both[2] = { nullptr, nullptr };
+    size_t found = 0;
+    for (const editor_services::view_icon& icon : icons) {
+      if (icon.object == both.id && found < 2) {
+        of_both[found++] = &icon;
+      }
+    }
+    ASSERT_EQ(found, 2u);
+    EXPECT_NE(of_both[0]->what, of_both[1]->what);
+    EXPECT_NEAR(std::abs(of_both[0]->place.x - of_both[1]->place.x), 2.f * editor_services::kIconReach + 2.f, kNear);
+    EXPECT_NEAR(of_both[0]->place.y, of_both[1]->place.y, kNear);
+    EXPECT_NEAR((of_both[0]->place.x + of_both[1]->place.x) * 0.5f, both_shown->x, kNear);
+    EXPECT_NEAR(of_both[0]->place.y, both_shown->y, kNear);
+    EXPECT_EQ(services.pick_in_view(services.view.position + of_both[0]->place), both.id);
+    EXPECT_EQ(services.pick_in_view(services.view.position + of_both[1]->place), both.id);
+    /// the lamp's own icon, which no other is near, is where it was
+    services.collect_view_icons(icons);
+    EXPECT_NEAR(of(lamp.id).place.x, lamp_shown->x, kNear);
+    s.destroy_object(both.id);
+
     /// an object that is hidden has no icon
     s.set_object_visible(lamp.id, false);
     services.collect_view_icons(icons);

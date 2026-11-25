@@ -76,6 +76,8 @@ namespace other {
       /// SceneViewport.
       bind<native_editor_view_camera>(host, "EditorViewCamera", refused);
       bind<native_editor_view_focus_selection>(host, "EditorViewFocusSelection", refused);
+      bind<native_editor_view_orbit>(host, "EditorViewOrbit", refused);
+      bind<native_editor_view_look_along>(host, "EditorViewLookAlong", refused);
       bind<native_editor_view_state>(host, "EditorViewState", refused);
       bind<native_editor_view_ray>(host, "EditorViewRay", refused);
       bind<native_editor_view_place>(host, "EditorViewPlace", refused);

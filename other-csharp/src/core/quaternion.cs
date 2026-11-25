@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Runtime.InteropServices;
 
 namespace Other
@@ -20,27 +21,31 @@ namespace Other
       W = w;
     }
 
+    /// the angles FromEuler makes this rotation of, in degrees: X is the pitch, from -90
+    ///  to 90, Y the yaw and Z the roll, each from -180 to 180. looking straight up or
+    ///  down, yaw and roll are one turn and it is all given as yaw. the engine's
+    ///  euler_from_quat is the same sum, and the Inspector shows what it gives
     public Vec3 ToEulerAngles()
     {
-      // Convert quaternion to Euler angles (in degrees)
-      float ysqr = Y * Y;
+      float length = Length();
+      if (length <= 0f)
+      {
+        return Vec3.Zero;
+      }
 
-      // roll (x-axis rotation)
-      float t0 = +2.0f * (W * X + Y * Z);
-      float t1 = +1.0f - 2.0f * (X * X + ysqr);
-      float roll = MathF.Atan2(t0, t1) * (180.0f / MathF.PI);
+      /// read off where the rotation sends the three axes
+      Quaternion unit = this / length;
+      Vec3 right = unit * Vec3.UnitX;
+      Vec3 up = unit * Vec3.UnitY;
+      Vec3 forward = unit * Vec3.UnitZ;
 
-      // pitch (y-axis rotation)
-      float t2 = +2.0f * (W * Y - Z * X);
-      t2 = Math.Clamp(t2, -1.0f, 1.0f);
-      float pitch = MathF.Asin(t2) * (180.0f / MathF.PI);
-
-      // yaw (z-axis rotation)
-      float t3 = +2.0f * (W * Z + X * Y);
-      float t4 = +1.0f - 2.0f * (ysqr + Z * Z);
-      float yaw = MathF.Atan2(t3, t4) * (180.0f / MathF.PI);
-
-      return new Vec3(pitch, yaw, roll);
+      float pitch = MathF.Asin(Mathf.Clamp(-forward.Y, -1f, 1f));
+      if (MathF.Abs(forward.Y) < 0.999999f)
+      {
+        return new Vec3(pitch, MathF.Atan2(forward.X, forward.Z), MathF.Atan2(right.Y, up.Y)) * Mathf.kRadToDeg;
+      }
+      /// straight up or down: forward has no heading left to read the yaw from
+      return new Vec3(pitch, MathF.Atan2(-right.Z, right.X), 0f) * Mathf.kRadToDeg;
     }
 
     public static readonly Quaternion Identity = new Quaternion(0f, 0f, 0f, 1f);
@@ -57,6 +62,8 @@ namespace Other
     public static Quaternion operator/(Quaternion left, Quaternion right) => left * right.Inverse();
     public static Quaternion operator*(Quaternion left, float right) => new Quaternion(left.X * right, left.Y * right, left.Z * right, left.W * right);
     public static Quaternion operator/(Quaternion left, float right) => new Quaternion(left.X / right, left.Y / right, left.Z / right, left.W / right);
+    /// the same rotation, written the other of the two ways it can be
+    public static Quaternion operator-(Quaternion value) => new Quaternion(-value.X, -value.Y, -value.Z, -value.W);
 
     /// rotates a vector by this quaternion (assumes unit length)
     public static Vec3 operator*(Quaternion q, Vec3 v)
@@ -108,6 +115,14 @@ namespace Other
       return false;
     }
     public override int GetHashCode() => HashCode.Combine(X, Y, Z, W);
+    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"({X}, {Y}, {Z}, {W})");
+
+    /// the same rotation, near enough: a quaternion and its negative are one rotation,
+    ///  which comparing them part by part would call two
+    public static bool Approximately(Quaternion a, Quaternion b, float tolerance = Mathf.kEpsilon)
+    {
+      return MathF.Abs(Dot(a, b)) >= 1f - tolerance;
+    }
 
     /// a turn of so many radians round an axis, counter-clockwise seen from where the axis
     ///  points. the axis need not be of length one
@@ -119,6 +134,152 @@ namespace Other
       return new Quaternion(unit.X * s, unit.Y * s, unit.Z * s, MathF.Cos(half));
     }
 
+    /// the axis and the radians FromAxisAngle would make this rotation of, the turn from
+    ///  0 to pi. a rotation that turns nothing is given the X axis
+    public void ToAxisAngle(out Vec3 axis, out float radians)
+    {
+      Quaternion unit = Normalized();
+      if (unit.W < 0f)
+      {
+        unit = -unit;
+      }
+      Vec3 along = new Vec3(unit.X, unit.Y, unit.Z);
+      float sine = along.Length();
+      radians = 2f * MathF.Atan2(sine, unit.W);
+      axis = sine <= 1e-6f ? Vec3.UnitX : along / sine;
+    }
+
+    /// how far apart two rotations are in degrees, from 0 to 180
+    public static float Angle(Quaternion a, Quaternion b)
+    {
+      float cosine = MathF.Min(MathF.Abs(Dot(a.Normalized(), b.Normalized())), 1f);
+      return 2f * MathF.Acos(cosine) * Mathf.kRadToDeg;
+    }
+
+    /// from a at t = 0 to b at t = 1 the shortest way, t held between them. cheaper than
+    ///  Slerp, and not at an even speed when the two are far apart
+    public static Quaternion Lerp(Quaternion a, Quaternion b, float t)
+    {
+      t = Mathf.Clamp01(t);
+      if (Dot(a, b) < 0f)
+      {
+        b = -b;
+      }
+      return (a * (1f - t) + b * t).Normalized();
+    }
+
+    /// from a at t = 0 to b at t = 1 the shortest way and at an even speed, t held
+    ///  between them
+    public static Quaternion Slerp(Quaternion a, Quaternion b, float t)
+    {
+      t = Mathf.Clamp01(t);
+      float cosine = Dot(a, b);
+      if (cosine < 0f)
+      {
+        b = -b;
+        cosine = -cosine;
+      }
+      /// too near each other to divide by the sine of what is between them
+      if (cosine > 0.9995f)
+      {
+        return (a * (1f - t) + b * t).Normalized();
+      }
+      float between = MathF.Acos(cosine);
+      float sine = MathF.Sin(between);
+      return (a * (MathF.Sin((1f - t) * between) / sine) + b * (MathF.Sin(t * between) / sine)).Normalized();
+    }
+
+    /// from, turned towards to by no more than max_degrees and never past it
+    public static Quaternion RotateTowards(Quaternion from, Quaternion to, float max_degrees)
+    {
+      float apart = Angle(from, to);
+      if (apart <= max_degrees || apart <= 0f)
+      {
+        return to;
+      }
+      return Slerp(from, to, max_degrees / apart);
+    }
+
+    /// the rotation that turns Vec3.Forward to point along forward, with Vec3.Up as near
+    ///  to up as that leaves it. neither need be of length one
+    public static Quaternion LookRotation(Vec3 forward, Vec3 up)
+    {
+      Vec3 f = forward.Normalized();
+      if (f.LengthSquared() <= 0f)
+      {
+        return Identity;
+      }
+      Vec3 r = Vec3.Cross(up, f);
+      if (r.LengthSquared() <= 1e-10f)
+      {
+        /// up is along forward and says nothing: any up that is not will do
+        r = Vec3.Cross(MathF.Abs(f.Y) < 0.99f ? Vec3.UnitY : Vec3.UnitX, f);
+      }
+      r = r.Normalized();
+      Vec3 u = Vec3.Cross(f, r);
+
+      /// the rotation whose matrix has r, u and f as its columns
+      float trace = r.X + u.Y + f.Z;
+      if (trace > 0f)
+      {
+        float s = MathF.Sqrt(trace + 1f) * 2f;
+        return new Quaternion((u.Z - f.Y) / s, (f.X - r.Z) / s, (r.Y - u.X) / s, s * 0.25f);
+      }
+      if (r.X > u.Y && r.X > f.Z)
+      {
+        float s = MathF.Sqrt(1f + r.X - u.Y - f.Z) * 2f;
+        return new Quaternion(s * 0.25f, (u.X + r.Y) / s, (f.X + r.Z) / s, (u.Z - f.Y) / s);
+      }
+      if (u.Y > f.Z)
+      {
+        float s = MathF.Sqrt(1f + u.Y - r.X - f.Z) * 2f;
+        return new Quaternion((u.X + r.Y) / s, s * 0.25f, (f.Y + u.Z) / s, (f.X - r.Z) / s);
+      }
+      else
+      {
+        float s = MathF.Sqrt(1f + f.Z - r.X - u.Y) * 2f;
+        return new Quaternion((f.X + r.Z) / s, (f.Y + u.Z) / s, s * 0.25f, (r.Y - u.X) / s);
+      }
+    }
+
+    public static Quaternion LookRotation(Vec3 forward) => LookRotation(forward, Vec3.Up);
+
+    /// the shortest rotation that turns the direction from to the direction to. neither
+    ///  need be of length one
+    public static Quaternion FromToRotation(Vec3 from, Vec3 to)
+    {
+      Vec3 a = from.Normalized();
+      Vec3 b = to.Normalized();
+      float cosine = Vec3.Dot(a, b);
+      if (cosine >= 1f - 1e-6f)
+      {
+        return Identity;
+      }
+      if (cosine <= -1f + 1e-6f)
+      {
+        /// straight back: half a turn round anything that stands across from
+        Vec3 across = Vec3.Cross(Vec3.UnitX, a);
+        if (across.LengthSquared() <= 1e-6f)
+        {
+          across = Vec3.Cross(Vec3.UnitY, a);
+        }
+        return FromAxisAngle(across, MathF.PI);
+      }
+      Vec3 axis = Vec3.Cross(a, b);
+      return new Quaternion(axis.X, axis.Y, axis.Z, 1f + cosine).Normalized();
+    }
+
+    /// degrees round X (pitch), round Y (yaw) and round Z (roll). the roll is made first,
+    ///  then the pitch, then the yaw: so yaw turns round the world's up whatever the pitch
+    ///  and runs the whole circle, and pitch is the one that stops at 90 either way
+    public static Quaternion FromEuler(Vec3 degrees)
+    {
+      return CreateFromYawPitchRoll(degrees.Y * Mathf.kDegToRad, degrees.X * Mathf.kDegToRad, degrees.Z * Mathf.kDegToRad);
+    }
+
+    public static Quaternion FromEuler(float pitch, float yaw, float roll) => FromEuler(new Vec3(pitch, yaw, roll));
+
+    /// as FromEuler, in radians: yaw round Y, pitch round X, roll round Z
     public static Quaternion CreateFromYawPitchRoll(float yaw, float pitch, float roll)
     {
       float cy = MathF.Cos(yaw * 0.5f);
@@ -127,11 +288,12 @@ namespace Other
       float sp = MathF.Sin(pitch * 0.5f);
       float cr = MathF.Cos(roll * 0.5f);
       float sr = MathF.Sin(roll * 0.5f);
+      /// the product yaw * pitch * roll, written out
       return new Quaternion(
-        sr * cp * cy - cr * sp * sy,
-        cr * sp * cy + sr * cp * sy,
-        cr * cp * sy - sr * sp * cy,
-        cr * cp * cy + sr * sp * sy
+        cy * sp * cr + sy * cp * sr,
+        sy * cp * cr - cy * sp * sr,
+        cy * cp * sr - sy * sp * cr,
+        cy * cp * cr + sy * sp * sr
       );
     }
   }

@@ -23,6 +23,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/core/exe_adjacent_config_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/frame_statistics_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/bounding_box_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/euler_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/cli_tool_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/process_tests.cpp
@@ -59,6 +60,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/behavior_lifecycle_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/behavior_fields_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/scene_object_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripting/script_maths_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_serializer_tests.cpp

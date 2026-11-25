@@ -57,7 +57,7 @@ namespace other {
 
     pipeline_definition get_debug_overlay_pipeline_definition() const;
     /// the ground grid of the Scene View, and the world's two axes on it
-    void submit_ground_grid(debug_draw& in_world);
+    void submit_ground_grid();
   };
 
 }  // namespace other

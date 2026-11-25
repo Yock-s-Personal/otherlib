@@ -188,6 +188,61 @@ namespace other {
     EXPECT_GT(glm::distance(cam.position, start), controller.settings.move_speed);
   }
 
+  TEST_F(editor_camera_tests, turning_it_by_so_much_is_what_a_drag_with_alt_does) {
+    camera dragged = cam;
+    editor_camera_controller by_drag = controller;
+    by_drag.update(dragged, { .over_view = true, .orbit_held = true, .pointer_delta = { 40.f, -12.f } });
+
+    const glm::vec3 pivot = controller.focus_point(cam);
+    controller.orbit(cam, glm::vec2{ 40.f, -12.f } * controller.settings.look_sensitivity);
+    expect_near(cam.position, dragged.position);
+    expect_near(cam.direction, dragged.direction);
+    expect_near(controller.focus_point(cam), pivot, 1e-2f);
+  }
+
+  TEST_F(editor_camera_tests, looking_along_a_way_turns_round_the_focus_point_until_it_does) {
+    const glm::vec3 pivot = controller.focus_point(cam);
+    const float distance = controller.focus_distance;
+
+    /// along -x: seen from where x counts up
+    controller.look_along(cam, { -1.f, 0.f, 0.f });
+    expect_near(cam.direction, { -1.f, 0.f, 0.f });
+    expect_near(cam.position, pivot + glm::vec3{ distance, 0.f, 0.f }, 1e-2f);
+    expect_near(controller.focus_point(cam), pivot, 1e-2f);
+
+    controller.look_along(cam, { 0.f, 0.f, 3.f });
+    expect_near(cam.direction, { 0.f, 0.f, 1.f });
+    expect_near(controller.focus_point(cam), pivot, 1e-2f);
+
+    /// straight down is a degree short of it, from above, still facing the way it faced
+    controller.look_along(cam, { 0.f, -1.f, 0.f });
+    EXPECT_LT(cam.direction.y, -0.999f);
+    EXPECT_GT(cam.direction.z, 0.f);
+    EXPECT_GT(cam.position.y, pivot.y + distance * 0.99f);
+    EXPECT_FALSE(glm::any(glm::isnan(cam.get_view_matrix()[0])));
+    expect_near(controller.focus_point(cam), pivot, 1e-2f);
+
+    /// no way at all is no change
+    const glm::vec3 before = cam.position;
+    controller.look_along(cam, { 0.f, 0.f, 0.f });
+    expect_near(cam.position, before);
+  }
+
+  TEST_F(editor_camera_tests, a_camera_nothing_moves_is_left_as_it_is_to_the_bit) {
+    /// along -x is the direction that going by way of its angles and back does not keep
+    for (const glm::vec3& way : { glm::vec3{ -1.f, 0.f, 0.f }, glm::vec3{ 0.f, 0.f, 1.f }, glm::vec3{ 0.3f, -0.5f, 0.8f } }) {
+      controller.look_along(cam, way);
+      const glm::vec3 direction = cam.direction;
+      const glm::vec3 position = cam.position;
+      for (int32_t frame = 0; frame < 10; ++frame) {
+        controller.update(cam, { .over_view = true, .seconds = 1.f / 120.f });
+        controller.update(cam, { .over_view = false, .seconds = 1.f / 120.f });
+      }
+      EXPECT_EQ(cam.direction, direction);
+      EXPECT_EQ(cam.position, position);
+    }
+  }
+
   TEST_F(editor_camera_tests, focusing_puts_a_box_in_the_middle_of_the_view_and_all_of_it_in) {
     const bounding_box box{ { 9.f, 1.f, -4.f }, { 11.f, 3.f, -2.f } };
     const glm::vec3 centre{ 10.f, 2.f, -3.f };

@@ -290,6 +290,8 @@ namespace Other
     internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetItemRectMax;
     [NativeFunction("UIGetItemRectSize")]
     internal static unsafe delegate* unmanaged[Cdecl]<float*, float*, void> NativeGetItemRectSize;
+    [NativeFunction("UICalcTextSize")]
+    internal static unsafe delegate* unmanaged[Cdecl]<byte*, float*, float*, void> NativeCalcTextSize;
     [NativeFunction("UIDragInt")]
     internal static unsafe delegate* unmanaged[Cdecl]<byte*, int*, float, int, int, NativeBool32> NativeDragInt;
     [NativeFunction("UIDragFloat2")]
@@ -904,6 +906,19 @@ namespace Other
     }
     public static void PushID(int int_id) { unsafe { NativePushIDInt(int_id); } }
     public static void PopID() { unsafe { NativePopID(); } }
+
+    /// how wide and how tall a text is as the font in use draws it: what a text placed by
+    ///  hand, as with DrawList.Text, is centred or kept clear of others by
+    public static Vec2 CalcTextSize(string text)
+    {
+      unsafe
+      {
+        using var text_utf8 = new Utf8Arg(text, stackalloc byte[Utf8Arg.StackSize]);
+        float width, height;
+        NativeCalcTextSize(text_utf8.Pointer, &width, &height);
+        return new Vec2(width, height);
+      }
+    }
 
     public static void SetTooltip(string text)
     {

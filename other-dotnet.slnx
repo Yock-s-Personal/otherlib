@@ -1,0 +1,23 @@
+<!--
+  The C# projects an editor should know of, and no others: point VS Code's C# extension at
+  this file with "dotnet.defaultSolution": "other-dotnet.slnx" in .vscode/settings.json.
+  Without it the extension opens every .csproj it finds under the folder, the ones proofs
+  and experiments leave under build/ and docs/ among them.
+
+  The engine's projects are written by CMake, so they are there once the engine has been
+  configured (python cli.py build). This file is for editors; the engine is not built from it.
+-->
+<Solution>
+  <Folder Name="/engine/">
+    <Project Path="build/other-csharp-interop/OtherCsBindings.csproj" />
+    <Project Path="build/other-csharp/OtherCs.csproj" />
+    <Project Path="build/other-editor/api/OtherEditor.csproj" />
+    <Project Path="build/other-editor/dotnet/OtherEditorCs.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="build/script-testing/DotnetTesting.csproj" />
+  </Folder>
+  <Folder Name="/projects/">
+    <Project Path="test-project/TestProject.csproj" />
+  </Folder>
+</Solution>

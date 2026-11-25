@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    CMake gives every C# project it writes a reference to ZERO_CHECK.vcxproj, its own
+    "is the build up to date" project. The .NET SDK's MSBuild cannot open a C++ project,
+    and that MSBuild is the one editors load C# projects with (VS Code's C# extension, and
+    `dotnet build`): one such reference and the whole project fails to load, leaving its
+    files with no completion, no navigation and no errors shown. Visual Studio's own
+    MSBuild, which the engine is built with, can open it and is left as it was.
+  -->
+  <ItemGroup Condition="'$(MSBuildRuntimeType)' == 'Core'">
+    <ProjectReference Remove="@(ProjectReference->WithMetadataValue('Extension', '.vcxproj'))" />
+  </ItemGroup>
+</Project>

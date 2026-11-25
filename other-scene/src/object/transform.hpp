@@ -5,6 +5,7 @@
 #define OTHER_SCENE_OBJECT_TRANSFORM_HPP
 
 #include "math/definitions.hpp"
+#include "math/euler.hpp"
 #include "math/orthonormal_basis.hpp"
 #include "serialization/reflection.hpp"
 
@@ -16,8 +17,9 @@ namespace other {
     glm::vec3 local_scale = { 1, 1, 1 };
     glm::quat local_rotation_quat = glm::quat();
 
+    /// degrees, in the engine's order: see quat_from_euler
     void set_local_rotation(const glm::vec3& euler_angles) {
-      local_rotation_quat = glm::quat(glm::radians(euler_angles));
+      local_rotation_quat = quat_from_euler(euler_angles);
     }
 
     glm::mat4 world_matrix(glm::mat4 parent_transform = glm::mat4(1.f)) const {

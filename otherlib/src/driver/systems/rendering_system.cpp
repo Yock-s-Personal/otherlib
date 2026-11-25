@@ -8,6 +8,7 @@
 #include <SDL3/SDL_dialog.h>
 
 #include "file/path_helpers.hpp"
+#include "math/euler.hpp"
 
 #include "gpu_resource/framebuffer.hpp"
 #include "renderer/gpu_structs.hpp"
@@ -455,9 +456,9 @@ namespace other {
     field_editors.register_editor<glm::quat>([](const std::string_view label, void* d, const ui::field_context& c) {
       auto& q = *static_cast<glm::quat*>(d);
 
-      glm::vec3 euler = glm::degrees(glm::eulerAngles(q));
+      glm::vec3 euler = euler_from_quat(q);
       if (ui::inspector::property_vec3(label, euler, c.flags.speed.value_or(0.01f))) {
-        q = glm::quat(glm::radians(euler));
+        q = quat_from_euler(euler);
         return true;
       }
       return false;

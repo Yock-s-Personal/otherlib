@@ -18,5 +18,6 @@ target_sources(OtherEditorCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/select-tool.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/transform-tools.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene-toolbar.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/view-axes-tool.cs
 )
 target_link_libraries(OtherEditorCs PUBLIC OtherEditor OtherCs OtherCsBindings)

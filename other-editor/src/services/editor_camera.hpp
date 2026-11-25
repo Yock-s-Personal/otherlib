@@ -69,6 +69,13 @@ namespace other {
     /// what orbiting turns round and zooming goes towards
     glm::vec3 focus_point(const camera& cam) const;
 
+    /// turns the camera round the focus point by so many degrees, to the right and down,
+    ///  as a drag with alt and the left button does. it stops short of straight up or down
+    void orbit(camera& cam, const glm::vec2& degrees);
+    /// turns the camera round the focus point until it looks the given way, as far as it
+    ///  can: straight up and straight down it stops a degree short of
+    void look_along(camera& cam, const glm::vec3& direction);
+
     drag current_drag() const { return dragging; }
 
     editor_camera_settings settings;

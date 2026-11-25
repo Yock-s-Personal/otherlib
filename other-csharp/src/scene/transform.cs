@@ -81,14 +81,12 @@ namespace Other
     [NativeField("local_scale")]
     public Vec3 Scale { get => GetVec3(); set => SetVec3(value); }
 
+    /// the rotation in degrees round X (pitch), Y (yaw) and Z (roll), as the Inspector
+    ///  shows it
     public Vec3 EulerAngles
     {
       get => Rotation.ToEulerAngles();
-      set
-      {
-        float deg2rad = MathF.PI / 180.0f;
-        Rotation = Quaternion.CreateFromYawPitchRoll(value.Y * deg2rad, value.X * deg2rad, value.Z * deg2rad);
-      }
+      set => Rotation = Quaternion.FromEuler(value);
     }
 
     public void Translate(Vec3 delta)

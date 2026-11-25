@@ -372,6 +372,38 @@ namespace other {
     s->each_component<camera_component>([&](const auto& handle, const camera_component& cam) -> void {
       add(handle.id, view_icon::CAMERA, cam.camera.position);
     });
+
+    /// an object that is more than one of these has them at one place more often than not:
+    ///  a camera with a light on it is both where the camera is. drawn there, the last
+    ///  would cover the rest, so those of one object that would overlap are set side by
+    ///  side instead, in a row with its middle where they all were
+    constexpr float kApart = 2.f * kIconReach + 2.f;
+    ostd::vector<uint8_t> set_out(icons.size(), 0);
+    ostd::vector<size_t> row;
+    for (size_t i = 0; i < icons.size(); ++i) {
+      if (set_out[i] != 0) {
+        continue;
+      }
+      row.clear();
+      row.push_back(i);
+      glm::vec2 middle = icons[i].place;
+      for (size_t j = i + 1; j < icons.size(); ++j) {
+        if (set_out[j] == 0 && icons[j].object == icons[i].object && glm::distance(icons[j].place, icons[i].place) < kApart) {
+          row.push_back(j);
+          middle += icons[j].place;
+        }
+      }
+      if (row.size() < 2) {
+        continue;
+      }
+
+      middle /= static_cast<float>(row.size());
+      for (size_t k = 0; k < row.size(); ++k) {
+        const float along = (static_cast<float>(k) - static_cast<float>(row.size() - 1) * 0.5f) * kApart;
+        icons[row[k]].place = { middle.x + along, middle.y };
+        set_out[row[k]] = 1;
+      }
+    }
   }
 
   natural_t editor_services::place_model(const std::string_view path, const glm::vec2& screen_place) {

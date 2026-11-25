@@ -46,7 +46,24 @@ namespace other {
       return std::nullopt;
     }
 
+    constinit material_declarations_reader declarations_reader = nullptr;
+
   }  // namespace
+
+  void set_material_declarations_reader(const material_declarations_reader reader) {
+    declarations_reader = reader;
+  }
+
+  material_parse_result read_material_file(const filepath& path) {
+    const filepath extension = path.extension();
+    if (extension == ".omat" || extension == ".toml") {
+      return parse_material_toml(path);
+    }
+    if (declarations_reader == nullptr) {
+      return { .error = std::format("'{}' is not a TOML material, and nothing that reads a file of declarations has been started", path.string()) };
+    }
+    return declarations_reader(path);
+  }
 
   material_parse_result parse_material_toml(const filepath& path) {
     PROFILE_SECTION("parse_material_toml");

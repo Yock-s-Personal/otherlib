@@ -12,6 +12,7 @@
 #include "data-structures/std_container.hpp"
 
 #include "vm/command_bus.hpp"
+#include "vm/command_files/asset_footprint.hpp"
 #include "vm/command_files/ocmd_debug_info.hpp"
 #include "vm/command_files/ocmd_headers.hpp"
 #include "vm/control_table.hpp"
@@ -196,6 +197,70 @@ namespace other {
       size_t code_begin = 0;
       size_t code_end = 0;
     };
+
+    /// a footprint as the asset block it was linked from. a footprint holds the hash of a
+    ///  kind's name and of a field's; words has the names, when the file has a debug section
+    asset_node block_of(const footprint_node& node, const ostd::unordered_map<uint64_t, std::string>& words) {
+      const auto word = [&words](const uint64_t hash) -> std::string {
+        const auto found = words.find(hash);
+        return found != words.end() ? found->second : std::format("#{:016x}", hash);
+      };
+
+      asset_node block = { .kind = word(node.kind), .name = node.name, .edges = node.edges };
+      for (const footprint_field& field : node.fields) {
+        block.fields.push_back({ .name = word(field.name), .how = field.how, .value = field.value });
+      }
+      for (const footprint_node& part : node.parts) {
+        block.parts.push_back(block_of(part, words));
+      }
+      return block;
+    }
+
+    /// the assets of a linked file, each as an asset block under where it came from. empty
+    ///  when the file has no asset section
+    std::string assets_text(const std::span<const uint8_t> file, const opt<obin_debug_info>& debug) {
+      const std::span<const uint8_t> section = obin_asset_bytes(file);
+      if (section.empty()) {
+        return {};
+      }
+      std::string text = "\nassets\n";
+      const opt<obin_assets> assets = obin_assets::decode(section);
+      if (!assets.has_value()) {
+        text += "  the asset section could not be read\n";
+        return text;
+      }
+
+      ostd::unordered_map<uint64_t, std::string> words;
+      for (size_t i = 0; debug.has_value() && i < debug->asset_words.size(); ++i) {
+        words[asset_hash(debug->asset_words[i])] = debug->asset_words[i];
+      }
+      if (words.empty()) {
+        text += "; no debug section to name them: a kind and a field are the hash of their names\n";
+      }
+
+      for (const obin_asset& asset : assets->assets) {
+        text += "\n";
+        const debug_asset* from = nullptr;
+        for (size_t i = 0; debug.has_value() && i < debug->assets.size(); ++i) {
+          if (debug->assets[i].kind == asset.kind && debug->assets[i].name == asset.name) {
+            from = &debug->assets[i];
+          }
+        }
+        if (from != nullptr && from->unit != debug_symbol::kNoParent) {
+          const std::string& unit = debug->symbols[from->unit].name;
+          text += from->line != 0 ? std::format("; {}:{}:{}\n", unit, from->line, from->column) : std::format("; {}\n", unit);
+        }
+        text += std::format("; footprint {:#06x} to {:#06x} of the asset section, {} bytes, hash {:016x}\n", asset.offset, asset.offset + asset.footprint.size(), asset.footprint.size(), asset.hash);
+
+        const opt<footprint_node> footprint = read_asset_footprint(asset.footprint);
+        if (!footprint.has_value()) {
+          text += "; this footprint could not be read\n";
+          continue;
+        }
+        text += asset_block_text(block_of(*footprint, words));
+      }
+      return text;
+    }
 
     /// fills view from a linked file; gives back why it could not, or nothing when it could
     std::string open_program(const std::span<const uint8_t> bytes, program_view& view) {
@@ -588,6 +653,10 @@ namespace other {
     if (debug.has_value() && debug->lines.empty()) {
       text += "the debug section has no source lines\n";
     }
+    if (const std::span<const uint8_t> asset_bytes = obin_asset_bytes(bytes); !asset_bytes.empty()) {
+      const opt<obin_assets> assets = obin_assets::decode(asset_bytes);
+      text += assets.has_value() ? std::format("asset section: {} bytes, {} asset(s), not loaded into the device\n", asset_bytes.size(), assets->assets.size()) : "the asset section could not be read\n";
+    }
 
     /// the source line the last instruction shown came from, so a line is written once, above
     ///  the first instruction made from it
@@ -657,6 +726,7 @@ namespace other {
           text += std::format("  {:04x}  {:>4}  .{:<24} {}\n", field.address, field.size, field.name, field_value(value));
         }
       }
+      text += assets_text(bytes, debug);
       return result;
     }
 
@@ -677,6 +747,7 @@ namespace other {
       }
       text += std::format("  {:04x}  {:<24} |{:<8}|  {}\n", address, hex, characters, as_number);
     }
+    text += assets_text(bytes, debug);
     return result;
   }
 

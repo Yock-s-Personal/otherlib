@@ -47,6 +47,10 @@ namespace other {
     SEMA_NOT_SUPPORTED,
     SEMA_MISPLACED_STATEMENT,
     SEMA_DROPPED_STATEMENTS,
+    /// a declaration that its struct does not allow, or a struct or enum that cannot be
+    SEMA_BAD_DECLARATION,
+    /// a field given a value that is not of the field's type
+    SEMA_BAD_VALUE,
 
     LEX_TRACE,
     PARSE_TRACE,

@@ -30,7 +30,7 @@ watch-assets = true
 ui-layout-ini = "resources/ui/editor-layout.ini"
 imgui-font = "resources/fonts/BlexMonoNerdFont-Regular.ttf"
 pipelines = [
-  "resources/editor-assets/default-pipeline.toml",
+  "resources/editor-assets/default-pipeline.oass",
   # "resources/editor-assets/test-pipeline.toml"
 ]
 

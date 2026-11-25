@@ -10,6 +10,7 @@
 #include "core/logger.hpp"
 #include "core/profiler.hpp"
 
+#include "vm/command_files/asset_footprint.hpp"
 #include "vm/command_files/compiler_error.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
 #include "vm/other_device.hpp"
@@ -75,6 +76,7 @@ namespace other {
     errors.clear();
 
     merge_units(resolver);
+    collect_assets();
 
     /// resolve compiler gen symbol addresses by estimating start of section based on how man goto instructions we will have to add
     register_symbols(resolver);
@@ -188,19 +190,87 @@ namespace other {
       header.prog_header.has_debug_flag = 1;
     }
 
+    /// the assets go last, outside program_size as well: the device holds none of them. they
+    ///  are what the program is about and no aid to reading it, so no option leaves them out
+    ostd::vector<uint8_t> asset_section;
+    if (!linked_assets.empty()) {
+      ostd::vector<const asset_node*> assets;
+      for (const linked_asset& linked : linked_assets) {
+        assets.push_back(linked.asset);
+      }
+      asset_section = obin_assets::encode(assets);
+      header.prog_header.has_assets_flag = 1;
+    }
+
     ostd::vector<uint8_t> final_binary;
-    final_binary.reserve(sizeof(ocmd_file_header) + linked_binary.size() + debug_section.size());
+    final_binary.reserve(sizeof(ocmd_file_header) + linked_binary.size() + debug_section.size() + asset_section.size());
 
     const uint8_t* header_bytes = reinterpret_cast<const uint8_t*>(&header);
     final_binary.insert(final_binary.end(), header_bytes, header_bytes + sizeof(ocmd_file_header));
     final_binary.insert(final_binary.end(), linked_binary.begin(), linked_binary.end());
     final_binary.insert(final_binary.end(), debug_section.begin(), debug_section.end());
+    final_binary.insert(final_binary.end(), asset_section.begin(), asset_section.end());
     return final_binary;
+  }
+
+  namespace {
+
+    void gather_asset_words(const asset_node& node, ostd::vector<std::string>& words) {
+      words.push_back(node.kind);
+      for (const asset_field& field : node.fields) {
+        words.push_back(field.name);
+      }
+      for (const asset_node& part : node.parts) {
+        gather_asset_words(part, words);
+      }
+    }
+
+  }  // namespace
+
+  void ocmd_linker::collect_assets() {
+    PROFILE_SECTION("ocmd_linker::collect_assets");
+    linked_assets.clear();
+    for (size_t unit_index = 0; unit_index < units.size(); ++unit_index) {
+      const ocmd_program& program = units[unit_index].program;
+      for (size_t i = 0; i < program.assets.size(); ++i) {
+        const asset_node& asset = program.assets[i];
+        /// the table finds an asset by the hashes of its kind and its name
+        const auto same = [&asset](const linked_asset& earlier) -> bool {
+          return asset_hash(earlier.asset->kind) == asset_hash(asset.kind) && asset_hash(earlier.asset->name) == asset_hash(asset.name);
+        };
+        if (const auto earlier = std::ranges::find_if(linked_assets, same); earlier != linked_assets.end()) {
+          const bool same_words = earlier->asset->kind == asset.kind && earlier->asset->name == asset.name;
+          report(LINK_DUPLICATE_SYMBOL, same_words ? std::format("'{}' and '{}' both have a {} called '{}'", units[earlier->unit].name, units[unit_index].name, asset.kind, asset.name) : std::format("{} '{}' in '{}' and {} '{}' in '{}' have the same hashes; one of them needs another name", earlier->asset->kind, earlier->asset->name, units[earlier->unit].name, asset.kind, asset.name, units[unit_index].name));
+          continue;
+        }
+        if (const opt<std::string> refusal = asset_footprint_refusal(asset); refusal.has_value()) {
+          report(LINK_DUPLICATE_SYMBOL, std::format("in '{}': {}", units[unit_index].name, *refusal));
+          continue;
+        }
+        linked_assets.push_back({ .asset = &asset, .unit = unit_index, .origin = i < program.asset_origins.size() ? program.asset_origins[i] : source_location{} });
+      }
+    }
+    throw_if_failed();
   }
 
   obin_debug_info ocmd_linker::collect_debug_info() const {
     PROFILE_SECTION("ocmd_linker::collect_debug_info");
     obin_debug_info info;
+
+    /// the asset section holds the hash of every kind's name and every field's; these are the words
+    for (const linked_asset& linked : linked_assets) {
+      gather_asset_words(*linked.asset, info.asset_words);
+      info.assets.push_back({
+        .kind = asset_hash(linked.asset->kind),
+        .name = asset_hash(linked.asset->name),
+        .unit = static_cast<uint32_t>(linked.unit),
+        .line = static_cast<uint32_t>(linked.origin.line),
+        .column = static_cast<uint32_t>(linked.origin.column),
+      });
+    }
+    std::ranges::sort(info.asset_words);
+    const auto repeated = std::ranges::unique(info.asset_words);
+    info.asset_words.erase(repeated.begin(), repeated.end());
 
     /// units first and in link order, so a unit's index here is its index in units
     for (const ocmd_unit& unit : units) {

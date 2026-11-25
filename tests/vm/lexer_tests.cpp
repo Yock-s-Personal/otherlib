@@ -59,7 +59,7 @@ namespace other {
     };
 
     constexpr std::array k_invalid_lexemes = {
-      std::string_view{ "%" },
+      std::string_view{ "^" },
       std::string_view{ "+" },
       std::string_view{ "!" },
       std::string_view{ "?" },

@@ -681,6 +681,10 @@ namespace other {
         }
         /// extension wins, matching how the resolver types its roots
         asset::type type = asset::get_type_from_extension(abs.extension().string());
+        /// a declaration file is what it declares: a scene can name a material that is one
+        if (type == asset::ASSET_DECLARATION) {
+          type = asset::get_type_from_declaration(abs);
+        }
         if (type == asset::EMPTY) {
           type = fallback_type;
         }
@@ -710,7 +714,7 @@ namespace other {
       PROFILE_SECTION("parse_material_manifest");
       /// malformed material files are data errors, not contracts: declare no edges and let
       //  the material node's own load surface the parse failure
-      const material_parse_result parsed = parse_material_toml(material_path);
+      const material_parse_result parsed = read_material_file(material_path);
       if (!parsed.success()) {
         CORE_LOG_WARN("material manifest '{}' failed to parse: {}", material_path.string(), parsed.error);
         return {};

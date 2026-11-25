@@ -111,6 +111,12 @@ target_sources(otherlib
     src/vm/command_language/command_lexer.cpp
     src/vm/command_language/command_parser.cpp
     src/vm/command_language/command_lowering.cpp
+    src/vm/command_language/command_declarations.cpp
+    src/vm/command_language/command_assets.cpp
+    src/vm/command_files/asset_block.cpp
+    src/vm/command_files/asset_footprint.cpp
+    src/render/pipeline_declarations.cpp
+    src/render/material_declarations.cpp
     src/vm/devices/core_command_device.cpp
     src/vm/devices/event_device.cpp
     src/vm/devices/asset_device.cpp

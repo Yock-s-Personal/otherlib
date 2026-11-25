@@ -177,7 +177,7 @@ namespace other {
     }
 
     inline bool is_next_section_marker(const token& tok) {
-      return tok.type == TOKEN_TYPE_HASH || tok.type == TOKEN_TYPE_DOLLAR || tok.type == TOKEN_TYPE_SLASH;
+      return tok.type == TOKEN_TYPE_HASH || tok.type == TOKEN_TYPE_DOLLAR || tok.type == TOKEN_TYPE_SLASH || tok.type == TOKEN_TYPE_PERCENT;
     }
 
     inline bool end_of_code_section(const token& tok) {

@@ -8,6 +8,7 @@
 
 #include "vm/command_files/ocmd_program.hpp"
 #include "vm/command_language/command_ast.hpp"
+#include "vm/command_language/command_declarations.hpp"
 #include "vm/command_language/command_lowering.hpp"
 
 namespace other {
@@ -36,11 +37,13 @@ namespace other {
     bool strict = false;
   };
 
-  /// one parsed .ocmd file
+  /// one parsed file of the language: a .ocmd file, or a file of declarations
   struct command_unit {
     /// names the file in errors and in the OASM made from it
     std::string name;
     command_file file;
+    /// reached through a 'let' given its path: what it declares is that variable
+    bool included = false;
   };
 
   class ocmd_toolchain {
@@ -49,11 +52,20 @@ namespace other {
     /// a .ocmd file and every file it uses, built into one program with that file as the entry
     ostd::vector<uint8_t> assemble_command_source(other_command_device* device, const filepath& path);
 
-    /// empty when text has errors; they go to diag and, with the file's name, to the log
-    opt<command_file> parse_command_source(std::string_view name, std::string_view text, diagnostic_engine* diag);
-    /// root and every file it reaches through 'use', root first. empty when one is missing or has errors
+    /// empty when text has errors; they go to diag and, with the file's name, to the log.
+    ///  declarations_only: text is a file of declarations and holds nothing that runs
+    opt<command_file> parse_command_source(std::string_view name, std::string_view text, diagnostic_engine* diag, bool declarations_only = false);
+    /// root and every file it reaches, root first: by 'use', and by a 'let' given the path of
+    ///  a file of declarations. empty when one is missing or has errors.
+    ///  a file whose name ends in .ocmd is one that runs; any other is a file of declarations.
+    ///  the engine's own kinds are read with them when something is declared as a kind none
+    ///  of the files has
     ostd::vector<command_unit> read_command_units(const filepath& root, std::string_view root_name, diagnostic_engine* diag);
-    /// one OASM source per unit, ready for build_obin. units[0] is the entry file; empty when any unit fails
+    /// holds every declaration the units make to its struct; nothing is made. false when one
+    ///  has an error. counts, when given, receives what was checked
+    bool check_command_units(std::span<const command_unit> units, diagnostic_engine* diag, command_check_counts* counts = nullptr);
+    /// one OASM source per unit, ready for build_obin. units[0] is the entry file; empty when any unit fails.
+    ///  every declaration outside a block is checked and written as an asset block of its unit
     ostd::vector<oasm_source> lower_command_units(const command_bus& bus, std::span<const command_unit> units, diagnostic_engine* diag, ocmd_link_options options = {});
     /// the same, for a build that chooses what its entry is. hooks, when given, receives every
     ///  'on' handler the units hold

@@ -9,6 +9,7 @@
 #include "core/profiler.hpp"
 
 #include "vm/command_bus.hpp"
+#include "vm/command_language/command_assets.hpp"
 #include "vm/diagnostics/diagnostic_engine.hpp"
 #include "vm/diagnostics/ocmd_errors.hpp"
 #include "vm/hooks.hpp"
@@ -257,6 +258,16 @@ namespace other {
       fail(SEMA_DUPLICATE_NAME, stmt.span, std::format("'{}' is already declared in this file", stmt.name));
     }
 
+    /// a variable given an asset stands for the asset's name, which is what the build knows it by
+    if (!stmt.declared.empty()) {
+      scopes.front()[stmt.name] = { .constant_text = intern(command_asset_lowering::bound_name(stmt)) };
+      return;
+    }
+    if (const auto asset = options.included.find(stmt.included); !stmt.included.empty() && asset != options.included.end()) {
+      scopes.front()[stmt.name] = { .constant_text = intern(asset->second) };
+      return;
+    }
+
     const command_expr& value = stmt.exprs.front();
     if (value.kind == CMD_EXPR_STRING) {
       scopes.front()[stmt.name] = { .constant_text = intern(value.text) };
@@ -332,7 +343,7 @@ namespace other {
 
   void command_lowering::lower_file_statements(const command_file& file) {
     const auto runs_code = [](const command_stmt& stmt) {
-      return stmt.kind != CMD_STMT_LET || !is_literal(stmt.exprs.front());
+      return stmt.kind != CMD_STMT_LET || (stmt.declared.empty() && !is_literal(stmt.exprs.front()));
     };
     if (!options.entry_unit) {
       const auto first = std::ranges::find_if(file.statements, runs_code);
@@ -500,6 +511,10 @@ namespace other {
   }
 
   void command_lowering::lower_let(const command_stmt& stmt) {
+    /// an asset is not made by running anything; declare_file_variable gave the variable its name
+    if (!stmt.declared.empty()) {
+      return;
+    }
     const command_expr& value = stmt.exprs.front();
     const bool file_level = !in_function && scopes.size() == 1;
     if (file_level) {

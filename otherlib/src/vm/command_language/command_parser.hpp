@@ -12,11 +12,17 @@ namespace other {
 
   class diagnostic_engine;
 
+  struct command_parse_options {
+    /// a file of declarations: it holds declarations, structs, enums and 'use', and nothing
+    ///  that runs. a declaration in it may be in its kind's short form
+    bool declarations_only = false;
+  };
+
   class command_parser {
    public:
     /// tokens must end in CMD_TOKEN_EOF, as command_lexer leaves them
-    explicit command_parser(const std::span<const command_token> tokens)
-        : tokens(tokens) {}
+    explicit command_parser(const std::span<const command_token> tokens, const command_parse_options options = {})
+        : tokens(tokens), options(options) {}
 
     /// reports every statement it cannot read and carries on; valid is false if there was one
     command_file parse(diagnostic_engine* diag);
@@ -36,6 +42,13 @@ namespace other {
     command_function parse_function();
     command_hook parse_hook();
     command_use parse_use();
+    command_enum parse_enum();
+    command_struct parse_struct();
+    command_declaration parse_declaration(bool short_forms);
+    void parse_declaration_body(command_declaration& declaration);
+    command_value parse_declared_value();
+    bool starts_declaration() const;
+    void skip_separators();
     ostd::vector<command_stmt> parse_block();
     command_stmt parse_statement();
     command_stmt parse_if();
@@ -51,6 +64,7 @@ namespace other {
     void parse_call_arguments(command_expr& call);
 
     std::span<const command_token> tokens;
+    command_parse_options options;
     size_t cursor = 0;
     size_t block_depth = 0;
   };

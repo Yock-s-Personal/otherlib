@@ -39,6 +39,10 @@ namespace other {
 
     /// what the generated names carry. empty means the file's own name, as unit_stem gives it
     std::string stem = "";
+
+    /// for a 'let' given a file of declarations: the file's name in the build, and the name
+    ///  of the asset it declares
+    ostd::unordered_map<std::string, std::string> included = {};
   };
 
   struct command_lowering_result {

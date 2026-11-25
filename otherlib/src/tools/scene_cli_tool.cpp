@@ -14,6 +14,7 @@
 #include "memory/arena.hpp"
 #include "serialization/scene_serializer.hpp"
 
+#include "render/pipeline_declarations.hpp"
 #include "tools/compile_cli_tool.hpp"
 #include "tools/material_cli_tool.hpp"
 #include "tools/model_cli_tool.hpp"
@@ -55,6 +56,8 @@ namespace other {
         subsystem<arena>::inert = false;
         OTHER_ASSERT(subsystem<arena>::get() != nullptr, "failed to initialize the cli arena");
       }
+      /// a tool may be handed a pipeline that is a file of declarations
+      register_declaration_readers();
 
       /// a tool that finds files the way the engine does (through a mount, or from the engine's
       ///  root) needs the file system. it starts with no mounts; a tool adds the ones it needs

@@ -297,10 +297,29 @@ namespace other {
 
   }  // namespace detail
 
+  namespace {
+
+    constinit pipeline_declarations_reader declarations_reader = nullptr;
+
+  }  // namespace
+
+  void set_pipeline_declarations_reader(const pipeline_declarations_reader reader) {
+    declarations_reader = reader;
+  }
+
   pipeline_definition read_pipeline_definition_from_file(const filepath& pl_def_path) {
     OTHER_ASSERT(std::filesystem::exists(pl_def_path), "Rendering pipeline asset does not exist! {}", pl_def_path.string());
-    OTHER_ASSERT(pl_def_path.extension() == ".toml", "Rendering pipeline asset must be a TOML file! {}", pl_def_path.string());
     PROFILE_SECTION("read_pipeline_definition_from_file");
+
+    if (pl_def_path.extension() != ".toml") {
+      if (declarations_reader != nullptr) {
+        return declarations_reader(pl_def_path);
+      }
+      CORE_LOG_ERROR("'{}' is not a TOML pipeline, and nothing that reads a file of declarations has been started", pl_def_path.string());
+      pipeline_definition none;
+      none.name.clear();
+      return none;
+    }
 
     toml::table pipeline_table;
     try {

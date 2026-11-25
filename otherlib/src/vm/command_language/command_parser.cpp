@@ -45,6 +45,7 @@ namespace other {
       switch (token.type) {
         case CMD_TOKEN_NAME:
         case CMD_TOKEN_INTEGER:
+        case CMD_TOKEN_DECIMAL:
         case CMD_TOKEN_STRING:
         case CMD_TOKEN_KW_TRUE:
         case CMD_TOKEN_KW_FALSE:
@@ -67,12 +68,27 @@ namespace other {
     skip_terminators();
     while (!check(CMD_TOKEN_EOF)) {
       try {
-        if (check(CMD_TOKEN_KW_FN)) {
+        if (check(CMD_TOKEN_KW_USE)) {
+          file.uses.push_back(parse_use());
+        } else if (check(CMD_TOKEN_KW_ENUM)) {
+          file.enums.push_back(parse_enum());
+          end_statement();
+        } else if (check(CMD_TOKEN_KW_STRUCT)) {
+          file.structs.push_back(parse_struct());
+          end_statement();
+        } else if (options.declarations_only) {
+          if (!check(CMD_TOKEN_NAME)) {
+            fail(peek(), std::format("a file of declarations holds declarations, structs, enums and 'use'; found {}", describe(peek())));
+          }
+          file.declarations.push_back(parse_declaration(true));
+          end_statement();
+        } else if (check(CMD_TOKEN_KW_FN)) {
           file.functions.push_back(parse_function());
         } else if (check(CMD_TOKEN_KW_ON)) {
           file.hooks.push_back(parse_hook());
-        } else if (check(CMD_TOKEN_KW_USE)) {
-          file.uses.push_back(parse_use());
+        } else if (starts_declaration()) {
+          file.declarations.push_back(parse_declaration(false));
+          end_statement();
         } else {
           file.statements.push_back(parse_statement());
         }
@@ -200,6 +216,234 @@ namespace other {
     return use;
   }
 
+  void command_parser::skip_separators() {
+    while (check(CMD_TOKEN_NEWLINE) || check(CMD_TOKEN_SEMICOLON) || check(CMD_TOKEN_COMMA)) {
+      ++cursor;
+    }
+  }
+
+  /// 'kind name {' or 'kind {'. a command cannot be followed by a brace, so where a statement
+  ///  can stand these can only be a declaration
+  bool command_parser::starts_declaration() const {
+    if (!check(CMD_TOKEN_NAME)) {
+      return false;
+    }
+    return peek(1).type == CMD_TOKEN_LEFT_BRACE || (peek(1).type == CMD_TOKEN_NAME && peek(2).type == CMD_TOKEN_LEFT_BRACE);
+  }
+
+  command_enum command_parser::parse_enum() {
+    const command_token& keyword = expect(CMD_TOKEN_KW_ENUM, "'enum'");
+    command_enum result = { .name = expect(CMD_TOKEN_NAME, "a name after 'enum'").text, .span = keyword.span };
+
+    expect(CMD_TOKEN_LEFT_BRACE, "'{' after the enum's name");
+    ++block_depth;
+    skip_separators();
+    while (!check(CMD_TOKEN_RIGHT_BRACE)) {
+      if (check(CMD_TOKEN_EOF)) {
+        fail(peek(), std::format("enum '{}' is missing its closing '}}'", result.name));
+      }
+      result.values.push_back(expect(CMD_TOKEN_NAME, "the name of a value").text);
+      skip_separators();
+    }
+    result.span.end = tokens[cursor].span.end;
+    ++cursor;
+    --block_depth;
+    return result;
+  }
+
+  command_struct command_parser::parse_struct() {
+    const command_token& keyword = expect(CMD_TOKEN_KW_STRUCT, "'struct'");
+    command_struct result = { .name = expect(CMD_TOKEN_NAME, "a name after 'struct'").text, .span = keyword.span };
+
+    if (check(CMD_TOKEN_LEFT_PAREN) && !peek().space_before) {
+      ++cursor;
+      do {
+        result.short_form.push_back(expect(CMD_TOKEN_NAME, "the name of a field its short form gives").text);
+      } while (match(CMD_TOKEN_COMMA));
+      expect(CMD_TOKEN_RIGHT_PAREN, "')' after the short form's fields");
+    }
+    if (check(CMD_TOKEN_NAME) && peek().text == "names") {
+      ++cursor;
+      do {
+        result.names.push_back(expect(CMD_TOKEN_NAME, "the kind of thing it is named after").text);
+      } while (match(CMD_TOKEN_COMMA));
+    }
+
+    expect(CMD_TOKEN_LEFT_BRACE, "'{' before the struct's fields");
+    ++block_depth;
+    skip_separators();
+    while (!check(CMD_TOKEN_RIGHT_BRACE)) {
+      if (check(CMD_TOKEN_EOF)) {
+        fail(peek(), std::format("struct '{}' is missing its closing '}}'", result.name));
+      }
+
+      const command_token& first = expect(CMD_TOKEN_NAME, "a field's type");
+      /// 'graph field' says which of its lists a body can join with |>
+      const command_token_type after = peek(1).type;
+      const bool line_ends = after == CMD_TOKEN_NEWLINE || after == CMD_TOKEN_SEMICOLON || after == CMD_TOKEN_COMMA || after == CMD_TOKEN_RIGHT_BRACE;
+      if (first.text == "graph" && check(CMD_TOKEN_NAME) && line_ends) {
+        if (!result.graph.empty()) {
+          fail(peek(), std::format("struct '{}' already has '{}' as its graph", result.name, result.graph));
+        }
+        result.graph = tokens[cursor++].text;
+        skip_separators();
+        continue;
+      }
+
+      command_struct_field field = { .type = first.text, .span = first.span };
+      if (match(CMD_TOKEN_LEFT_BRACKET)) {
+        expect(CMD_TOKEN_RIGHT_BRACKET, "']': a list's type is written 'type[]'");
+        field.list = true;
+      }
+      field.name = expect(CMD_TOKEN_NAME, "the field's name after its type").text;
+      if (match(CMD_TOKEN_ASSIGN)) {
+        field.initial = parse_declared_value();
+      }
+      result.fields.push_back(std::move(field));
+      skip_separators();
+    }
+    result.span.end = tokens[cursor].span.end;
+    ++cursor;
+    --block_depth;
+    return result;
+  }
+
+  command_declaration command_parser::parse_declaration(const bool short_forms) {
+    const command_token& kind = expect(CMD_TOKEN_NAME, "the kind of thing declared");
+    command_declaration declaration = { .kind = kind.text, .span = kind.span, .name_span = kind.span };
+    if (check(CMD_TOKEN_NAME)) {
+      declaration.name = peek().text;
+      declaration.name_span = peek().span;
+      ++cursor;
+    }
+
+    if (check(CMD_TOKEN_LEFT_BRACE)) {
+      parse_declaration_body(declaration);
+      return declaration;
+    }
+    if (!short_forms || declaration.name.empty()) {
+      fail(peek(), std::format("expected '{{' after '{}{}{}', found {}", declaration.kind, declaration.name.empty() ? "" : " ", declaration.name, describe(peek())));
+    }
+
+    declaration.short_form = true;
+    while (!at_statement_end()) {
+      declaration.positional.push_back(parse_declared_value());
+      declaration.span.end = declaration.positional.back().span.end;
+    }
+    return declaration;
+  }
+
+  void command_parser::parse_declaration_body(command_declaration& declaration) {
+    expect(CMD_TOKEN_LEFT_BRACE, "'{'");
+    ++block_depth;
+    skip_separators();
+    while (!check(CMD_TOKEN_RIGHT_BRACE)) {
+      if (check(CMD_TOKEN_EOF)) {
+        fail(peek(), std::format("'{}{}{}' is missing its closing '}}'", declaration.kind, declaration.name.empty() ? "" : " ", declaration.name));
+      }
+      if (!check(CMD_TOKEN_NAME)) {
+        fail(peek(), std::format("expected a field, a declaration or an edge inside '{}', found {}", declaration.kind, describe(peek())));
+      }
+
+      const command_token_type after = peek(1).type;
+      if (after == CMD_TOKEN_ASSIGN) {
+        command_field_value field = { .name = peek().text, .span = peek().span };
+        cursor += 2;
+        field.value = parse_declared_value();
+        declaration.fields.push_back(std::move(field));
+      } else if (after == CMD_TOKEN_PIPE_GREATER) {
+        /// 'a |> b |> c' is two edges
+        std::string from = tokens[cursor++].text;
+        while (check(CMD_TOKEN_PIPE_GREATER)) {
+          const source_span span = peek().span;
+          ++cursor;
+          std::string to = expect(CMD_TOKEN_NAME, "a name after '|>'").text;
+          declaration.edges.push_back({ .from = from, .to = to, .span = span });
+          from = std::move(to);
+        }
+      } else {
+        declaration.parts.push_back(parse_declaration(true));
+      }
+      skip_separators();
+    }
+    declaration.span.end = tokens[cursor].span.end;
+    ++cursor;
+    --block_depth;
+  }
+
+  command_value command_parser::parse_declared_value() {
+    const command_token& token = peek();
+    switch (token.type) {
+      case CMD_TOKEN_INTEGER:
+      case CMD_TOKEN_DECIMAL:
+      case CMD_TOKEN_MINUS: {
+        const bool negative = token.type == CMD_TOKEN_MINUS;
+        if (negative) {
+          ++cursor;
+          if (!check(CMD_TOKEN_INTEGER) && !check(CMD_TOKEN_DECIMAL)) {
+            fail(peek(), std::format("expected a number after '-', found {}", describe(peek())));
+          }
+        }
+        const command_token& number = tokens[cursor++];
+        command_value value = { .span = { token.span.start, number.span.end } };
+        if (number.type == CMD_TOKEN_DECIMAL) {
+          value.kind = CMD_VALUE_DECIMAL;
+          value.decimal = negative ? -number.decimal : number.decimal;
+          return value;
+        }
+        /// one more below zero than above it fits
+        constexpr uint64_t kMost = static_cast<uint64_t>(std::numeric_limits<int64_t>::max());
+        if (number.value > kMost + (negative ? 1u : 0u)) {
+          fail(number, std::format("'{}{}' does not fit in a signed 64-bit number", negative ? "-" : "", number.text));
+        }
+        value.kind = CMD_VALUE_INTEGER;
+        value.integer = negative ? static_cast<int64_t>(0u - number.value) : static_cast<int64_t>(number.value);
+        value.decimal = static_cast<double>(value.integer);
+        return value;
+      }
+
+      case CMD_TOKEN_STRING:
+        ++cursor;
+        return { .kind = CMD_VALUE_TEXT, .span = token.span, .text = token.text };
+
+      case CMD_TOKEN_KW_TRUE:
+      case CMD_TOKEN_KW_FALSE:
+        ++cursor;
+        return { .kind = CMD_VALUE_BOOL, .span = token.span, .integer = token.type == CMD_TOKEN_KW_TRUE ? 1 : 0 };
+
+      case CMD_TOKEN_KW_NULL:
+        ++cursor;
+        return { .kind = CMD_VALUE_NULL, .span = token.span };
+
+      case CMD_TOKEN_NAME:
+        ++cursor;
+        return { .kind = CMD_VALUE_NAME, .span = token.span, .text = token.text };
+
+      case CMD_TOKEN_LEFT_BRACKET: {
+        ++cursor;
+        command_value list = { .kind = CMD_VALUE_LIST, .span = token.span };
+        while (!check(CMD_TOKEN_RIGHT_BRACKET)) {
+          if (check(CMD_TOKEN_EOF)) {
+            fail(token, "this list is missing its closing ']'");
+          }
+          list.items.push_back(parse_declared_value());
+          /// null is a field left unsaid, and a list has no fields
+          if (list.items.back().kind == CMD_VALUE_NULL) {
+            fail(tokens[cursor - 1], "a list cannot hold null; leave the item out");
+          }
+          if (!match(CMD_TOKEN_COMMA) && !check(CMD_TOKEN_RIGHT_BRACKET)) {
+            fail(peek(), std::format("expected ',' or ']' in the list, found {}", describe(peek())));
+          }
+        }
+        list.span.end = tokens[cursor].span.end;
+        ++cursor;
+        return list;
+      }
+
+      default: fail(token, std::format("expected a value, found {}", describe(token)));
+    }
+  }
+
   ostd::vector<command_stmt> command_parser::parse_block() {
     expect(CMD_TOKEN_LEFT_BRACE, "'{'");
     ++block_depth;
@@ -229,7 +473,15 @@ namespace other {
         stmt.kind = CMD_STMT_LET;
         stmt.name = expect(CMD_TOKEN_NAME, "a variable name after 'let'").text;
         expect(CMD_TOKEN_ASSIGN, "'=' after the variable name");
-        stmt.exprs.push_back(parse_value());
+        if (starts_declaration()) {
+          /// a declaration is the thing it declares, and a variable can be it
+          if (block_depth > 0) {
+            fail(peek(), "a variable can be given a declaration only outside every block for now");
+          }
+          stmt.declared.push_back(parse_declaration(false));
+        } else {
+          stmt.exprs.push_back(parse_value());
+        }
         break;
 
       case CMD_TOKEN_KW_IF: stmt = parse_if(); break;
@@ -263,7 +515,9 @@ namespace other {
 
       case CMD_TOKEN_KW_FN:
       case CMD_TOKEN_KW_ON:
-      case CMD_TOKEN_KW_USE: fail(first, std::format("'{}' is only allowed outside every block", first.text));
+      case CMD_TOKEN_KW_USE:
+      case CMD_TOKEN_KW_STRUCT:
+      case CMD_TOKEN_KW_ENUM: fail(first, std::format("'{}' is only allowed outside every block", first.text));
 
       case CMD_TOKEN_KW_RESERVED: fail(first, std::format("'{}' is reserved for a later version of the language", first.text));
 
@@ -420,6 +674,8 @@ namespace other {
       case CMD_TOKEN_KW_NULL:
         ++cursor;
         return { .kind = CMD_EXPR_NULL, .span = token.span };
+
+      case CMD_TOKEN_DECIMAL: fail(token, std::format("'{}': a number with a point can be given in a declaration; what runs has whole numbers only for now", token.text));
 
       case CMD_TOKEN_LEFT_PAREN: {
         ++cursor;

@@ -1,0 +1,6 @@
+# roughness is roughness: 0 is a mirror and 1 is chalk
+material floor {
+  base_color = [0.2, 0.2, 0.2, 1.0]
+  roughness = 0.7
+  map base_color "../textures/floor.png"
+}

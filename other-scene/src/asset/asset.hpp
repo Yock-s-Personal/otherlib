@@ -80,6 +80,17 @@ namespace other {
     filepath virtual_path = "";
     filepath absolute_path = "";
 
+    /// what a file of declarations declares: the kind of its asset, as the command language
+    ///  names it, and the asset's name
+    struct declared {
+      std::string kind;
+      std::string name;
+    };
+    using declaration_describer = opt<declared> (*)(const filepath& file_path);
+    /// a declaration file that is not TOML is a file of the command language, which is above
+    ///  the asset handler. whatever starts the engine says how one is read
+    static void set_declaration_describer(declaration_describer describer);
+
     static asset::type get_type_from_extension(const std::string_view extension);
     static asset::type get_type_from_declaration(const filepath& file_path);
     static std::string get_name_from_declaration(const filepath& file_path);
@@ -137,7 +148,7 @@ namespace other {
     asset_name{ "empty", "Empty" },
   };
 
-  constexpr inline size_t kNumAssetExtensions = 25;
+  constexpr inline size_t kNumAssetExtensions = 26;
   constexpr inline std::array<std::string_view, kNumAssetExtensions> kFileExtensions = {
     ".jpg",  // TEXTURE
     ".png",  // TEXTURE
@@ -177,7 +188,9 @@ namespace other {
 
     ".omat",  // MATERIAL (toml parameter set)
 
-    ".toml"
+    ".toml",
+    /// a file of declarations of the command language; what it is, is what it declares
+    ".oass"
   };
 
   constexpr inline std::array<asset_extension, kNumAssetExtensions> kAssetExtensions{
@@ -216,6 +229,7 @@ namespace other {
       { asset::MATERIAL, ".omat" },
 
       { asset::ASSET_DECLARATION, ".toml" },
+      { asset::ASSET_DECLARATION, ".oass" },
     }
   };
 

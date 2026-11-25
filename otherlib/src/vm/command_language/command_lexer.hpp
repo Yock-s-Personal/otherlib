@@ -29,7 +29,7 @@ namespace other {
     char advance();
     source_location here() const { return { line, column, cursor }; }
 
-    void add(command_token_type type, std::string text, uint64_t value = 0);
+    void add(command_token_type type, std::string text, uint64_t value = 0, double decimal = 0.0);
     void error(vm_error_code code, std::string message);
 
     void lex_newline();
@@ -47,6 +47,7 @@ namespace other {
     size_t column = 1;
     source_location token_start = {};
     size_t paren_depth = 0;
+    size_t bracket_depth = 0;
     bool space_pending = false;
     bool had_error = false;
   };

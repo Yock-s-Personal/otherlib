@@ -38,8 +38,46 @@ namespace other {
     return asset::type::EMPTY;
   }
 
+  namespace {
+
+    constinit asset::declaration_describer declaration_describer_fn = nullptr;
+
+    /// what a declaration file that is not TOML declares; nothing, and why in the log, when
+    ///  it cannot be said
+    opt<asset::declared> describe(const filepath& file_path) {
+      if (declaration_describer_fn == nullptr) {
+        CORE_LOG_ERROR("'{}' is not a TOML file, and nothing that reads a file of declarations has been started", file_path.string());
+        return std::nullopt;
+      }
+      opt<asset::declared> found = declaration_describer_fn(file_path);
+      if (!found.has_value()) {
+        CORE_LOG_ERROR("'{}' could not be read as a file of declarations, or declares no asset", file_path.string());
+      }
+      return found;
+    }
+
+  }  // namespace
+
+  void asset::set_declaration_describer(const declaration_describer describer) {
+    declaration_describer_fn = describer;
+  }
+
   asset::type asset::get_type_from_declaration(const filepath& file_path) {
     PROFILE_SECTION("asset::get_type_from_declaration");
+    if (file_path.extension() != ".toml") {
+      const opt<declared> found = describe(file_path);
+      if (!found.has_value()) {
+        return asset::type::EMPTY;
+      }
+      switch (FNV(found->kind)) {
+        case FNV("pipeline"): return asset::type::RENDERING_PIPELINE;
+        case FNV("material"): return asset::type::MATERIAL;
+        default:
+          CORE_LOG_ERROR("'{}' declares a {}, which the engine does not load from a file of declarations yet", file_path.string(), found->kind);
+          return asset::type::EMPTY;
+      }
+    }
+
     toml::table t;
     try {
       t = toml::parse_file(file_path.string());
@@ -81,6 +119,11 @@ namespace other {
 
   std::string asset::get_name_from_declaration(const filepath& file_path) {
     PROFILE_SECTION("asset::get_name_from_declaration");
+    if (file_path.extension() != ".toml") {
+      const opt<declared> found = describe(file_path);
+      return found.has_value() ? found->name : std::string{};
+    }
+
     toml::table t;
     try {
       t = toml::parse_file(file_path.string());

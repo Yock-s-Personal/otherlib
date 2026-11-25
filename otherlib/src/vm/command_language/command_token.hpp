@@ -15,6 +15,8 @@ namespace other {
     CMD_TOKEN_NEWLINE,
     CMD_TOKEN_NAME,
     CMD_TOKEN_INTEGER,
+    /// a number with a point. only a declaration can be given one for now
+    CMD_TOKEN_DECIMAL,
     CMD_TOKEN_STRING,
 
     CMD_TOKEN_KW_LET,
@@ -30,6 +32,8 @@ namespace other {
     CMD_TOKEN_KW_TRUE,
     CMD_TOKEN_KW_FALSE,
     CMD_TOKEN_KW_NULL,
+    CMD_TOKEN_KW_STRUCT,
+    CMD_TOKEN_KW_ENUM,
     /// words held back for later versions: error, throw, for
     CMD_TOKEN_KW_RESERVED,
 
@@ -37,6 +41,8 @@ namespace other {
     CMD_TOKEN_RIGHT_PAREN,
     CMD_TOKEN_LEFT_BRACE,
     CMD_TOKEN_RIGHT_BRACE,
+    CMD_TOKEN_LEFT_BRACKET,
+    CMD_TOKEN_RIGHT_BRACKET,
     CMD_TOKEN_COMMA,
     CMD_TOKEN_SEMICOLON,
     CMD_TOKEN_DOT,
@@ -70,6 +76,8 @@ namespace other {
     std::string text;
     /// CMD_TOKEN_INTEGER only
     uint64_t value = 0;
+    /// CMD_TOKEN_DECIMAL only
+    double decimal = 0.0;
     source_span span = {};
     /// 'f (x)' is a command with one word, 'f(x)' is a call
     bool space_before = false;

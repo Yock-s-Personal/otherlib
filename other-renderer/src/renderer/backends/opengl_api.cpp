@@ -937,6 +937,29 @@ namespace other {
     ensure_block_binding(shader_handle, name, binding_point, buffer_type);
   }
 
+  ostd::vector<std::string> opengl_api::shader_block_names(const resource_handle& shader_handle) {
+    PROFILE_SECTION("opengl_api::shader_block_names");
+    ostd::vector<std::string> names;
+    auto gpu_itr = gpu_resources.find(shader_handle.id);
+    if (gpu_itr == gpu_resources.end()) {
+      return names;
+    }
+    const uint32_t shader_id = gpu_itr->second;
+
+    for (const GLenum kind : { GL_UNIFORM_BLOCK, GL_SHADER_STORAGE_BLOCK }) {
+      GLint count = 0;
+      glGetProgramInterfaceiv(shader_id, kind, GL_ACTIVE_RESOURCES, &count);
+      for (GLint index = 0; index < count; ++index) {
+        char name[256] = {};
+        GLsizei length = 0;
+        glGetProgramResourceName(shader_id, kind, static_cast<GLuint>(index), sizeof(name), &length, name);
+        names.emplace_back(name, static_cast<size_t>(length));
+      }
+    }
+    CHECKGL();
+    return names;
+  }
+
   void opengl_api::ensure_block_binding(const resource_handle& shader_handle, const std::string_view name, uint32_t binding_point, gpu_buffer::buf_type buffer_type) {
     auto key = block_binding_key{ shader_handle.id, FNV(name), buffer_type };
     auto cached = shader_block_bindings.find(key);

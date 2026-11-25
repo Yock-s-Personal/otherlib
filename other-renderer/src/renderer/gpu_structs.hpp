@@ -136,7 +136,11 @@ namespace other {
     };
 
     GPU_ALIGN struct simulation_environment_buffer {
-      glm::vec4 sun_direction = glm::vec4(0.f, -1.f, 0.f, 1.f);       //< xyz = unit vector TO sun, w = angular radius
+      /// xyz = unit vector TO sun, w = angular radius in radians. with no light tagged the
+      ///  sun, one overhead, a little larger than the real one so that it is more than a
+      ///  pixel of the sky
+      constexpr static inline float kSunAngularRadius = 0.02f;
+      glm::vec4 sun_direction = glm::vec4(0.f, 1.f, 0.f, kSunAngularRadius);
       glm::vec4 sun_color = glm::vec4(1.f);                           //< rgb = radiance, w = intensity scale
       glm::vec4 ambient_color = glm::vec4(0.f);                       //< rgb = average of all nearby light sources, w = intensity scale
       glm::vec4 zenith_color = glm::vec4(0.5f, 0.5f, 0.5f, 1.0f);     //< rgb = color, w = turbidity

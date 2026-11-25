@@ -142,6 +142,11 @@ pass-uniforms = [
   { pass_name = "tonemap-pass", name = "OE_exposure", value = 1.0 },
   { pass_name = "tonemap-pass", name = "OE_gamma", value = 2.2 }
 ]
+## a buffer reaches a shader's block only through a row here (or, for the per-draw rings,
+## through pass-bindings): a PER_FRAME row in pass-bindings fills the buffer and attaches
+## nothing. a block left without a row reads whatever buffer is at binding 0, so every block
+## a pass's shaders declare has one, used or not. uniform and storage buffers count their
+## binding points apart
 inputs = [
   { pass_name = "voxel-clear-pass", resource_name = "voxel_texture", binding = 0, uniform_name = "OE_voxel_tex_in" },
   { pass_name = "geometry-pass", resource_name = "camera_buffer", binding = 3 },
@@ -150,6 +155,12 @@ inputs = [
   { pass_name = "voxel-occupied-pass", resource_name = "position_texture", attachment = "COLOR", binding = 1, uniform_name = "OE_gbuff_position" },
   { pass_name = "voxel-occupied-pass", resource_name = "normal_texture", attachment = "COLOR", binding = 2, uniform_name = "OE_gbuff_normal" },
   { pass_name = "voxelize-pass", resource_name = "voxel_texture", binding = 0, uniform_name = "OE_voxel_tex" },
+  { pass_name = "voxelize-pass", resource_name = "simulation_environment_buffer", binding = 3 },
+  { pass_name = "voxelize-pass", resource_name = "camera_buffer", binding = 4 },
+  { pass_name = "voxelize-pass", resource_name = "light_buffer", binding = 1 },
+  { pass_name = "shadow-map-pass", resource_name = "camera_buffer", binding = 2 },
+  { pass_name = "shadow-map-pass", resource_name = "simulation_environment_buffer", binding = 3 },
+  { pass_name = "shadow-map-pass", resource_name = "light_buffer", binding = 0 },
   { pass_name = "environment-map-pass", resource_name = "simulation_environment_buffer", binding = 0 },
   { pass_name = "environment-map-pass", resource_name = "light_buffer", binding = 1 },
   { pass_name = "environment-map-pass", resource_name = "ambient_shadow_map", binding = 1, uniform_name = "OE_shadow_map", access = "sample" },
@@ -163,6 +174,7 @@ inputs = [
   { pass_name = "shading-pass", resource_name = "environment_map", binding = 6, uniform_name = "OE_env_cubemap" },
   { pass_name = "shading-pass", resource_name = "camera_buffer", binding = 0 },
   { pass_name = "shading-pass", resource_name = "light_buffer", binding = 1 },
+  { pass_name = "shading-pass", resource_name = "simulation_environment_buffer", binding = 2 },
   { pass_name = "grid-pass", resource_name = "camera_buffer", binding = 0 },
   { pass_name = "scene-overlay-pass", resource_name = "camera_buffer", binding = 0 },
   { pass_name = "transparent-pass", resource_name = "camera_buffer", binding = 3 },

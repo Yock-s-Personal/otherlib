@@ -148,6 +148,7 @@ namespace other {
 
     void build_pass_runtimes();
     void destroy_pass_runtimes();
+    void report_unattached_blocks();
 
     void override_pass_executor(const std::string_view pass_name, executor_fn&& fn);
 

@@ -61,6 +61,7 @@ namespace other {
     graph->end_pipeline();
 
     build_pass_runtimes();
+    report_unattached_blocks();
 
     validate();
 
@@ -392,7 +393,8 @@ namespace other {
         apply_ring_block_bindings(&n, runtime);
         if (n.pass->shader_handle.has_value() && frame_render_data != nullptr) {
           const auto& env = frame_render_data->simulation_environment;
-          glm::vec3 to_sun = glm::normalize(-1.f * glm::vec3(env.sun_direction));
+          /// to the sun, as the environment holds it and the sky is drawn from it
+          glm::vec3 to_sun = glm::normalize(glm::vec3(env.sun_direction));
           glm::vec3 cam_up = glm::vec3(0, 1, 0);
           glm::vec3 min = glm::vec3(env.world_min);
           glm::vec3 max = glm::vec3(env.world_max);
@@ -699,6 +701,55 @@ namespace other {
       OTHER_ASSERT(inserted, "Pass runtime for pass '{}' already exists", pass_def.name);
       pass_runtime& runtime = itr->second;
       build_pass_runtime(runtime, pass, pass_def);
+    }
+  }
+
+  void render_pipeline::report_unattached_blocks() {
+    PROFILE_SECTION("render_pipeline::report_unattached_blocks");
+    /// a block no buffer is attached to is not an error to the graphics API: it reads
+    ///  whatever buffer is at binding 0, which is some other pass input, and the shader
+    ///  goes on with those numbers. so it is said here, once, when the pipeline is built.
+    ///  a block the shader declares and never reads is said too: the API does not tell
+    ///  the two apart
+    auto& api = renderer_ptr->rendering()->api();
+    for (const auto& [node_id, node] : graph->get_graph().nodes) {
+      if (node.pass == nullptr || !node.pass->shader_handle.has_value()) {
+        continue;
+      }
+
+      const auto attached = [&](const std::string_view block) -> bool {
+        for (const auto* buffers : { &node.input_buffers, &node.output_buffers }) {
+          for (const auto& [buffer_id, buffer] : *buffers) {
+            for (const auto& [name_hash, named] : buffer_resources) {
+              if (named.handle.id == buffer.handle.id && named.name == block) {
+                return true;
+              }
+            }
+          }
+        }
+
+        /// the per-draw rings are attached by the name after the scope: "per_draw.model_buffer"
+        auto runtime_itr = pass_runtimes.find(node.pass->id);
+        if (runtime_itr == pass_runtimes.end() || runtime_itr->second.def == nullptr) {
+          return false;
+        }
+        for (const auto& bd : runtime_itr->second.def->bindings) {
+          if (bd.scope != binding_scope::PER_DRAW_CALL && bd.scope != binding_scope::PER_INSTANCE) {
+            continue;
+          }
+          const size_t dot = bd.name.find('.');
+          if ((dot == std::string::npos ? std::string_view{ bd.name } : std::string_view{ bd.name }.substr(dot + 1)) == block) {
+            return true;
+          }
+        }
+        return false;
+      };
+
+      for (const std::string& block : api->shader_block_names(*node.pass->shader_handle)) {
+        if (!attached(block)) {
+          CORE_LOG_WARN("Pipeline '{}' pass '{}': the shader has the block '{}' but the pass attaches no buffer to it. If the shader reads it, it reads whatever buffer is at binding 0. Give the pass an input for it.", definition.name, node.pass->name, block);
+        }
+      }
     }
   }
 

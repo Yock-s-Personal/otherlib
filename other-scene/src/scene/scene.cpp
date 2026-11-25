@@ -1652,7 +1652,8 @@ namespace other {
     }
 
     if (scene_ambient_light != nullptr) {
-      data.simulation_environment.sun_direction = glm::vec4(scene_ambient_light->direction, 0.0f);
+      /// the light has a direction and no size: the size stays what the environment has
+      data.simulation_environment.sun_direction = glm::vec4(scene_ambient_light->direction, data.simulation_environment.sun_direction.w);
       data.simulation_environment.sun_color = scene_ambient_light->color;
     }
 

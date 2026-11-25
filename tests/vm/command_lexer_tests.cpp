@@ -74,8 +74,32 @@ namespace other {
   TEST_F(command_lexer_tests, bad_numbers_are_errors) {
     EXPECT_TRUE(lex("12abc").failed);
     EXPECT_TRUE(lex("0x").failed);
-    EXPECT_TRUE(lex("1.5").failed);
+    EXPECT_TRUE(lex("1.5.2").failed);
+    EXPECT_TRUE(lex("1.5abc").failed);
     EXPECT_TRUE(lex("18446744073709551616").failed);
+  }
+
+  TEST_F(command_lexer_tests, a_number_with_a_point_is_a_decimal) {
+    const lexed result = lex("0.5 128.25 3 7.end");
+    ASSERT_FALSE(result.failed);
+    const ostd::vector<command_token_type> expected = { CMD_TOKEN_DECIMAL, CMD_TOKEN_DECIMAL, CMD_TOKEN_INTEGER, CMD_TOKEN_INTEGER, CMD_TOKEN_DOT, CMD_TOKEN_NAME, CMD_TOKEN_EOF };
+    EXPECT_EQ(types(result), expected);
+    EXPECT_DOUBLE_EQ(result.tokens[0].decimal, 0.5);
+    EXPECT_DOUBLE_EQ(result.tokens[1].decimal, 128.25);
+    EXPECT_EQ(result.tokens[1].text, "128.25");
+  }
+
+  TEST_F(command_lexer_tests, struct_enum_and_list_brackets_are_tokens) {
+    const lexed result = lex("struct enum [ ]");
+    ASSERT_FALSE(result.failed);
+    const ostd::vector<command_token_type> expected = { CMD_TOKEN_KW_STRUCT, CMD_TOKEN_KW_ENUM, CMD_TOKEN_LEFT_BRACKET, CMD_TOKEN_RIGHT_BRACKET, CMD_TOKEN_EOF };
+    EXPECT_EQ(types(result), expected);
+  }
+
+  TEST_F(command_lexer_tests, no_newline_inside_a_list) {
+    const lexed result = lex("size = [1,\n  2,\n  3]\n");
+    ASSERT_FALSE(result.failed);
+    EXPECT_EQ(std::ranges::count(types(result), CMD_TOKEN_NEWLINE), 1);
   }
 
   TEST_F(command_lexer_tests, string_escapes_are_resolved) {

@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "vm/command_files/asset_block.hpp"
 #include "vm/command_files/code_generator.hpp"
 #include "vm/command_files/compiler_definition.hpp"
 #include "vm/command_files/data_block.hpp"
@@ -35,6 +36,11 @@ namespace other {
     ostd::vector<compiler_definition> definitions;
     ostd::vector<compiled_code_block> compiled_blocks;
     ostd::vector<compiled_data_section> compiled_data_sections;
+    /// the asset blocks, as they were read; the linker writes each as its footprint
+    ostd::vector<asset_node> assets;
+    /// for each asset, where its block starts in the source, or where its declaration does
+    ///  when the source was generated
+    ostd::vector<source_location> asset_origins;
 
     bool valid = false;
   };

@@ -194,6 +194,7 @@ namespace other {
       constexpr std::string_view kValidExecutorNames[] = {
         "draw_scene",
         "draw_scene_transparent",
+        "draw_scene_transparent_summed",
         "fullscreen_quad",
         "compute_dispatch",
         "window_sized_compute_dispatch",

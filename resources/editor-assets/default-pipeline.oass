@@ -1,0 +1,328 @@
+# the default pipeline. what the engine reads from this is what it reads from
+# default-pipeline.toml beside it, which a test holds it to field for field.
+# a pipeline is declared in the engine's own kinds (resources/ocmd/kinds.oass), which are
+# in every build that needs them without a 'use'
+
+pipeline default-instancing {
+  version = 1
+  display = smaa_texture
+
+  lighting {
+    shadows = shadow-map-pass
+    shading = shading-pass
+    light-space = "OE_light_space_matrix"
+  }
+
+  buffer camera_buffer                 uniform dynamic camera
+  buffer light_buffer                  storage dynamic light
+  buffer simulation_environment_buffer uniform dynamic simulation_environment
+
+  # basic gbuffer
+  texture color_texture    flat rgba16f
+  texture normal_texture   flat rgba16f
+  texture position_texture flat rgba16f
+  texture depth_texture    flat r16f
+  # real depth attachment written by the geometry pass and shared by the in-scene overlay passes
+  texture scene_depth      flat depthf
+
+  # the sun's shadow map covers the whole lighting volume, 55 units across: at the window's
+  # size a texel of it was a hand wide
+  texture ambient_shadow_map   flat   depthf  [4096, 4096]
+  texture sun_depth_color      flat   rgba16f
+  texture voxel_texture        volume rgba16f [128, 128, 128]
+  texture environment_map      volume rgba16f [64, 64, 64]
+  texture environment_map_prev volume rgba16f [64, 64, 64]
+  texture shaded_texture       flat   rgba16f
+  # the see-through surfaces, summed: their weighted colour, and how much they cover between them
+  texture transparent_color_texture flat rgba16f
+  texture transparent_cover_texture flat r16f
+  texture composited_texture   flat   rgba16f
+  texture smaa_edge_texture    flat   rg8
+  texture smaa_weight_texture  flat   rgba8
+  texture smaa_area_texture {
+    type = flat
+    format = rg8
+    size = [160, 560]
+    seed = "engine://resources/smaa-area-tex.bin"
+  }
+  texture smaa_search_texture {
+    type = flat
+    format = r8
+    size = [64, 16]
+    seed = "engine://resources/smaa-search-tex.bin"
+  }
+  texture smaa_texture       flat rgba8
+  texture tonemapped_texture flat rgba16f
+
+  shader voxel_clear_shader { compute = "engine://resources/voxel-clear.comp" }
+  shader geometry_pass_shader {
+    vertex = "engine://resources/basic-instancing-gbuffer.vert"
+    fragment = "engine://resources/basic-instancing-gbuffer.frag"
+  }
+  shader voxelize_shader {
+    vertex = "engine://resources/voxelizer.vert"
+    geometry = "engine://resources/voxelizer.geom"
+    fragment = "engine://resources/voxelizer.frag"
+  }
+  shader shadow_map_shader {
+    vertex = "engine://resources/basic-instancing-shadow-map.vert"
+    fragment = "engine://resources/basic-shadow-map.frag"
+  }
+  shader environment_map_pass { compute = "engine://resources/basic-environment-map.comp" }
+  shader shading_pass_shader {
+    vertex = "engine://resources/basic-shading.vert"
+    fragment = "engine://resources/basic-shading.frag"
+  }
+  shader smaa_edges_shader {
+    vertex = "engine://resources/smaa-edges.vert"
+    fragment = "engine://resources/smaa-edges.frag"
+  }
+  shader smaa_weights_shader {
+    vertex = "engine://resources/smaa-weights.vert"
+    fragment = "engine://resources/smaa-weights.frag"
+  }
+  shader smaa_blend_shader {
+    vertex = "engine://resources/smaa-blend.vert"
+    fragment = "engine://resources/smaa-blend.frag"
+  }
+  shader tonemap_pass_shader {
+    vertex = "engine://resources/basic-textured-quad.vert"
+    fragment = "engine://resources/basic-tonemap.frag"
+  }
+  shader screen_shader {
+    vertex = "engine://resources/basic-textured-quad.vert"
+    fragment = "engine://resources/basic-textured-quad.frag"
+  }
+  shader scene_grid_shader {
+    vertex = "engine://resources/scene-grid.vert"
+    fragment = "engine://resources/scene-grid.frag"
+  }
+  shader scene_overlay_shader {
+    vertex = "engine://resources/debug-overlay.vert"
+    fragment = "engine://resources/debug-overlay.frag"
+  }
+  # forward transparent pass reuses the instancing geometry vertex stage; only the fragment differs
+  shader forward_transparent_shader {
+    vertex = "engine://resources/basic-instancing-gbuffer.vert"
+    fragment = "engine://resources/basic-forward-transparent.frag"
+  }
+  shader transparent_composite_shader {
+    vertex = "engine://resources/basic-textured-quad.vert"
+    fragment = "engine://resources/transparent-composite.frag"
+  }
+
+  # material block basic-material.glsl mirrors; texture units 0-7 are pass inputs
+  material-layout {
+    param base_color     { type = vec4   default = [1.0, 1.0, 1.0, 1.0] }
+    param emissive_color { type = vec3   default = [0.0, 0.0, 0.0] }
+    param roughness      { type = float  default = 1.0 }
+    param metalness      { type = float  default = 0.0 }
+    slot base_color { uniform = "OE_mat_base_color_map"  unit = 8 }
+    slot normal     { uniform = "OE_mat_normal_map"      unit = 9 }
+  }
+
+  # the per-draw ones are rings: one element for each draw, and no buffer of the pipeline's.
+  # material has no size: it is worked out from the material layout
+  binding material               per-draw  storage
+  binding model                  per-draw  uniform 6400
+  binding bone                   per-draw  uniform 6416
+  binding camera                 per-frame uniform 208
+  binding light                  per-frame storage 4800
+  binding simulation_environment per-frame uniform 128
+
+  # a buffer reaches a shader's block only through a 'read' (or, for the per-draw rings,
+  # through a 'bind'): a per-frame 'bind' fills the buffer and attaches nothing. a block left
+  # without one reads whatever buffer is at binding 0, so every block a pass's shaders declare
+  # has one, used or not. uniform and storage buffers count their binding points apart
+
+  pass voxel-clear-pass {
+    type = compute
+    shader = voxel_clear_shader
+    run = compute_dispatch
+    with barrier shader_image_access
+    with groups [8, 8, 32]
+    set OE_voxel_decay 0.0
+    read  voxel_texture { as = "OE_voxel_tex_in"   at = 0 }
+    write voxel_texture { as = "OE_voxel_tex_out"  at = 1 }
+  }
+
+  pass geometry-pass {
+    type = render
+    shader = geometry_pass_shader
+    run = draw_scene
+    bind model    { at = 0 }
+    bind bone     { at = 1 }
+    bind material { at = 2 }
+    bind camera   { at = 3 }
+    read  camera_buffer    { at = 3 }
+    write color_texture    { attach = color }
+    write normal_texture   { attach = color }
+    write position_texture { attach = color }
+    write depth_texture    { attach = color }
+    write scene_depth      { attach = depth }
+  }
+
+  pass voxelize-pass {
+    type = render
+    shader = voxelize_shader
+    run = voxelize
+    framebuffer = false
+    with voxel_dim 128
+    bind model { at = 0 }
+    bind light { at = 1 }
+    # depth-only passes need the bone ring too or skinned meshes shadow/occlude in bind pose
+    bind bone  { at = 2 }
+    read  voxel_texture                 { as = "OE_voxel_tex"  at = 0 }
+    read  simulation_environment_buffer { at = 3 }
+    read  camera_buffer                 { at = 4 }
+    read  light_buffer                  { at = 1 }
+    write voxel_texture                 { attach = color  as = "OE_voxel_tex"  at = 0 }
+  }
+
+  pass shadow-map-pass {
+    type = render
+    shader = shadow_map_shader
+    run = draw_scene
+    size = [4096, 4096]
+    bind model { at = 0 }
+    bind bone  { at = 1 }
+    read  camera_buffer                 { at = 2 }
+    read  simulation_environment_buffer { at = 3 }
+    read  light_buffer                  { at = 0 }
+    write ambient_shadow_map            { attach = depth }
+  }
+
+  pass environment-map-pass {
+    type = compute
+    shader = environment_map_pass
+    run = compute_dispatch
+    with barrier all
+    with groups [4, 4, 64]
+    set OE_ao_strength 1.0
+    bind simulation_environment { at = 0 }
+    bind light                  { at = 1 }
+    read  simulation_environment_buffer { at = 0 }
+    read  light_buffer                  { at = 1 }
+    read  voxel_texture                 { as = "OE_voxel_tex"  at = 2  access = sample }
+    write environment_map               { as = "OE_env_cubemap"  at = 0 }
+  }
+
+  pass shading-pass {
+    type = render
+    shader = shading_pass_shader
+    run = fullscreen_quad
+    bind light                  { at = 0 }
+    bind simulation_environment { at = 1 }
+    read  color_texture      { as = "OE_gbuff_albedo"    at = 0 }
+    read  normal_texture     { as = "OE_gbuff_normal"    at = 1 }
+    read  position_texture   { as = "OE_gbuff_position"  at = 2 }
+    read  depth_texture      { as = "OE_gbuff_depth"     at = 3 }
+    read  ambient_shadow_map { as = "OE_shadow_map"      at = 4 }
+    read  voxel_texture      { as = "OE_voxel_tex"       at = 5 }
+    read  environment_map    { as = "OE_env_cubemap"     at = 6 }
+    read  camera_buffer                 { at = 0 }
+    read  light_buffer                  { at = 1 }
+    read  simulation_environment_buffer { at = 2 }
+    write shaded_texture { attach = color }
+  }
+
+  # in-scene overlays (procedural grids + dynamic scene draw streams), depth tested against scene_depth
+  pass grid-pass {
+    type = render
+    shader = scene_grid_shader
+    run = scene_grids
+    clear = []
+    read  camera_buffer  { at = 0 }
+    write shaded_texture { attach = color }
+    write scene_depth    { attach = depth }
+  }
+
+  pass scene-overlay-pass {
+    type = render
+    shader = scene_overlay_shader
+    run = scene_overlay
+    clear = []
+    read  camera_buffer  { at = 0 }
+    write shaded_texture { attach = color }
+    write scene_depth    { attach = depth }
+  }
+
+  # forward transparency, depth-tested against scene_depth without writing it; last in-scene
+  # pass so glass composites over grids and overlays too. the two sums start from nothing each
+  # frame; the depth is the solid scene's and is only read
+  pass transparent-pass {
+    type = render
+    shader = forward_transparent_shader
+    run = draw_scene_transparent_summed
+    clear-color = [0.0, 0.0, 0.0, 0.0]
+    clear = [color]
+    # the full per-draw ring set (vertex stage) plus the frame lighting buffers (fragment stage)
+    bind model                  { at = 0 }
+    bind bone                   { at = 1 }
+    bind material               { at = 2 }
+    bind camera                 { at = 3 }
+    bind light                  { at = 4 }
+    bind simulation_environment { at = 5 }
+    read  camera_buffer                 { at = 3 }
+    read  light_buffer                  { at = 4 }
+    read  simulation_environment_buffer { at = 5 }
+    read  ambient_shadow_map { as = "OE_shadow_map"   at = 0 }
+    read  voxel_texture      { as = "OE_voxel_tex"    at = 1 }
+    read  environment_map    { as = "OE_env_cubemap"  at = 2 }
+    write transparent_color_texture { attach = color }
+    write transparent_cover_texture { attach = color }
+    write scene_depth               { attach = depth }
+  }
+
+  pass transparent-composite-pass {
+    type = render
+    shader = transparent_composite_shader
+    run = fullscreen_quad
+    read  shaded_texture            { as = "OE_scene"         at = 0 }
+    read  transparent_color_texture { as = "OE_summed_color"  at = 1 }
+    read  transparent_cover_texture { as = "OE_summed_cover"  at = 2 }
+    write composited_texture { attach = color }
+  }
+
+  # anti-aliasing and post-processing passes
+  pass smaa-edges {
+    type = render
+    shader = smaa_edges_shader
+    run = fullscreen_quad
+    read  tonemapped_texture { as = "OE_color"  at = 0 }
+    write smaa_edge_texture  { attach = color }
+  }
+
+  pass smaa-weights {
+    type = render
+    shader = smaa_weights_shader
+    run = fullscreen_quad
+    read  smaa_edge_texture   { as = "OE_edges"   at = 0 }
+    read  smaa_area_texture   { as = "OE_area"    at = 1 }
+    read  smaa_search_texture { as = "OE_search"  at = 2 }
+    write smaa_weight_texture { attach = color }
+  }
+
+  pass smaa-blend {
+    type = render
+    shader = smaa_blend_shader
+    run = fullscreen_quad
+    read  tonemapped_texture  { as = "OE_color"    at = 0 }
+    read  smaa_weight_texture { as = "OE_weights"  at = 1 }
+    write smaa_texture        { attach = color }
+  }
+
+  pass tonemap-pass {
+    type = render
+    shader = tonemap_pass_shader
+    run = fullscreen_quad
+    set OE_exposure 0.6
+    set OE_gamma 2.2
+    read  composited_texture { as = "OE_texture"  at = 0 }
+    write tonemapped_texture { attach = color }
+  }
+
+  # the order, where what is read and written does not already give it
+  voxel-clear-pass |> voxelize-pass
+  shading-pass |> grid-pass |> scene-overlay-pass |> transparent-pass |> transparent-composite-pass
+}

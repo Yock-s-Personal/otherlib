@@ -155,7 +155,15 @@ namespace other {
 
   resource_tag resource_tag_from_string(const std::string_view str);
 
+  /// a .toml file is read here. any other is a file of declarations, read by what
+  ///  set_pipeline_declarations_reader was given
   pipeline_definition read_pipeline_definition_from_file(const filepath& path);
+
+  /// reads a pipeline from a file of declarations; a definition with no name when it cannot
+  using pipeline_declarations_reader = pipeline_definition (*)(const filepath& path);
+  /// the renderer cannot read a file of declarations itself: the command language is above
+  ///  it. whatever starts the engine says how
+  void set_pipeline_declarations_reader(pipeline_declarations_reader reader);
   pipeline_definition get_empty_pipeline();
 
   detail::validation_result validate_pipeline_definition(const pipeline_definition& def);

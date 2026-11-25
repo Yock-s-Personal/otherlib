@@ -1,0 +1,7 @@
+# a metal has no colour of its own under its shine: base_color is the colour it mirrors
+# in, and the roughness is how blurred what it mirrors is. polished gold is smooth
+material gold {
+  base_color = [1.0, 0.766, 0.336, 1.0]
+  roughness = 0.3
+  metalness = 1.0
+}

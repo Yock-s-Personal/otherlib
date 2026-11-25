@@ -297,10 +297,29 @@ namespace other {
 
   }  // namespace detail
 
+  namespace {
+
+    constinit pipeline_declarations_reader declarations_reader = nullptr;
+
+  }  // namespace
+
+  void set_pipeline_declarations_reader(const pipeline_declarations_reader reader) {
+    declarations_reader = reader;
+  }
+
   pipeline_definition read_pipeline_definition_from_file(const filepath& pl_def_path) {
     OTHER_ASSERT(std::filesystem::exists(pl_def_path), "Rendering pipeline asset does not exist! {}", pl_def_path.string());
-    OTHER_ASSERT(pl_def_path.extension() == ".toml", "Rendering pipeline asset must be a TOML file! {}", pl_def_path.string());
     PROFILE_SECTION("read_pipeline_definition_from_file");
+
+    if (pl_def_path.extension() != ".toml") {
+      if (declarations_reader != nullptr) {
+        return declarations_reader(pl_def_path);
+      }
+      CORE_LOG_ERROR("'{}' is not a TOML pipeline, and nothing that reads a file of declarations has been started", pl_def_path.string());
+      pipeline_definition none;
+      none.name.clear();
+      return none;
+    }
 
     toml::table pipeline_table;
     try {
@@ -1105,6 +1124,15 @@ namespace other {
 
         if (create_framebuffer && create_framebuffer.is_boolean()) {
           p.create_framebuffer = create_framebuffer.as_boolean()->get();
+        }
+
+        /// a pass draws at the window's size unless it says its own, as one that draws
+        ///  into a texture of a fixed size has to
+        auto size_x = pass.at_path("size.x");
+        auto size_y = pass.at_path("size.y");
+        if (size_x && size_y && size_x.is_integer() && size_y.is_integer()) {
+          p.use_window_size = false;
+          p.fixed_size = { static_cast<int32_t>(size_x.as_integer()->get()), static_cast<int32_t>(size_y.as_integer()->get()) };
         }
 
         if (p.create_framebuffer && p.pass_type == render_pass::COMPUTE_PASS) {

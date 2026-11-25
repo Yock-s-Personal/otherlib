@@ -74,6 +74,8 @@ namespace other {
 
         if (is_whitespace(c)) {
           handle_whitespace();
+        } else if (c == '%') {
+          handle_asset_block();
         } else if (is_numeric(c)) {
           handle_numeric();
         } else if (is_alpha(c)) {
@@ -344,6 +346,134 @@ namespace other {
 
     consume();
 
+    add_token(TOKEN_TYPE_STRING_LITERAL);
+  }
+
+  /// an asset block, '%name : kind' to its 'end', is read a line at a time and by rules of its
+  ///  own. a word in it is a word whatever it spells, so a field can be called 'add' or 'face';
+  ///  and since a value can be any word, the end of a line is a token (TOKEN_TYPE_SEMICOLON)
+  void ocmd_lexer::handle_asset_block() {
+    advance();
+    add_token(TOKEN_TYPE_PERCENT);
+
+    const auto ends_word = [](const char c) -> bool {
+      return c == '\0' || c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == ',' || c == ':' || c == ';' || c == '[' || c == ']' || c == '"';
+    };
+
+    /// the first line is the block's name and kind, which may spell 'begin' or 'end' too
+    bool heading = true;
+    size_t line_tokens = 0;
+    size_t depth = 0;
+    while (!finished()) {
+      current_source_span_start = { current_line, current_column };
+      const char c = current();
+      if (c == '\n') {
+        if (line_tokens > 0) {
+          add_token(TOKEN_TYPE_SEMICOLON);
+        }
+        newline();
+        line_tokens = 0;
+        heading = false;
+        continue;
+      }
+      if (c == ' ' || c == '\t' || c == '\r') {
+        consume();
+        continue;
+      }
+      if (c == ';') {
+        while (!check('\n') && !finished()) {
+          consume();
+        }
+        continue;
+      }
+
+      if (c == '"') {
+        handle_asset_text();
+      } else if (c == ',' || c == ':' || c == '[' || c == ']') {
+        advance();
+        add_token(c == ',' ? TOKEN_TYPE_COMMA : c == ':' ? TOKEN_TYPE_COLON :
+                    c == '['                             ? TOKEN_TYPE_LEFT_BRACKET :
+                                                           TOKEN_TYPE_RIGHT_BRACKET);
+      } else if (is_numeric(c) || (c == '-' && is_numeric(peek_next()))) {
+        do {
+          advance();
+        } while (!finished() && !ends_word(current()));
+        add_token(current_token.find_first_of(".eE") == std::string::npos ? TOKEN_TYPE_INTEGER_LITERAL : TOKEN_TYPE_FLOATING_POINT_LITERAL);
+      } else if (std::isalpha(static_cast<unsigned char>(c)) != 0 || c == '_') {
+        do {
+          advance();
+        } while (!finished() && !ends_word(current()));
+        const std::string word = current_token;
+        add_token(TOKEN_TYPE_IDENTIFIER);
+        if (!heading && line_tokens == 0 && word == "begin") {
+          ++depth;
+        } else if (!heading && line_tokens == 0 && word == "end") {
+          if (depth == 0) {
+            add_token(TOKEN_TYPE_SEMICOLON);
+            return;
+          }
+          --depth;
+        }
+      } else {
+        const source_location loc = { current_line, current_column };
+        throw ocmd_toolchain_error(LEX_INVALID_CHAR, { current_source_span_start, loc }, std::format("'{}' cannot be in an asset block", c));
+      }
+      ++line_tokens;
+    }
+
+    /// the file ended inside the block; the parser says which block is missing its 'end'
+    if (line_tokens > 0) {
+      add_token(TOKEN_TYPE_SEMICOLON);
+    }
+  }
+
+  /// a text of an asset block can hold anything: its own quote, a line break and any byte are
+  ///  written with a backslash
+  void ocmd_lexer::handle_asset_text() {
+    const auto fail = [this](const vm_error_code code, const std::string_view message) {
+      const source_location loc = { current_line, current_column };
+      throw ocmd_toolchain_error(code, { current_source_span_start, loc }, std::string{ message });
+    };
+    const auto hex_digit = [](const char c) -> int {
+      return c >= '0' && c <= '9' ? c - '0' : c >= 'a' && c <= 'f' ? c - 'a' + 10 :
+        c >= 'A' && c <= 'F'                                       ? c - 'A' + 10 :
+                                                                     -1;
+    };
+
+    consume();
+    while (!check('"')) {
+      if (finished() || check('\n')) {
+        fail(LEX_UNTERMINATED_STRING, "this text has no closing quote on its line");
+      }
+      if (!check('\\')) {
+        advance();
+        continue;
+      }
+
+      consume();
+      const char escaped = current();
+      consume();
+      switch (escaped) {
+        case 'n': current_token += '\n'; break;
+        case 'r': current_token += '\r'; break;
+        case 't': current_token += '\t'; break;
+        case '"': current_token += '"'; break;
+        case '\\': current_token += '\\'; break;
+        case 'x': {
+          const int high = hex_digit(current());
+          const int low = high < 0 ? -1 : hex_digit(peek_next());
+          if (low < 0) {
+            fail(LEX_INVALID_CHAR, "'\\x' is followed by two hex digits");
+          }
+          current_token += static_cast<char>(high * 16 + low);
+          consume();
+          consume();
+        } break;
+
+        default: fail(LEX_INVALID_CHAR, std::format("'\\{}' is not an escape a text has", escaped));
+      }
+    }
+    consume();
     add_token(TOKEN_TYPE_STRING_LITERAL);
   }
 

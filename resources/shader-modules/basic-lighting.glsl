@@ -31,32 +31,34 @@ vec3 calc_point_light(const light light, const vec3 world_normal, const vec3 wor
 	return max(dot(normalize(world_normal), direction), 0.0f) * 5 * attenuate(dist_to_light) * light.color.rgb;
 }
 
+/// how much of the sun a place is hidden from, 0 to 1
 float calculate_direction_light_shadow(vec3 world_position, vec3 world_normal) {
-  vec4 light_space_position = OE_light_space_matrix * vec4(world_position, 1.0);
-  
-  vec3 proj_coords = light_space_position.xyz / light_space_position.w;
-  proj_coords = proj_coords * 0.5 + 0.5;
-
-  float closest_depth = texture(OE_shadow_map, proj_coords.xy).r;
-  float curr_depth = proj_coords.z; 
-
   vec3 normal = normalize(world_normal);
-  vec3 light_dir = normalize(OE_light_position - world_position);
-  float bias = max(0.05 * (1.0 - dot(normal, light_dir)), 0.005);
+  float facing = clamp(dot(normal, normalize(OE_sun_dir)), 0.0, 1.0);
 
+  /// the place is looked up a little off its own surface, by about a texel of the map
+  /// and more the more the surface slants from the sun: a surface must not shade itself.
+  /// how wide a texel is in the world is read off the matrix, whose rows are of length
+  /// one over half the map's width
+  vec2 texel = 1.0 / vec2(textureSize(OE_shadow_map, 0));
+  float world_per_texel = 2.0 * texel.x / length(vec3(OE_light_space_matrix[0][0], OE_light_space_matrix[1][0], OE_light_space_matrix[2][0]));
+  vec3 lifted = world_position + normal * world_per_texel * (1.0 + 2.0 * (1.0 - facing));
+
+  vec4 light_space_position = OE_light_space_matrix * vec4(lifted, 1.0);
+  vec3 proj_coords = light_space_position.xyz / light_space_position.w * 0.5 + 0.5;
+
+  /// off the map there is nothing to say a place is shaded
+  if (proj_coords.z > 1.0 || any(lessThan(proj_coords.xy, vec2(0.0))) || any(greaterThan(proj_coords.xy, vec2(1.0)))) {
+    return 0.0;
+  }
+
+  const float bias = 0.0003;
   float shadow = 0.0;
-  vec2 texel = 1.0 / textureSize(OE_shadow_map, 0);
-  for (int x = -1; x <= 1; ++x) {
-    for (int y = -1; y <= 1; ++y) {
+  for (int x = -2; x <= 2; ++x) {
+    for (int y = -2; y <= 2; ++y) {
       float pcf_depth = texture(OE_shadow_map, proj_coords.xy + vec2(x, y) * texel).r;
-      shadow += curr_depth - bias > pcf_depth ? 1.0 : 0.0;
+      shadow += proj_coords.z - bias > pcf_depth ? 1.0 : 0.0;
     }
   }
-  shadow /= 9.0;
-
-  if (proj_coords.z > 1.0) {
-    shadow = 0.0;
-  }
-  
-  return shadow;
+  return shadow / 25.0;
 }

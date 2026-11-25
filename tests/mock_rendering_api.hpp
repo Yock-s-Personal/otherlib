@@ -47,6 +47,7 @@ namespace other {
     MOCK_METHOD(void, set_depth_mask, (bool enabled_or_disabled), (override));
     MOCK_METHOD(void, set_depth_test, (bool enabled_or_disabled), (override));
     MOCK_METHOD(void, set_blending, (bool enabled_or_disabled), (override));
+    MOCK_METHOD(void, set_additive_blending, (bool enabled_or_disabled), (override));
 
     MOCK_METHOD(void, set_polygon_mode, (render_polygon_mode mode), (override));
     MOCK_METHOD(void, set_stencil_func, (stencil_func func, int32_t ref, uint32_t mask), (override));
@@ -80,6 +81,7 @@ namespace other {
     MOCK_METHOD(void, unbind_buffer_resource, (const resource_handle& handle), (override));
     MOCK_METHOD(void, bind_shader_buffer_resource, (const resource_handle& handle, const resource_handle& shader_handle, const std::string_view name, uint32_t binding_point, gpu_buffer::buf_type buffer_type), (override));
     MOCK_METHOD(void, set_shader_block_binding, (const resource_handle& shader_handle, const std::string_view name, uint32_t binding_point, gpu_buffer::buf_type buffer_type), (override));
+    MOCK_METHOD(ostd::vector<std::string>, shader_block_names, (const resource_handle& shader_handle), (override));
     MOCK_METHOD(void, buffer_data, (const resource_handle& handle, uint32_t binding_point, const void* data, size_t size), (override));
     MOCK_METHOD(void, buffer_range, (const resource_handle& handle, uint32_t binding_point, size_t start, size_t size, const void* data), (override));
 

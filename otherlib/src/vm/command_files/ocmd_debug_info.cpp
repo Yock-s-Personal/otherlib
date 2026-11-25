@@ -40,6 +40,27 @@ namespace other {
       return header;
     }
 
+    /// what follows the program: the debug section, the asset section, or both in that order
+    std::span<const uint8_t> after_program(const std::span<const uint8_t> file, const ocmd_file_header& header) {
+      const std::span<const uint8_t> rest = file.subspan(sizeof(ocmd_file_header));
+      return rest.subspan(std::min<size_t>(header.prog_header.program_size, rest.size()));
+    }
+
+    /// how much of tail is the debug section. with an asset section behind it, that is what
+    ///  the section's own header says; a header that cannot be right gives the whole tail,
+    ///  which then reads as neither section
+    size_t debug_size(const std::span<const uint8_t> tail, const ocmd_file_header& header) {
+      if (header.prog_header.has_debug_flag == 0) {
+        return 0;
+      }
+      if (header.prog_header.has_assets_flag == 0) {
+        return tail.size();
+      }
+      debug_section_header section;
+      std::span<const uint8_t> rest = tail;
+      return take(rest, section) && section.size >= sizeof(section) && section.size <= tail.size() ? section.size : tail.size();
+    }
+
   }  // namespace
 
   std::string_view debug_field_type_name(const debug_field_type type) {
@@ -88,9 +109,29 @@ namespace other {
                            });
     }
 
-    /// a program with no line information has no lines chunk, as files written before there was one
-    const uint32_t chunk_count = line_payload.empty() ? 1 : 2;
-    const size_t size = sizeof(debug_section_header) + chunk_count * sizeof(debug_chunk_header) + payload.size() + line_payload.size();
+    ostd::vector<uint8_t> asset_payload;
+    if (!asset_words.empty() || !assets.empty()) {
+      append(asset_payload, static_cast<uint32_t>(asset_words.size()));
+      for (const std::string& word : asset_words) {
+        const size_t length = std::min<size_t>(word.size(), std::numeric_limits<uint16_t>::max());
+        append(asset_payload, static_cast<uint16_t>(length));
+        asset_payload.insert(asset_payload.end(), word.begin(), word.begin() + static_cast<std::ptrdiff_t>(length));
+      }
+      for (const debug_asset& asset : assets) {
+        append(asset_payload, debug_asset_record{
+                                .kind = asset.kind,
+                                .name = asset.name,
+                                .unit = asset.unit,
+                                .line = asset.line,
+                                .column = static_cast<uint16_t>(std::min<uint32_t>(asset.column, std::numeric_limits<uint16_t>::max())),
+                              });
+      }
+    }
+
+    /// a program with no line information has no lines chunk, as files written before there
+    ///  was one; and one with no assets has no assets chunk
+    const uint32_t chunk_count = 1 + (line_payload.empty() ? 0 : 1) + (asset_payload.empty() ? 0 : 1);
+    const size_t size = sizeof(debug_section_header) + chunk_count * sizeof(debug_chunk_header) + payload.size() + line_payload.size() + asset_payload.size();
 
     ostd::vector<uint8_t> section;
     section.reserve(size);
@@ -100,6 +141,10 @@ namespace other {
     if (!line_payload.empty()) {
       append(section, debug_chunk_header{ .kind = DEBUG_CHUNK_LINES, .size = static_cast<uint32_t>(line_payload.size()) });
       section.insert(section.end(), line_payload.begin(), line_payload.end());
+    }
+    if (!asset_payload.empty()) {
+      append(section, debug_chunk_header{ .kind = DEBUG_CHUNK_ASSETS, .size = static_cast<uint32_t>(asset_payload.size()) });
+      section.insert(section.end(), asset_payload.begin(), asset_payload.end());
     }
     return section;
   }
@@ -128,6 +173,28 @@ namespace other {
         debug_line_record record;
         while (take(payload, record)) {
           info.lines.push_back({ .address = record.address, .unit = record.unit, .line = record.line, .column = record.column });
+        }
+        continue;
+      }
+      if (chunk.kind == DEBUG_CHUNK_ASSETS) {
+        uint32_t word_count = 0;
+        if (!take(payload, word_count)) {
+          return std::nullopt;
+        }
+        for (uint32_t word = 0; word < word_count; ++word) {
+          uint16_t length = 0;
+          if (!take(payload, length) || length > payload.size()) {
+            return std::nullopt;
+          }
+          info.asset_words.emplace_back(reinterpret_cast<const char*>(payload.data()), length);
+          payload = payload.subspan(length);
+        }
+        if (payload.size() % sizeof(debug_asset_record) != 0) {
+          return std::nullopt;
+        }
+        debug_asset_record record;
+        while (take(payload, record)) {
+          info.assets.push_back({ .kind = record.kind, .name = record.name, .unit = record.unit, .line = record.line, .column = record.column });
         }
         continue;
       }
@@ -166,6 +233,12 @@ namespace other {
         return std::nullopt;
       }
     }
+    for (const debug_asset& asset : info.assets) {
+      const bool names_a_unit = asset.unit < info.symbols.size() && info.symbols[asset.unit].kind == DEBUG_SYMBOL_UNIT;
+      if (asset.unit != debug_symbol::kNoParent && !names_a_unit) {
+        return std::nullopt;
+      }
+    }
     return info;
   }
 
@@ -185,7 +258,7 @@ namespace other {
       return {};
     }
     const std::span<const uint8_t> rest = file.subspan(sizeof(ocmd_file_header));
-    if (header->prog_header.has_debug_flag == 0) {
+    if (header->prog_header.has_debug_flag == 0 && header->prog_header.has_assets_flag == 0) {
       return rest;
     }
     return rest.first(std::min<size_t>(header->prog_header.program_size, rest.size()));
@@ -196,8 +269,17 @@ namespace other {
     if (!header.has_value() || header->prog_header.has_debug_flag == 0) {
       return {};
     }
-    const std::span<const uint8_t> rest = file.subspan(sizeof(ocmd_file_header));
-    return rest.subspan(std::min<size_t>(header->prog_header.program_size, rest.size()));
+    const std::span<const uint8_t> tail = after_program(file, *header);
+    return tail.first(debug_size(tail, *header));
+  }
+
+  std::span<const uint8_t> obin_asset_bytes(const std::span<const uint8_t> file) {
+    const opt<ocmd_file_header> header = read_file_header(file);
+    if (!header.has_value() || header->prog_header.has_assets_flag == 0) {
+      return {};
+    }
+    const std::span<const uint8_t> tail = after_program(file, *header);
+    return tail.subspan(debug_size(tail, *header));
   }
 
 }  // namespace other

@@ -66,6 +66,16 @@ namespace other {
   ///  resolving them against the file's directory is the loader's job
   material_parse_result parse_material_toml(const filepath& path);
 
+  /// a material from its file, whatever the file is: TOML when it is named .omat or .toml,
+  ///  and any other a file of declarations, read by what set_material_declarations_reader
+  ///  was given. safe on any thread, as the TOML reader is
+  material_parse_result read_material_file(const filepath& path);
+
+  using material_declarations_reader = material_parse_result (*)(const filepath& path);
+  /// the renderer cannot read a file of declarations itself: the command language is above
+  ///  it. whatever starts the engine says how
+  void set_material_declarations_reader(material_declarations_reader reader);
+
 }  // namespace other
 
 #endif  // OTHER_RENDERER_GPU_RESOURCE_MATERIAL_HPP

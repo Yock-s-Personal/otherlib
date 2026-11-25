@@ -11,6 +11,10 @@ namespace Other.Editor
     internal static delegate* unmanaged[Cdecl]<float*, float*, float*, NativeBool32> NativeCamera;
     [NativeFunction("EditorViewFocusSelection")]
     internal static delegate* unmanaged[Cdecl]<NativeBool32> NativeFocusSelection;
+    [NativeFunction("EditorViewOrbit")]
+    internal static delegate* unmanaged[Cdecl]<float, float, void> NativeOrbit;
+    [NativeFunction("EditorViewLookAlong")]
+    internal static delegate* unmanaged[Cdecl]<float, float, float, void> NativeLookAlong;
     [NativeFunction("EditorViewState")]
     internal static delegate* unmanaged[Cdecl]<float*, uint> NativeState;
     [NativeFunction("EditorViewRay")]
@@ -95,6 +99,20 @@ namespace Other.Editor
     public static bool FocusOnSelection()
     {
       return NativeFocusSelection();
+    }
+
+    /// turns the camera round the focus point by so many degrees, to the right and down,
+    ///  as a drag with Alt and the left button does
+    public static void Orbit(float right, float down)
+    {
+      NativeOrbit(right, down);
+    }
+
+    /// turns the camera round the focus point until it looks the given way. straight up
+    ///  and straight down it stops a degree short of
+    public static void LookAlong(Vec3 direction)
+    {
+      NativeLookAlong(direction.X, direction.Y, direction.Z);
     }
 
     /// the ray from the camera through a place of the screen: where it starts and which

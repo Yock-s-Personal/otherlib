@@ -59,6 +59,10 @@ namespace other {
     nbool32 native_editor_view_camera(float* position, float* direction, float* focus_point);
     /// brings the selection to the middle of the view. false with nothing selected
     nbool32 native_editor_view_focus_selection();
+    /// turns the view's camera round the point it turns round, by degrees to the right and down
+    void native_editor_view_orbit(float right, float down);
+    /// turns it round that point until it looks the given way
+    void native_editor_view_look_along(float x, float y, float z);
     /// where the view's picture is on the screen and its size, four floats, and what is
     ///  true of it: bit 0 it is on the screen, bit 1 the pointer is over it, bit 2 it was
     ///  clicked this frame

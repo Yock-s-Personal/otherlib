@@ -36,7 +36,8 @@ namespace other {
     static void dump_instructions(const std::span<const uint8_t> instructions);
 
     /// a linked program, file header included, as text: its instructions in the assembler's
-    ///  own words and then its data. bus names the syscalls; without one they are numbers.
+    ///  own words, then its data, then its assets as the asset blocks they were linked from.
+    ///  bus names the syscalls; without one they are numbers.
     ///  read_line, when given, puts each source line above the instructions made from it
     static disassembly disassemble(std::span<const uint8_t> bytes, const command_bus* bus = nullptr, const source_line_reader& read_line = {});
 

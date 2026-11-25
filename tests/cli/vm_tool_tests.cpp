@@ -369,6 +369,50 @@ namespace other {
     EXPECT_FALSE(run_vm_tool("vm build --project").success());
   }
 
+  TEST_F(vm_tool_tests, a_file_of_declarations_is_a_source_and_its_assets_are_shown) {
+    write_file(test_root / "paints.things", "struct paint(coats) {\n  int coats = 1\n  float gloss = 0.5\n}\npaint white 2\npaint slate { gloss = 1 }\n");
+
+    const cli::tool_result viewed = run_vm_tool("vm view paints.things");
+    ASSERT_TRUE(viewed.success()) << errors;
+    EXPECT_TRUE(output.contains("asset section: "));
+    EXPECT_TRUE(output.contains("; paints.things:5:1\n"));
+    EXPECT_TRUE(output.contains("%white : paint\n  set coats, 2\n  set gloss, 0.5\nend\n"));
+    EXPECT_TRUE(output.contains("%slate : paint\n  set coats, 1\n  set gloss, 1.0\nend\n"));
+
+    /// the listing of a file of declarations holds its asset blocks, and assembles to the same
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm build paints.things -o out/paints.obin --emit-oasm").success()) << errors;
+    EXPECT_TRUE(output.contains("2 asset(s) written to the program's asset section"));
+    ASSERT_TRUE(std::filesystem::exists(test_root / "out/paints.things.oasm"));
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view out/paints.things.oasm").success()) << errors;
+    EXPECT_TRUE(output.contains("%white : paint\n  set coats, 2\n  set gloss, 0.5\nend\n"));
+
+    /// the program that was written holds them, and shows them the same
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view out/paints.obin").success()) << errors;
+    EXPECT_TRUE(output.contains("; paints.things:5:1\n"));
+    EXPECT_TRUE(output.contains("%white : paint\n  set coats, 2\n  set gloss, 0.5\nend\n"));
+    EXPECT_TRUE(output.contains("%slate : paint\n  set coats, 1\n  set gloss, 1.0\nend\n"));
+    /// asked for it without its names, the assets stay and their kinds and fields are hashes
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm view out/paints.obin --no-debug").success()) << errors;
+    EXPECT_TRUE(output.contains("%white : #"));
+    EXPECT_FALSE(output.contains("%white : paint"));
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm info out/paints.obin").success()) << errors;
+    EXPECT_TRUE(output.contains("asset section: "));
+    EXPECT_TRUE(output.contains("2 asset(s)"));
+
+    /// 'data' is the program's data alone
+    output.clear();
+    ASSERT_TRUE(run_vm_tool("vm data paints.things").success()) << errors;
+    EXPECT_FALSE(output.contains("%white"));
+
+    write_file(test_root / "wrong.things", "struct paint { int coats = 1 }\npaint white { coats = thick }\n");
+    EXPECT_FALSE(run_vm_tool("vm view wrong.things").success());
+  }
+
   TEST_F(vm_tool_tests, view_refuses_what_it_cannot_show) {
     write_file(test_root / "main.oasm", kMain);
     write_file(test_root / "not-a-program.obin", "this is only text, though it is longer than a program's header");

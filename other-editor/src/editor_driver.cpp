@@ -251,7 +251,7 @@ namespace other {
     auto outlined = get_renderer().debug_outlined();
 
     if (context.view.grid) {
-      submit_ground_grid(in_world);
+      submit_ground_grid();
     }
 
     if (scene->physics_debug_rendering()) {
@@ -286,13 +286,6 @@ namespace other {
         if (auto* render = scene->try_get_component<render_component>(obj.id);
             render != nullptr && render->visible && render->obj_model.source != nullptr) {
           outlined.mesh(render->obj_model.source->get_mesh_handle(), world_trans, basic_colors::kWhite, false, render->obj_model.bone_matrices);
-        } else {
-          /// with nothing to draw an outline round, its own axes say where it is and how
-          ///  it is turned
-          const glm::vec3 origin = glm::vec3(world_trans[3]);
-          draw.arrow(origin, origin + glm::normalize(glm::vec3(world_trans * glm::vec4(1.f, 0.f, 0.f, 0.f))), basic_colors::kRed);
-          draw.arrow(origin, origin + glm::normalize(glm::vec3(world_trans * glm::vec4(0.f, 1.f, 0.f, 0.f))), basic_colors::kGreen);
-          draw.arrow(origin, origin + glm::normalize(glm::vec3(world_trans * glm::vec4(0.f, 0.f, 1.f, 0.f))), basic_colors::kBlue);
         }
 
         if (auto* pl_comp = scene->try_get_component<point_light_component>(obj.id);
@@ -473,15 +466,14 @@ namespace other {
     return true;
   }
 
-  void editor_driver::submit_ground_grid(debug_draw& in_world) {
+  void editor_driver::submit_ground_grid() {
     PROFILE_SECTION("editor_driver::submit_ground_grid");
     /// how many cells out from its middle the grid goes, and how many make a heavy line
     constexpr uint32_t kCells = 100;
     constexpr uint32_t kHeavyEvery = 10;
 
     /// the grid goes with the camera, a heavy line's worth at a time so that its lines
-    ///  stay where they are in the world. the shader draws its two axes through the
-    ///  grid's own middle, which is then not the world's, so they are drawn here
+    ///  stay where they are in the world
     const float cell = context.settings.grid_granularity;
     const float heavy = cell * static_cast<float>(kHeavyEvery);
     const glm::vec3& eye = context.editor_camera.position;
@@ -499,13 +491,26 @@ namespace other {
       .major_line_every = kHeavyEvery,
     });
 
-    const float reach = cell * static_cast<float>(kCells);
-    if (std::abs(middle.z) <= reach) {
-      in_world.line({ middle.x - reach, 0.f, 0.f }, { middle.x + reach, 0.f, 0.f }, { 0.92f, 0.26f, 0.24f, 0.8f });
-    }
-    if (std::abs(middle.x) <= reach) {
-      in_world.line({ 0.f, 0.f, middle.z - reach }, { 0.f, 0.f, middle.z + reach }, { 0.25f, 0.52f, 0.96f, 0.8f });
-    }
+    /// the world's X and Z axes are a grid of their own, with no lines but its two axes:
+    ///  the shader draws a grid's axes through that grid's middle, and this one's middle
+    ///  is the world's, however far off the camera is. so it reaches from there to the
+    ///  camera and as far past it as can be seen
+    constexpr float kAxisWidth = 2.5f;
+    const float seen = glm::length(glm::vec2{ eye.x, eye.z }) + context.editor_camera.clip.far_plane;
+    get_renderer().submit_debug_grid({
+      .basis_u = { 1.f, 0.f, 0.f, 0.f },
+      .basis_v = { 0.f, 0.f, 1.f, 0.f },
+      .origin = { 0.f, 0.f, 0.f, 1.f },
+      .line_color = { 0.f, 0.f, 0.f, 0.f },
+      .major_line_color = { 0.f, 0.f, 0.f, 0.f },
+      .axis_u_color = { 0.92f, 0.26f, 0.24f, 0.95f },
+      .axis_v_color = { 0.25f, 0.52f, 0.96f, 0.95f },
+      .cell_size = cell,
+      .line_width = kAxisWidth,
+      /// the shader fades a grid out over the last of its reach
+      .extent = static_cast<uint32_t>(std::ceil(seen / cell / 0.8f)) + 1,
+      .show_axes = true,
+    });
   }
 
   pipeline_definition editor_driver::get_debug_overlay_pipeline_definition() const {

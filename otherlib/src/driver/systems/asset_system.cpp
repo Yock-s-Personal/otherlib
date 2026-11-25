@@ -12,6 +12,7 @@
 #include "driver/driver.hpp"
 #include "driver/driver_mounts.hpp"
 #include "driver/systems/job_driver_system.hpp"
+#include "render/pipeline_declarations.hpp"
 
 namespace other {
 
@@ -59,6 +60,9 @@ namespace other {
     events.add_listener("assets.all-assets-unloaded", [this](const value& data) {
       get_driver().confirm_assets_clean();
     });
+
+    /// before anything is loaded: a pipeline's file can be a file of declarations
+    register_declaration_readers();
 
     auto register_asset_events = [&events](asset::type asset_type) {
       events.register_event(other::get_asset_event_name(asset_type, "asset-loaded"));

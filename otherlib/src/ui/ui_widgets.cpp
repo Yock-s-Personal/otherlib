@@ -6,6 +6,8 @@
 #include <imgui/imgui.h>
 #include <imgui/imgui_internal.h>
 
+#include "math/euler.hpp"
+
 #include "ui/ui_helpers.hpp"
 
 namespace other {
@@ -281,7 +283,7 @@ namespace other {
         bool changed = false;
 
         std::string elem_id = std::format("##{}:{}", parent_label, label);
-        glm::vec3 euler = glm::eulerAngles(value) * (180.f / glm::pi<float>());
+        glm::vec3 euler = euler_from_quat(value);
 
         const float line_height = GImGui->Font->FontSize + kFramePadding * 2.f;
         /// use longest word "Pitch" to calculate button size so all 3 elements have same size
@@ -294,7 +296,7 @@ namespace other {
         changed |= detail::draw_vector_element<float>(elem_id, "Pitch", euler.x, size, vmin.x, vmax.x, ImVec4{ 0.8f, 0.1f, 0.15f, 1.f }, ImVec4{ 0.9f, 0.2f, 0.2f, 1.f }, ImVec4{ 0.8f, 0.1f, 0.15f, 1.f }, button_size, speed, flags);
         changed |= detail::draw_vector_element<float>(elem_id, "Roll", euler.z, size, vmin.z, vmax.z, ImVec4{ 0.1f, 0.25f, 0.8f, 1.f }, ImVec4{ 0.2f, 0.35f, 0.9f, 1.f }, ImVec4{ 0.1f, 0.25f, 0.8f, 1.f }, button_size, speed, flags);
         if (changed) {
-          value = glm::quat(glm::radians(euler));
+          value = quat_from_euler(euler);
         }
 
         return changed;

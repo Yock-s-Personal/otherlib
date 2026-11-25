@@ -21,6 +21,7 @@ target_sources(OtherCs PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/behavior-fields.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/asset-ref.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/filesystem.cs
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/core/mathf.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec2.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec3.cs
   ${CMAKE_CURRENT_SOURCE_DIR}/src/core/int_vec4.cs

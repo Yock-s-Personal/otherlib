@@ -49,6 +49,20 @@ namespace other {
       return editor != nullptr && editor->focus_view_on_selection();
     }
 
+    void native_editor_view_orbit(float right, float down) {
+      editor_services* editor = get_editor_services();
+      if (editor != nullptr && editor->view_camera != nullptr) {
+        editor->camera_controller.orbit(*editor->view_camera, { right, down });
+      }
+    }
+
+    void native_editor_view_look_along(float x, float y, float z) {
+      editor_services* editor = get_editor_services();
+      if (editor != nullptr && editor->view_camera != nullptr) {
+        editor->camera_controller.look_along(*editor->view_camera, { x, y, z });
+      }
+    }
+
     uint32_t native_editor_view_state(float* rectangle) {
       const editor_services* editor = get_editor_services();
       if (editor == nullptr || rectangle == nullptr) {

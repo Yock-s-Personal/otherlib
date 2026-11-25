@@ -74,6 +74,46 @@ namespace other {
     EXPECT_FLOAT_EQ(first, second);
   }
 
+  TEST_F(physics_simulation_tests, a_falling_body_stays_turned_as_it_was) {
+    /// nothing turns a body that falls through empty space, so the rotation that comes
+    ///  back from the simulation is the one that went in. a rotation with its four numbers
+    ///  in the wrong places is still a rotation: one about a single axis could pass by
+    ///  chance, so this one is about none
+    scene s("StaysTurned");
+    scene_object& obj = s.create_object("faller", glm::vec3(0.f, 10.f, 0.f));
+    const glm::quat turned = glm::normalize(glm::angleAxis(glm::radians(110.f), glm::normalize(glm::vec3(0.3f, 0.9f, -0.4f))));
+    s.get_transform(&obj).local_rotation_quat = turned;
+    physics_component& pc = add_body(s, obj, physics_body::DYNAMIC);
+
+    s.play();
+    tick(s, fixed_step(), 30);
+    EXPECT_LT(body_y(pc), 10.f);
+
+    /// the body's own rotation, and the object's, which is what is drawn
+    EXPECT_NEAR(std::abs(glm::dot(pc.body->get_current_rotation(), turned)), 1.f, 1e-4f);
+    EXPECT_NEAR(std::abs(glm::dot(s.get_transform(&obj).local_rotation_quat, turned)), 1.f, 1e-4f);
+    s.stop();
+  }
+
+  TEST_F(physics_simulation_tests, a_scaled_body_is_turned_as_it_was_before_its_first_step) {
+    /// between play and the first step a body's pose is the one it was given, and the
+    ///  object it is handed back to has to be turned as it was. the pose a body is given
+    ///  has the object's scale in it, which is no part of how it is turned
+    scene s("ScaledBeforeStep");
+    scene_object& obj = s.create_object("ring", glm::vec3(0.f, 10.f, 0.f));
+    const glm::quat turned = glm::angleAxis(glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+    s.get_transform(&obj).local_rotation_quat = turned;
+    s.get_transform(&obj).local_scale = glm::vec3(0.55f);
+    add_body(s, obj, physics_body::DYNAMIC);
+
+    s.play();
+    /// less than a step: nothing has been simulated yet
+    tick(s, fixed_step() * 0.25);
+    EXPECT_NEAR(std::abs(glm::dot(s.get_transform(&obj).local_rotation_quat, turned)), 1.f, 1e-4f);
+    EXPECT_FLOAT_EQ(s.get_transform(&obj).local_scale.x, 0.55f);
+    s.stop();
+  }
+
   TEST_F(physics_simulation_tests, feeding_patterns_conserve_simulated_time) {
     /// same wall-clock second delivered in regular vs irregular frame chunks lands on the
     ///  same number of fixed steps, so both bodies end at the same pose

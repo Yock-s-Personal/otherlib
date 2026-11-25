@@ -14,16 +14,6 @@ uniform sampler3D OE_voxel_tex;
 #define OE_SHADOW_NORMAL_BIAS 1.5   // start offset along the surface normal, in voxels (anti-acne)
 #endif
 
-/// metal environment response tuning: the sky mirror takes reduced diffuse-AO occlusion (full
-/// env.a double-darkens polished metal) and metals keep a slice of the irradiance volume as a
-/// floor - real metal reflects its diffuse surroundings, and the default sky alone is dim gray
-#ifndef OE_METAL_AO_BLEND
-#define OE_METAL_AO_BLEND 0.5
-#endif
-#ifndef OE_METAL_IRRADIANCE_FLOOR
-#define OE_METAL_IRRADIANCE_FLOOR 0.3
-#endif
-
 vec3 oe_environment_ambient_color(vec3 amb_col, vec3 N) {
   float up = clamp(normalize(N).y * 0.5 + 0.5, 0.0, 1.0);
   return mix(ground_color.rgb, amb_col, up);
@@ -67,54 +57,76 @@ float oe_point_shadow(vec3 surface_pos, vec3 surface_normal, vec3 light_pos) {
   return trans;
 }
 
-vec4 calculate_lighting(vec3 diffuse, vec3 world_position, vec3 world_normal, float specular_reflect, float metalness) {
-  vec3 view_dir = normalize(camera_position.xyz - world_position);
+const float OE_PI = 3.14159265359;
 
-  /// metals: no lambertian body color, specular tinted by albedo instead of white.
-  /// dielectrics (metalness 0) reproduce the old math exactly.
-  vec3 kd = diffuse * (1.0 - metalness);
-  vec3 spec_tint = mix(vec3(1.0), diffuse, metalness);
+/// the three parts of the usual highlight off a rough surface (GGX), with a the roughness
+/// squared: how many of the surface's facets face halfway between light and eye, how many
+/// of those are not hidden by their neighbours, and how much a facet mirrors at that angle
+float oe_ggx_distribution(float n_h, float a) {
+  float a2 = a * a;
+  float d = n_h * n_h * (a2 - 1.0) + 1.0;
+  return a2 / (OE_PI * d * d);
+}
 
-  vec3 diffuse_specular = vec3(0);
+float oe_ggx_visibility(float n_l, float n_v, float a) {
+  return 0.5 / max(mix(2.0 * n_l * n_v, n_l + n_v, a), 1e-4);
+}
+
+vec3 oe_fresnel(vec3 f0, float cosine) {
+  return f0 + (1.0 - f0) * pow(clamp(1.0 - cosine, 0.0, 1.0), 5.0);
+}
+
+/// what a surface sends to the eye of the light one light gives it. a light's colour is
+/// what a white matt surface facing it shows, so the body takes it whole and the highlight
+/// is scaled to keep its share
+vec3 oe_light_response(vec3 n, vec3 v, vec3 l, vec3 radiance, vec3 body, vec3 f0, float a) {
+  float n_l = dot(n, l);
+  if (n_l <= 0.0) {
+    return vec3(0.0);
+  }
+  vec3 h = normalize(l + v);
+  float n_v = max(dot(n, v), 1e-3);
+  vec3 highlight = oe_ggx_distribution(max(dot(n, h), 0.0), a) * oe_ggx_visibility(n_l, n_v, a) * oe_fresnel(f0, max(dot(v, h), 0.0));
+  return (body + highlight * OE_PI) * radiance * n_l;
+}
+
+/// rgb is the light a surface sends to the eye; a is how much of that is mirrored sky,
+/// which a see-through surface shows however thin it is
+vec4 calculate_lighting(vec3 diffuse, vec3 world_position, vec3 world_normal, float roughness, float metalness) {
+  vec3 n = normalize(world_normal);
+  vec3 v = normalize(camera_position.xyz - world_position);
+
+  /// roughness is roughness: 0 a mirror, 1 chalk. a metal has no colour of its own under
+  /// its shine and mirrors in its colour; anything else mirrors a little of everything
+  float rough = clamp(roughness, 0.08, 1.0);
+  float a = rough * rough;
+  vec3 body = diffuse * (1.0 - metalness);
+  vec3 f0 = mix(vec3(0.04), diffuse, metalness);
+
+  vec3 direct = vec3(0.0);
   for (int i = 0; i < OE_num_lights; ++i) {
     if (lights[i].type == 1.f) {
-      vec3 lp = lights[i].vector.xyz;
-      vec3 light_dir = normalize(lp - world_position);
-      vec3 diff = max(dot(world_normal, light_dir), 0.0) * kd * lights[i].color.rgb;
-
-      vec3 halfway = normalize(light_dir + view_dir);
-      float spec = pow(max(dot(world_normal, halfway), 0.0), 16.0);
-
-      vec3 specular = lights[i].color.rgb * spec * specular_reflect * spec_tint;
-      float atten = attenuate(length(lp - world_position));
-
-      float vis = oe_point_shadow(world_position, world_normal, lp);
-      diffuse_specular +=
-      // vis *
-      ((diff * atten) + (specular * atten));
+      vec3 to_light = lights[i].vector.xyz - world_position;
+      float dist = max(length(to_light), 1e-4);
+      direct += oe_light_response(n, v, to_light / dist, lights[i].color.rgb * attenuate(dist), body, f0, a);
     } else if (lights[i].type == 2.f) {
-      /// directional (gpu::light::kDirection): vector.xyz points TOWARD the light - the same
-      /// TO-sun convention sim env uses - with no attenuation; shadowing rides the sun-shadow
-      /// factor applied to the whole accumulated term below
-      vec3 light_dir = normalize(lights[i].vector.xyz);
-      vec3 diff = max(dot(world_normal, light_dir), 0.0) * kd * lights[i].color.rgb;
-
-      vec3 halfway = normalize(light_dir + view_dir);
-      float spec = pow(max(dot(world_normal, halfway), 0.0), 16.0);
-
-      diffuse_specular += diff + lights[i].color.rgb * spec * specular_reflect * spec_tint;
+      /// directional (gpu::light::kDirection): vector.xyz points TOWARD the light, with no
+      /// falling off and no shadow
+      direct += oe_light_response(n, v, normalize(lights[i].vector.xyz), lights[i].color.rgb, body, f0, a);
     }
   }
 
+  /// the sun is the environment's, and the one light with a shadow map
+  float in_sun = 1.0 - calculate_direction_light_shadow(world_position, n);
+  direct += in_sun * oe_light_response(n, v, normalize(sun_direction.xyz), sun_color.rgb * sun_color.w, body, f0, a);
+
+  /// the sky lights what the sun does not reach: its light from all round on the body,
+  /// dimmed by what stands over the place, and its mirror image in the shine, smeared by
+  /// the roughness. a place shaded from the sun still has the sky
   vec4 env = texture(OE_env_cubemap, oe_world_to_volume(world_position));
-  vec3 ambient = oe_environment_ambient_color(env.rgb, world_normal) * env.a;
+  vec3 sky_light = oe_environment_ambient_color(env.rgb, n) * env.a;
+  vec3 mirrored = oe_sky_color(reflect(-v, n), rough) * world_max.w * mix(1.0, env.a, 0.5);
+  vec3 mirror = f0 + (max(vec3(1.0 - rough), f0) - f0) * pow(1.0 - max(dot(n, v), 0.0), 5.0);
 
-  /// metals trade the flat ambient body for environment reflection: the mirrored procedural
-  /// sky (world_max.w mirrors the sky branch's exposure scale) plus the irradiance floor
-  vec3 sky_reflection = oe_sky_radiance(reflect(-view_dir, world_normal)) * world_max.w * mix(1.0, env.a, OE_METAL_AO_BLEND);
-  vec3 metal_env = sky_reflection + ambient * OE_METAL_IRRADIANCE_FLOOR;
-
-  float shadow_calc = calculate_direction_light_shadow(world_position, world_normal);
-  vec3 lighting = ambient * kd + metal_env * diffuse * metalness + (1.0 - shadow_calc) * diffuse_specular;
-  return vec4(lighting, 1.0);
+  return vec4(direct + body * sky_light + mirror * mirrored, (mirror.r + mirror.g + mirror.b) / 3.0);
 }

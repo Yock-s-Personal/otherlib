@@ -144,11 +144,12 @@ namespace other {
   }
 
   void oasm_parser::synchronize() {
-    constexpr size_t kNumAnchorTokens = 4;
+    constexpr size_t kNumAnchorTokens = 5;
     constexpr token_type kSynchronizingTokens[kNumAnchorTokens] = {
       TOKEN_TYPE_DOLLAR,
       TOKEN_TYPE_HASH,
       TOKEN_TYPE_SLASH,
+      TOKEN_TYPE_PERCENT,
       TOKEN_TYPE_EOF,
     };
     while (!finished() && !std::ranges::any_of(std::span(kSynchronizingTokens, kNumAnchorTokens), [this](token_type type) { return check(type); })) {
@@ -169,6 +170,8 @@ namespace other {
       } else if (check(TOKEN_TYPE_SLASH)) {
         consume();
         parse_definition(sections);
+      } else if (check(TOKEN_TYPE_PERCENT)) {
+        ir_result.assets.push_back(parse_asset_block());
       } else {
         sections.sections.emplace_back(parse_code_block());
       }
@@ -515,6 +518,137 @@ namespace other {
     }
 
     return section;
+  }
+
+  token oasm_parser::expect(const token_type type, const std::string_view what) {
+    if (!check(type)) {
+      const bool line_end = check(TOKEN_TYPE_SEMICOLON) || finished();
+      throw ocmd_toolchain_error(PARSE_EXPECTED_TOKEN, current().source_view, std::format("expected {}, found {}", what, line_end ? "the end of the line" : std::format("'{}'", current().text)));
+    }
+    const token found = current();
+    consume();
+    return found;
+  }
+
+  asset_node oasm_parser::parse_asset_block() {
+    const token mark = expect(TOKEN_TYPE_PERCENT, "'%'");
+    asset_node asset;
+    asset.name = expect(TOKEN_TYPE_IDENTIFIER, "the asset's name after '%'").text;
+    expect(TOKEN_TYPE_COLON, "':' after the asset's name");
+    asset.kind = expect(TOKEN_TYPE_IDENTIFIER, "the asset's kind after ':'").text;
+    expect(TOKEN_TYPE_SEMICOLON, "the end of the line after the asset's kind");
+    EMIT_TRACE("Attempting to parse asset block: {} : {}", asset.name, asset.kind);
+
+    parse_asset_lines(asset, mark);
+    if (std::ranges::any_of(ir_result.assets, [&asset](const asset_node& earlier) { return earlier.kind == asset.kind && earlier.name == asset.name; })) {
+      throw ocmd_toolchain_error(PARSE_DUPLICATE_DATA_OBJ, mark.source_view, std::format("this file has two asset blocks '%{} : {}'", asset.name, asset.kind));
+    }
+    ir_result.asset_origins.push_back(mark.source_view.start);
+    return asset;
+  }
+
+  void oasm_parser::parse_asset_lines(asset_node& node, const token& opened_by) {
+    while (true) {
+      if (finished()) {
+        throw ocmd_toolchain_error(PARSE_EXPECTED_TOKEN, opened_by.source_view, std::format("'{}{}{}' is missing its 'end'", node.kind, node.name.empty() ? "" : " ", node.name));
+      }
+
+      const token word = expect(TOKEN_TYPE_IDENTIFIER, "set, begin, end, ref, use or edge");
+      if (word.text == "end") {
+        expect(TOKEN_TYPE_SEMICOLON, "the end of the line after 'end'");
+        return;
+      }
+
+      if (word.text == "set" || word.text == "ref" || word.text == "use") {
+        asset_field field = { .name = expect(TOKEN_TYPE_IDENTIFIER, std::format("a field's name after '{}'", word.text)).text };
+        expect(TOKEN_TYPE_COMMA, "',' after the field's name");
+        const token value_token = current();
+        field.value = parse_asset_value();
+        field.how = word.text == "set" ? ASSET_FIELD_SET : word.text == "ref" ? ASSET_FIELD_REF :
+                                                                                ASSET_FIELD_USE;
+        /// a part is named by a word; another asset by a word, or by where its file is
+        const bool named = field.value.kind == ASSET_VALUE_WORD || (field.how == ASSET_FIELD_USE && field.value.kind == ASSET_VALUE_TEXT);
+        if (field.how != ASSET_FIELD_SET && !named) {
+          throw ocmd_toolchain_error(PARSE_EXPECTED_TOKEN, value_token.source_view, std::format("'{}' takes a name{}", word.text, field.how == ASSET_FIELD_USE ? ", or a path in quotes" : ""));
+        }
+        if (std::ranges::find(node.fields, field.name, &asset_field::name) != node.fields.end()) {
+          throw ocmd_toolchain_error(PARSE_DUPLICATE_DATA_OBJ, word.source_view, std::format("'{}' is given twice", field.name));
+        }
+        node.fields.push_back(std::move(field));
+      } else if (word.text == "begin") {
+        asset_node part;
+        part.kind = expect(TOKEN_TYPE_IDENTIFIER, "the kind of the part after 'begin'").text;
+        if (check(TOKEN_TYPE_COMMA)) {
+          consume();
+          part.name = expect(TOKEN_TYPE_IDENTIFIER, "the part's name after ','").text;
+        }
+        expect(TOKEN_TYPE_SEMICOLON, "the end of the line after the part");
+        parse_asset_lines(part, word);
+        node.parts.push_back(std::move(part));
+        continue;
+      } else if (word.text == "edge") {
+        asset_edge edge = { .from = expect(TOKEN_TYPE_IDENTIFIER, "the name an edge starts at").text };
+        expect(TOKEN_TYPE_COMMA, "',' between an edge's two names");
+        edge.to = expect(TOKEN_TYPE_IDENTIFIER, "the name an edge ends at").text;
+        node.edges.push_back(std::move(edge));
+      } else {
+        throw ocmd_toolchain_error(PARSE_EXPECTED_TOKEN, word.source_view, std::format("a line of an asset block begins with set, begin, end, ref, use or edge, and not '{}'", word.text));
+      }
+      expect(TOKEN_TYPE_SEMICOLON, "the end of the line");
+    }
+  }
+
+  asset_value oasm_parser::parse_asset_value() {
+    const token value = current();
+    const char* const first = value.text.data();
+    const char* const last = first + value.text.size();
+    switch (value.type) {
+      case TOKEN_TYPE_INTEGER_LITERAL: {
+        consume();
+        asset_value number = { .kind = ASSET_VALUE_INTEGER };
+        const std::from_chars_result read = std::from_chars(first, last, number.integer);
+        if (read.ec != std::errc{} || read.ptr != last) {
+          throw ocmd_toolchain_error(PARSE_EXPECTED_TOKEN, value.source_view, std::format("'{}' is not a whole number that fits in 64 bits", value.text));
+        }
+        return number;
+      }
+
+      case TOKEN_TYPE_FLOATING_POINT_LITERAL: {
+        consume();
+        asset_value number = { .kind = ASSET_VALUE_DECIMAL };
+        const std::from_chars_result read = std::from_chars(first, last, number.decimal);
+        if (read.ec != std::errc{} || read.ptr != last) {
+          throw ocmd_toolchain_error(PARSE_EXPECTED_TOKEN, value.source_view, std::format("'{}' is not a number", value.text));
+        }
+        return number;
+      }
+
+      case TOKEN_TYPE_STRING_LITERAL:
+        consume();
+        return { .kind = ASSET_VALUE_TEXT, .text = value.text };
+
+      case TOKEN_TYPE_IDENTIFIER:
+        consume();
+        if (value.text == "true" || value.text == "false") {
+          return { .kind = ASSET_VALUE_BOOL, .integer = value.text == "true" ? 1 : 0 };
+        }
+        return { .kind = ASSET_VALUE_WORD, .text = value.text };
+
+      case TOKEN_TYPE_LEFT_BRACKET: {
+        consume();
+        asset_value list = { .kind = ASSET_VALUE_LIST };
+        while (!check(TOKEN_TYPE_RIGHT_BRACKET)) {
+          list.items.push_back(parse_asset_value());
+          if (!check(TOKEN_TYPE_RIGHT_BRACKET)) {
+            expect(TOKEN_TYPE_COMMA, "',' or ']' in the list");
+          }
+        }
+        consume();
+        return list;
+      }
+
+      default: return { .kind = ASSET_VALUE_WORD, .text = expect(TOKEN_TYPE_IDENTIFIER, "a value").text };
+    }
   }
 
   void oasm_parser::process_code_sections(ostd::vector<code_section_ir>& sections) {

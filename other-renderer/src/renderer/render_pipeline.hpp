@@ -148,6 +148,10 @@ namespace other {
 
     void build_pass_runtimes();
     void destroy_pass_runtimes();
+    void report_unattached_blocks();
+
+    glm::mat4 sun_light_space_matrix() const;
+    glm::ivec2 shadow_map_size() const;
 
     void override_pass_executor(const std::string_view pass_name, executor_fn&& fn);
 

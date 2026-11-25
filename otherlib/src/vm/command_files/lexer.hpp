@@ -46,6 +46,8 @@ namespace other {
     void handle_operator();
     void handle_string();
     void handle_comment();
+    void handle_asset_block();
+    void handle_asset_text();
 
     void add_token(token_type type);
 

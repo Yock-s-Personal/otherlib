@@ -31,6 +31,8 @@ namespace other {
       { "true", CMD_TOKEN_KW_TRUE },
       { "false", CMD_TOKEN_KW_FALSE },
       { "null", CMD_TOKEN_KW_NULL },
+      { "struct", CMD_TOKEN_KW_STRUCT },
+      { "enum", CMD_TOKEN_KW_ENUM },
       { "error", CMD_TOKEN_KW_RESERVED },
       { "throw", CMD_TOKEN_KW_RESERVED },
       { "for", CMD_TOKEN_KW_RESERVED },
@@ -95,8 +97,8 @@ namespace other {
     return c;
   }
 
-  void command_lexer::add(command_token_type type, std::string text, uint64_t value) {
-    tokens.push_back({ .type = type, .text = std::move(text), .value = value, .span = { token_start, here() }, .space_before = space_pending });
+  void command_lexer::add(command_token_type type, std::string text, uint64_t value, double decimal) {
+    tokens.push_back({ .type = type, .text = std::move(text), .value = value, .decimal = decimal, .span = { token_start, here() }, .space_before = space_pending });
     space_pending = false;
   }
 
@@ -107,8 +109,8 @@ namespace other {
 
   void command_lexer::lex_newline() {
     advance();
-    /// one newline token per run of blank lines, and none inside parentheses
-    if (paren_depth == 0 && !tokens.empty() && tokens.back().type != CMD_TOKEN_NEWLINE) {
+    /// one newline token per run of blank lines, and none inside parentheses or a list
+    if (paren_depth == 0 && bracket_depth == 0 && !tokens.empty() && tokens.back().type != CMD_TOKEN_NEWLINE) {
       add(CMD_TOKEN_NEWLINE, "\n");
     }
     ++line;
@@ -130,11 +132,33 @@ namespace other {
       advance();
     }
 
-    if (peek() == '.' && is_digit(peek(1))) {
-      while (is_digit(peek()) || peek() == '.') {
+    if (base == 10 && cursor != digits && peek() == '.' && is_digit(peek(1))) {
+      advance();
+      while (is_digit(peek())) {
         advance();
       }
-      error(LEX_INVALID_CHAR, std::format("'{}': numbers with a decimal point are not supported yet", source.substr(start, cursor - start)));
+      if (peek() == '.' && is_digit(peek(1))) {
+        while (is_digit(peek()) || peek() == '.') {
+          advance();
+        }
+        error(LEX_MULTIPLE_DECIMAL, std::format("'{}' has more than one point", source.substr(start, cursor - start)));
+        return;
+      }
+      if (is_name_char(peek())) {
+        while (is_name_char(peek())) {
+          advance();
+        }
+        error(LEX_INVALID_CHAR, std::format("'{}' is not a number; a number with a point has nothing after its digits", source.substr(start, cursor - start)));
+        return;
+      }
+
+      double decimal = 0.0;
+      const std::from_chars_result parsed = std::from_chars(source.data() + start, source.data() + cursor, decimal);
+      if (parsed.ec != std::errc{}) {
+        error(LEX_NUMBER_OUT_OF_RANGE, std::format("'{}' is too large or too small a number", source.substr(start, cursor - start)));
+        return;
+      }
+      add(CMD_TOKEN_DECIMAL, std::string{ source.substr(start, cursor - start) }, 0, decimal);
       return;
     }
     if (is_name_char(peek()) || cursor == digits) {
@@ -219,6 +243,14 @@ namespace other {
         break;
       case '{': add(CMD_TOKEN_LEFT_BRACE, "{"); break;
       case '}': add(CMD_TOKEN_RIGHT_BRACE, "}"); break;
+      case '[':
+        ++bracket_depth;
+        add(CMD_TOKEN_LEFT_BRACKET, "[");
+        break;
+      case ']':
+        bracket_depth = bracket_depth > 0 ? bracket_depth - 1 : 0;
+        add(CMD_TOKEN_RIGHT_BRACKET, "]");
+        break;
       case ',': add(CMD_TOKEN_COMMA, ","); break;
       case ';': add(CMD_TOKEN_SEMICOLON, ";"); break;
       case '.': add(CMD_TOKEN_DOT, "."); break;

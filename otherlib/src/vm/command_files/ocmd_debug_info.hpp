@@ -18,6 +18,8 @@ namespace other {
     DEBUG_CHUNK_SYMBOLS = 1,
     /// which source line each stretch of code was made from; needs the symbols chunk for its units
     DEBUG_CHUNK_LINES = 2,
+    /// what the asset section holds only the hashes of, and where each asset was declared
+    DEBUG_CHUNK_ASSETS = 3,
   };
 
   enum debug_symbol_kind : uint8_t {
@@ -103,6 +105,18 @@ namespace other {
     uint16_t reserved = 0;
   };
   static_assert(sizeof(debug_line_record) == 16, "Debug line record size must be 16 bytes");
+
+  /// a DEBUG_CHUNK_ASSETS payload is a count of words, each word as a 16-bit length and its
+  ///  bytes, and then one of these for each asset
+  struct debug_asset_record {
+    uint64_t kind = 0;
+    uint64_t name = 0;
+    uint32_t unit = 0;
+    uint32_t line = 0;
+    uint16_t column = 0;
+    uint16_t reserved = 0;
+  };
+  static_assert(sizeof(debug_asset_record) == 28, "Debug asset record size must be 28 bytes");
 #pragma pack(pop)
 
   struct debug_symbol {
@@ -130,10 +144,25 @@ namespace other {
     uint32_t column = 0;
   };
 
+  /// where an asset of the asset section came from. the asset is the one whose table row has
+  ///  the same two hashes
+  struct debug_asset {
+    uint64_t kind = 0;
+    uint64_t name = 0;
+    /// index of the unit's symbol; kNoParent when it is not known
+    uint32_t unit = debug_symbol::kNoParent;
+    /// where its declaration starts, counted from 1; line 0 when it has no source line
+    uint32_t line = 0;
+    uint32_t column = 0;
+  };
+
   struct obin_debug_info {
     ostd::vector<debug_symbol> symbols;
     /// in address order
     ostd::vector<debug_line_entry> lines;
+    /// the names of the kinds and of the fields in the asset section, which holds their hashes
+    ostd::vector<std::string> asset_words;
+    ostd::vector<debug_asset> assets;
 
     /// the source line the instruction at address was made from; nullptr when it has none
     const debug_line_entry* line_at(uint32_t address) const;
@@ -144,11 +173,13 @@ namespace other {
     static opt<obin_debug_info> decode(std::span<const uint8_t> section);
   };
 
-  /// the part of a linked file that is loaded into the device. with no debug flag in the
+  /// the part of a linked file that is loaded into the device. with neither flag in the
   ///  header that is everything after the header, as it was before there was a debug section
   std::span<const uint8_t> obin_program_bytes(std::span<const uint8_t> file);
-  /// what follows the program; empty when the header says there is no debug section
+  /// the debug section, which follows the program; empty when the header says there is none
   std::span<const uint8_t> obin_debug_bytes(std::span<const uint8_t> file);
+  /// the asset section, which follows both; empty when the header says there is none
+  std::span<const uint8_t> obin_asset_bytes(std::span<const uint8_t> file);
 
 }  // namespace other
 

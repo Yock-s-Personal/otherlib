@@ -302,7 +302,6 @@ namespace other {
   glm::mat4 physics_world::interpolate_transform(const glm::mat4& previous, const glm::mat4& current, double alpha) const {
     const float falpha = static_cast<float>(alpha);
     glm::vec3 inter_pos = glm::mix(glm::vec3(previous[3]), glm::vec3(current[3]), falpha);
-    glm::quat inter_rot = glm::slerp(glm::quat_cast(previous), glm::quat_cast(current), falpha);
 
     glm::vec3 prev_scale = glm::vec3(
       glm::length(glm::vec3(previous[0])),
@@ -313,6 +312,21 @@ namespace other {
       glm::length(glm::vec3(current[1])),
       glm::length(glm::vec3(current[2])));
     glm::vec3 inter_scale = glm::mix(prev_scale, curr_scale, falpha);
+
+    /// the rotation is read off the axes with their lengths taken out. read off a matrix
+    ///  that still has a scale in it, it is some other rotation: a pose a body is given
+    ///  carries its object's scale until the first step, and a scaled body was drawn
+    ///  half-turned for the frames before it
+    const auto rotation_of = [](const glm::mat4& pose, const glm::vec3& scale) -> glm::quat {
+      glm::mat3 axes{ pose };
+      for (glm::length_t i = 0; i < 3; ++i) {
+        if (scale[i] > 0.f) {
+          axes[i] /= scale[i];
+        }
+      }
+      return glm::quat_cast(axes);
+    };
+    glm::quat inter_rot = glm::slerp(rotation_of(previous, prev_scale), rotation_of(current, curr_scale), falpha);
 
     glm::mat4 translation_mat = glm::translate(glm::mat4(1.0f), inter_pos);
     glm::mat4 rotation_mat = glm::mat4_cast(inter_rot);

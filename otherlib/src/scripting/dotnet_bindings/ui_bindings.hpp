@@ -215,6 +215,8 @@ namespace other {
     void native_ui_get_item_rect_min(float* out_x, float* out_y);
     void native_ui_get_item_rect_max(float* out_x, float* out_y);
     void native_ui_get_item_rect_size(float* out_width, float* out_height);
+    /// how wide and how tall a text is as the font in use draws it
+    void native_ui_calc_text_size(const char* text, float* out_width, float* out_height);
 
     nbool32 native_ui_drag_int(const char* label, int32_t* value, float speed, int32_t min_val, int32_t max_val);
     nbool32 native_ui_drag_float2(const char* label, float* values, float speed, float min_val, float max_val);

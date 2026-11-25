@@ -1,0 +1,156 @@
+# the engine's own kinds: the structs its assets are declarations of.
+# a name the engine or a shader also has is written as it has it (draw_scene, rgba16f)
+
+enum buffer-type   { uniform, storage, draw-indirect }
+enum buffer-usage  { static, dynamic, stream }
+enum texture-type  { line, flat, volume, cube }
+enum pass-type     { render, compute }
+enum attachment    { color, depth, stencil, depth-stencil }
+enum access        { read, write, read-write, sample }
+# default: whatever the pass's framebuffer clears
+enum clear-bit     { default, color, depth, stencil, all }
+enum binding-scope { per-pipeline, per-frame, per-pass, per-draw, per-instance }
+enum param-type    { float, vec2, vec3, vec4, int, bool }
+
+enum texture-format {
+  r1, a8, r8, r8i, r8u, r8s, r16, r16i, r16u, r16f, r16s, r32i, r32u, r32f
+  rg8, rg8i, rg8u, rg8s, rg16, rg16i, rg16u, rg16f, rg16s, rg32i, rg32u, rg32f
+  rgb8, rgb8i, rgb8u, rgb8s, rgb9e5f
+  bgra8, rgba8, rgba8i, rgba8u, rgba8s, rgba16, rgba16i, rgba16u, rgba16f, rgba16s, rgba32i, rgba32u, rgba32f
+  b5g6r5, r5g6b5, bgra4, rgba4, bgr5a1, rgb5a1, rgb10a2, rg11b10f
+  depthf
+}
+
+# a buffer the pipeline owns. tag: what of the engine's it holds
+struct buffer(type, usage, tag) {
+  buffer-type  type
+  buffer-usage usage = dynamic
+  name         tag
+}
+
+struct texture(type, format, size) {
+  texture-type   type
+  texture-format format
+  # none of its own: the window's. a volume's is [x, y, depth]
+  int[]          size = []
+  # a file whose bytes it starts as
+  text           seed = ""
+}
+
+struct shader {
+  text vertex   = ""
+  text fragment = ""
+  text geometry = ""
+  text compute  = ""
+}
+
+# what the engine fills while it draws, named by the tag of what it fills with.
+# size: of one element in bytes; 0 is worked out from the material layout
+struct binding(scope, type, size) {
+  binding-scope scope
+  buffer-type   type
+  int           size = 0
+}
+
+struct param {
+  param-type type
+  any        default
+}
+
+# a texture a material can carry: the shader's sampler for it, and the unit it is put at
+struct slot {
+  text uniform
+  int  unit
+}
+
+# what every material is packed into for this pipeline's shaders
+struct material-layout {
+  param[] params
+  slot[]  slots
+}
+
+# which of the passes the engine's lights are worked out in
+struct lighting {
+  pass shadows
+  pass shading
+  text light-space = "OE_light_space_matrix"
+}
+
+# a pass reads a buffer or a texture. as: the shader's own name for it, where it has one
+struct read names buffer, texture {
+  text   as = ""
+  int    at = 0
+  access access = read
+}
+
+struct write names buffer, texture {
+  attachment attach = color
+  text       as = ""
+  int        at = 0
+}
+
+# a pass is given one of the pipeline's bindings at a binding point
+struct bind names binding {
+  int at = 0
+}
+
+# a uniform of the pass's shader
+struct set(value) {
+  any value
+}
+
+# something said to what runs the pass
+struct with(value) {
+  any value
+}
+
+struct pass {
+  pass-type   type
+  shader      shader
+  # what draws it: the name of one of the engine's executors
+  name        run
+  # none of its own: the window's
+  int[]       size = []
+  bool        framebuffer = true
+  # none: its framebuffer's
+  float[]     clear-color = []
+  clear-bit[] clear = [default]
+  read[]      reads
+  write[]     writes
+  bind[]      binds
+  set[]       sets
+  with[]      withs
+}
+
+struct pipeline {
+  int               version = 1
+  # the texture that is shown
+  texture           display
+  buffer[]          buffers
+  texture[]         textures
+  shader[]          shaders
+  binding[]         bindings
+  material-layout[] layouts
+  lighting[]        lights
+  pass[]            passes
+  # a pass comes after the passes whose textures it reads; '|>' says the rest
+  graph passes
+}
+
+# a texture for one of the slots of the pipeline's material layout, named by the slot:
+# another asset, by where its file is from this one
+struct map(file) {
+  asset file
+}
+
+# what a surface is made of: values for the parameters of the pipeline's material layout.
+# what a material leaves unsaid is null, and the layout decides it
+struct material {
+  float[] base_color     = null
+  float[] emissive_color = null
+  float   roughness      = null
+  float   metalness      = null
+  # a parameter of a layout that has others than these four
+  set[]   sets
+  map[]   maps
+}

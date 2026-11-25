@@ -97,6 +97,8 @@ namespace other {
       .compiler_version = generator->target_version(),
       .definitions = ir.definitions,
     };
+    program.assets = ir.assets;
+    program.asset_origins = ir.asset_origins;
     program.compiled_blocks.reserve(ir.code_blocks.size());
     program.compiled_data_sections.reserve(ir.data_blocks.size());
 

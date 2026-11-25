@@ -23,6 +23,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/core/exe_adjacent_config_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/frame_statistics_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/core/bounding_box_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/core/euler_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/cli_tool_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/cli/process_tests.cpp
@@ -59,6 +60,7 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/behavior_lifecycle_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/behavior_fields_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scripting/scene_object_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/scripting/script_maths_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/scene/scene_serializer_tests.cpp
@@ -78,6 +80,8 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/renderer/model_importer_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/renderer/animation_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/renderer/material_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/pipeline_declarations_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/renderer/material_declarations_tests.cpp
 
     ${CMAKE_CURRENT_SOURCE_DIR}/assets/glob_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/assets/asset_resolver_tests.cpp
@@ -101,6 +105,9 @@ target_sources(other_tests
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_lexer_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_parser_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_lowering_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_declaration_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/asset_block_tests.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/vm/asset_footprint_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/command_pipeline_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/project_program_tests.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/vm/vm_tests.cpp

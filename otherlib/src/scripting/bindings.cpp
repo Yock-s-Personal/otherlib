@@ -318,6 +318,7 @@ namespace other {
       .bind<bindings::native_ui_get_item_rect_min>("UIGetItemRectMin")
       .bind<bindings::native_ui_get_item_rect_max>("UIGetItemRectMax")
       .bind<bindings::native_ui_get_item_rect_size>("UIGetItemRectSize")
+      .bind<bindings::native_ui_calc_text_size>("UICalcTextSize")
       /// UI - Numbers.
       .bind<bindings::native_ui_drag_int>("UIDragInt")
       .bind<bindings::native_ui_drag_float2>("UIDragFloat2")

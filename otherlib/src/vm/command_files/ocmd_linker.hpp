@@ -54,6 +54,14 @@ namespace other {
     /// for each data section, its address in the linked program; filled by write_data_sections
     ostd::vector<uint16_t> data_addresses;
 
+    struct linked_asset {
+      const asset_node* asset = nullptr;
+      size_t unit = 0;
+      source_location origin = {};
+    };
+    /// every unit's assets in link order; filled by collect_assets
+    ostd::vector<linked_asset> linked_assets;
+
     /// address of the stopdev that closes the code section; filled by link
     uint16_t guard_address = 0;
     ostd::vector<std::string> errors;
@@ -90,6 +98,8 @@ namespace other {
     void rewrite_instructions(scope<symbol_resolver>& resolver);
 
     void merge_units(scope<symbol_resolver>& resolver);
+    /// after merge_units, which puts the units in link order
+    void collect_assets();
 
     /// records a link error; the link carries on so one run reports every problem it can
     void report(vm_error_code error, std::string message);

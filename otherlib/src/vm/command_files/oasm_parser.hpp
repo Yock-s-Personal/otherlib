@@ -53,6 +53,13 @@ namespace other {
 
     data_section_ir parse_data_block(const token& directive_token);
 
+    asset_node parse_asset_block();
+    /// the lines of an asset or of a part, to the 'end' that closes it
+    void parse_asset_lines(asset_node& node, const token& opened_by);
+    asset_value parse_asset_value();
+    /// the token, which is consumed, or an error that says what was expected
+    token expect(token_type type, std::string_view what);
+
     void process_code_sections(ostd::vector<code_section_ir>& sections);
     void process_data_sections(ostd::vector<data_section_ir>& sections);
 

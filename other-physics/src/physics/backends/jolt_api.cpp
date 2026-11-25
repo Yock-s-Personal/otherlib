@@ -560,7 +560,9 @@ namespace other {
       JPH::Quat rotation = t.GetQuaternion();
 
       glm::vec3 jolt_position(static_cast<float>(position.GetX()), static_cast<float>(position.GetY()), static_cast<float>(position.GetZ()));
-      glm::quat jolt_rotation(static_cast<float>(rotation.GetX()), static_cast<float>(rotation.GetY()), static_cast<float>(rotation.GetZ()), static_cast<float>(rotation.GetW()));
+      /// glm takes w first. given x first, every number of the rotation went one place
+      ///  round, which is still a rotation, and not the body's
+      glm::quat jolt_rotation(static_cast<float>(rotation.GetW()), static_cast<float>(rotation.GetX()), static_cast<float>(rotation.GetY()), static_cast<float>(rotation.GetZ()));
       glm::vec3 scale(1.0f, 1.0f, 1.0f);
 
       glm::mat4 transform = compose_mat4(jolt_position, jolt_rotation, scale);

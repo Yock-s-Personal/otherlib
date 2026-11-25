@@ -16,7 +16,7 @@ project-file = "test-project/test-project.toml"
 
 [rendering]
 pipelines = [
-  "resources/editor-assets/default-pipeline.toml"
+  "resources/editor-assets/default-pipeline.oass"
 ]
 ui-layout-ini = "logs/stress-ui-layout.ini"
 imgui-font = "resources/fonts/BlexMonoNerdFont-Regular.ttf"

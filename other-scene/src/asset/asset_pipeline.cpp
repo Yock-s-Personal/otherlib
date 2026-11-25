@@ -864,7 +864,7 @@ namespace other {
         [&parsed, source_path]() {
           PROFILE_SECTION("load_material--parse");
           /// local to this coroutine; the register job depends on this one, so no concurrent access
-          parsed = parse_material_toml(source_path);
+          parsed = read_material_file(source_path);
         });
 
       ref<job> register_job = handler->get_job_system().submit(
